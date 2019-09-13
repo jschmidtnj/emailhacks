@@ -2,7 +2,6 @@ const pkg = require('./package')
 require('dotenv').config()
 const seodata = JSON.parse(process.env.SEOCONFIG)
 const apiurl = process.env.APIURL
-const ampurl = process.env.AMPURL
 const recaptchasitekey = process.env.RECAPTCHASITEKEY
 
 module.exports = {
@@ -15,8 +14,6 @@ module.exports = {
     githuburl: pkg.repository.url,
     authconfig: process.env.AUTHCONFIG,
     apiurl: apiurl,
-    ampurl: ampurl,
-    shortlinkurl: process.env.SHORTLINKURL,
     recaptchasitekey: recaptchasitekey
   },
 
