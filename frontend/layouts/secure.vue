@@ -1,6 +1,6 @@
 <template>
   <div class="main-wrapper">
-    <admin-navbar v-if="admin" />
+    <secure-navbar />
     <nuxt class="content" />
     <main-footer />
   </div>
@@ -8,14 +8,14 @@
 
 <script lang="ts">
 import Vue from 'vue'
-import AdminNavbar from '~/components/admin/Navbar.vue'
+import SecureNavbar from '~/components/secure/Navbar.vue'
 import MainFooter from '~/components/Footer.vue'
 export default Vue.extend({
   name: 'Secure',
   // @ts-ignore
   middleware: 'auth',
   components: {
-    AdminNavbar,
+    SecureNavbar,
     MainFooter
   },
   computed: {

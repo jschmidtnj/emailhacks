@@ -149,7 +149,6 @@ func register(response http.ResponseWriter, request *http.Request) {
 		"password":      string(passwordhashed),
 		"emailverified": false,
 		"type":          "user",
-		"shortlinks":    []string{},
 	})
 	if err != nil {
 		handleError("error inserting user to database: "+err.Error(), http.StatusBadRequest, response)

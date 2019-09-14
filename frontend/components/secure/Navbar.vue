@@ -1,10 +1,10 @@
 <template>
   <b-navbar toggleable="lg" type="dark" variant="info">
-    <b-navbar-brand href="/admin">Admin</b-navbar-brand>
+    <b-navbar-brand href="/">Home</b-navbar-brand>
     <b-navbar-toggle target="nav-collapse"></b-navbar-toggle>
     <b-collapse id="nav-collapse" is-nav>
       <b-navbar-nav>
-        <b-nav-item href="/">Home</b-nav-item>
+        <b-nav-item href="/form">Form</b-nav-item>
         <b-nav-item-dropdown right>
           <template slot="button-content">
             <em>User</em>
@@ -23,6 +23,8 @@
 import Vue from 'vue'
 export default Vue.extend({
   name: 'AdminNavbar',
+  // @ts-ignore
+  layout: 'secure',
   computed: {
     loggedin() {
       return this.$store.state.auth && this.$store.state.auth.loggedIn

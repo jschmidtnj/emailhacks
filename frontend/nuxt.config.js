@@ -105,7 +105,8 @@ module.exports = {
     { src: '~/plugins/select', ssr: false },
     { src: '~/plugins/recaptcha', ssr: false },
     { src: '~/plugins/scroll-reveal', ssr: false },
-    { src: '~/plugins/pdf', ssr: false }
+    { src: '~/plugins/pdf', ssr: false },
+    { src: '~/plugins/draggable', ssr: false }
   ],
 
   /*

@@ -23,8 +23,5 @@ var AccountType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 		"type": &graphql.Field{
 			Type: graphql.String,
 		},
-		"shortlinks": &graphql.Field{
-			Type: graphql.NewList(graphql.String),
-		},
 	},
 })

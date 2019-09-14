@@ -83,7 +83,7 @@ export const actions = {
       } else {
         this.$axios.get('/graphql', {
           params: {
-            query: '{account{id email type emailverified shortlinks}}'
+            query: '{account{id email type emailverified}}'
           }
         }).then(res => {
           if (res.status === 200) {

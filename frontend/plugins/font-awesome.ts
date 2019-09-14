@@ -1,30 +1,19 @@
 import Vue from 'vue'
 import { library } from '@fortawesome/fontawesome-svg-core'
 import {
-  faSearch,
+  faGripHorizontal,
   faTimes,
-  faAngleDoubleRight,
-  faPlusCircle,
-  faArrowLeft,
-  faArrowRight,
-  faChevronRight,
-  faChevronLeft
+  faTrash
 } from '@fortawesome/free-solid-svg-icons'
 
-import { faStackOverflow } from '@fortawesome/free-brands-svg-icons'
+import { } from '@fortawesome/free-brands-svg-icons'
 
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 
 library.add(
-  faSearch,
-  faStackOverflow,
+  faGripHorizontal,
   faTimes,
-  faAngleDoubleRight,
-  faPlusCircle,
-  faArrowLeft,
-  faArrowRight,
-  faChevronLeft,
-  faChevronRight
+  faTrash
 )
 
 Vue.component('font-awesome-icon', FontAwesomeIcon)

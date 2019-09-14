@@ -17,7 +17,11 @@ export default Vue.extend({
   // @ts-ignore
   head() {
     const title = 'Account'
-    const description = `your account: ${this.$store.state.auth.user.email}`
+    const description = `your account: ${
+      this.$store.state.auth.user
+        ? this.$store.state.auth.user.email
+        : 'logging out'
+    }`
     const image = `${seo.url}/icon.png`
     return {
       title: title,
