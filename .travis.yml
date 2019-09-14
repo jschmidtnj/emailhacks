@@ -25,7 +25,7 @@ matrix:
     - gcloud version
     before_script:
     - cd frontend
-    - openssl aes-256-cbc -K $encrypted_1891e9d5d546_key -iv $encrypted_1891e9d5d546_iv
+    - openssl aes-256-cbc -K $encrypted_acd8b314c1a6_key -iv $encrypted_acd8b314c1a6_iv
       -in secrets.tar.enc -out secrets.tar -d
     - tar xvf secrets.tar
     script:
