@@ -69,7 +69,7 @@ module.exports = {
           url: seodata.url,
           potentialAction: {
             '@type': 'SearchAction',
-            target: `${seodata.url}/blogs?phrase={query}`,
+            target: `${seodata.url}/forms?phrase={query}`,
             'query-input': 'required name=query'
           }
         }),

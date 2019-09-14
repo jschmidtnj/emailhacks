@@ -15,8 +15,7 @@ export default Vue.extend({
   // @ts-ignore
   head() {
     const title = 'Home'
-    const description =
-      'custom blog and project descriptions for anything in tech and beyond'
+    const description = 'email 2.0'
     const image = `${seo.url}/icon.png`
     return {
       title: title,
