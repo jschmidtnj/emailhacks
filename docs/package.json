@@ -8,7 +8,7 @@
     "generate": "vuepress build",
     "pwa": "pwabuilder --manifest .vuepress/public/manifest.json --image .vuepress/public/logo.png --platforms web",
     "build": "sh ./builddocs.sh",
-    "api": "apidoc -i ../graphql/ -o apidocs/",
+    "api": "apidoc -i ../api/ -o apidocs/",
     "deploy": "yarn build && sh ./deploydocs.sh",
     "test": "echo \"Error: no test specified\""
   },

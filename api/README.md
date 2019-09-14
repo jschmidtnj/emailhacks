@@ -1,6 +1,6 @@
 # graphql api
 
-golang graphql api for website
+golang graphql api for email hacks
 
 ## potential documentation
 
