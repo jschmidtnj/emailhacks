@@ -1,0 +1,8 @@
+# custom stuff
+dist/
+emailhacks/
+node_modules/
+
+# api docs
+apidocs/
+.vuepress/public/api/

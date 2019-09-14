@@ -1,0 +1,26 @@
+{
+  "name": "joshuawebsite",
+  "version": 2,
+  "builds": [
+    {
+      "src": "nuxt/package.json",
+      "use": "@now/static-build"
+    }
+  ],
+  "build": {
+    "env": {
+      "SEOCONFIG": "@seoconfig",
+      "AUTHCONFIG": "@authconfig",
+      "APIURL": "@apiurl",
+      "AMPURL": "@ampurl",
+      "RECAPTCHASITEKEY": "@recaptchasitekey"
+    }
+  },
+  "alias": "example.com",
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "nuxt/$1"
+    }
+  ]
+}

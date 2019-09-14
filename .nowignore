@@ -1,0 +1,15 @@
+# frontend build ignore
+/.vscode/
+/.netlify/
+/.firebase/
+/frontend/
+/node_modules/
+/docs/
+/api/
+/.gitignore
+/travis.yml
+/checkcichanges.sh
+/LICENSE
+/package.json
+/README.md
+/yarn.lock

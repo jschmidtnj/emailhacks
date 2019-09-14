@@ -17,7 +17,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-redis/redis"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
@@ -55,8 +54,6 @@ var logger *zap.Logger
 type tokenKeyType string
 
 var tokenKey tokenKeyType
-
-var redisClient *redis.Client
 
 var cacheTime time.Duration
 
@@ -153,12 +150,6 @@ func main() {
 		logger.Fatal(err.Error())
 	}
 	cacheTime = time.Duration(cacheSeconds) * time.Second
-	pong, err := redisClient.Ping().Result()
-	if err != nil {
-		logger.Fatal(err.Error())
-	} else {
-		logger.Info("connected to redis cache: " + pong)
-	}
 	mainRecaptchaSecret = os.Getenv("MAINRECAPTCHASECRET")
 	port := ":" + os.Getenv("PORT")
 	schema, err := graphql.NewSchema(graphql.SchemaConfig{

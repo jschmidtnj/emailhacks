@@ -1,4 +1,4 @@
-module github.com/jschmidtnj/mywebsite2
+module github.com/jschmidtnj/emailhacks
 
 go 1.12
 

@@ -1,0 +1,8 @@
+{
+  "name": "Joshua Schmidt Docs",
+  "short_name": "docs",
+  "start_url": "https://jschmidtnj.github.io/emailhacks/",
+  "display": "standalone",
+  "background_color": "#fff",
+  "theme_color": "#3eaf7c"
+}

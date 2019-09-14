@@ -1,0 +1,55 @@
+{
+  "name": "emailhacks",
+  "version": "1.0.0",
+  "description": "personal website using graphql and nuxt and flutter",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "precommit": "bash ./precommit.sh",
+    "init": "bash ./init.sh",
+    "update": "bash ./update.sh",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "yarn precommit",
+      "prepare-commit-msg": "sh ./checkcichanges.sh"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jschmidtnj/emailhacks.git"
+  },
+  "keywords": [
+    "nuxt",
+    "graphql",
+    "vuepress",
+    "node",
+    "go",
+    "elasticsearch",
+    "redis",
+    "pwa",
+    "mongodb",
+    "rest",
+    "jwt",
+    "recaptcha",
+    "oauth2",
+    "vue",
+    "ci/cd",
+    "travis",
+    "netlify",
+    "yarn",
+    "cloud storage"
+  ],
+  "author": "Joshua Schmidt",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jschmidtnj/emailhacks/issues"
+  },
+  "homepage": "https://github.com/jschmidtnj/emailhacks#readme",
+  "dependencies": {
+    "husky": "^2.1.0"
+  }
+}
