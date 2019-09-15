@@ -4,10 +4,12 @@ const seodata = JSON.parse(process.env.SEOCONFIG)
 const apiurl = process.env.APIURL
 const recaptchasitekey = process.env.RECAPTCHASITEKEY
 
+const name = 'Email Hacks'
+
 module.exports = {
   mode: 'spa',
 
-  globalName: pkg.author,
+  globalName: name,
 
   env: {
     seoconfig: process.env.SEOCONFIG,
@@ -21,12 +23,12 @@ module.exports = {
    ** Headers of the page
    */
   head: {
-    titleTemplate: `%s - ${pkg.author}`,
+    titleTemplate: `%s - ${name}`,
     meta: [
       { charset: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
       // OpenGraph Data
-      { property: 'og:site_name', content: pkg.author },
+      { property: 'og:site_name', content: name },
       // The list of types is available here: http://ogp.me/#types
       { property: 'og:type', content: 'website' },
       // Twitter card
@@ -44,7 +46,7 @@ module.exports = {
         innerHTML: JSON.stringify({
           '@context': 'https://schema.org',
           '@type': 'Organization',
-          name: pkg.author,
+          name: name,
           url: seodata.url,
           logo: `${seodata.url}/icon.png`,
           contactPoint: {
