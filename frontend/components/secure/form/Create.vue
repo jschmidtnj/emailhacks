@@ -176,33 +176,35 @@
                   </b-container>
                 </b-input-group>
               </div>
-              <hr />
-              <b-input-group>
-                <b-container>
-                  <b-row>
-                    <b-col class="text-right">
-                      <button
-                        class="button-link"
-                        style="display: inline-block;"
-                        :disabled="questions.length <= 1"
-                        @click="evt => removeQuestion(evt, index)"
-                      >
-                        <no-ssr>
-                          <font-awesome-icon class="mr-2" icon="trash" />
-                        </no-ssr>
-                      </button>
-                      <b-form-checkbox
-                        v-model="question.required"
-                        style="display: inline-block;"
-                        name="required"
-                        switch
-                      >
-                        Required
-                      </b-form-checkbox>
-                    </b-col>
-                  </b-row>
-                </b-container>
-              </b-input-group>
+              <div v-if="focusIndex === index">
+                <hr />
+                <b-input-group>
+                  <b-container>
+                    <b-row>
+                      <b-col class="text-right">
+                        <button
+                          class="button-link"
+                          style="display: inline-block;"
+                          :disabled="questions.length <= 1"
+                          @click="evt => removeQuestion(evt, index)"
+                        >
+                          <no-ssr>
+                            <font-awesome-icon class="mr-2" icon="trash" />
+                          </no-ssr>
+                        </button>
+                        <b-form-checkbox
+                          v-model="question.required"
+                          style="display: inline-block;"
+                          name="required"
+                          switch
+                        >
+                          Required
+                        </b-form-checkbox>
+                      </b-col>
+                    </b-row>
+                  </b-container>
+                </b-input-group>
+              </div>
             </div>
           </draggable>
           <b-button squared variant="primary" @click="addQuestion"
