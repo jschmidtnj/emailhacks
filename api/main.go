@@ -43,6 +43,10 @@ var userCollection *mongo.Collection
 
 var userMongoName = "users"
 
+var formCollection *mongo.Collection
+
+var formMongoName = "forms"
+
 var ctxStorage context.Context
 
 var storageClient *storage.Client
@@ -124,6 +128,7 @@ func main() {
 		logger.Fatal(err.Error())
 	}
 	userCollection = mongoClient.Database(mainDatabase).Collection(userMongoName)
+	formCollection = mongoClient.Database(mainDatabase).Collection(formMongoName)
 	var storageconfigstr = os.Getenv("STORAGECONFIG")
 	var storageconfigjson map[string]interface{}
 	json.Unmarshal([]byte(storageconfigstr), &storageconfigjson)
