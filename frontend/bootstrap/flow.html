@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="en">
+
+  <head>
+
+    <meta charset="utf-8">
+    <title>Pipeline Project Management Bootstrap Theme</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A project management Bootstrap theme by Medium Rare">
+    <link href="assets/img/favicon.ico" rel="icon" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Gothic+A1" rel="stylesheet">
+    <link href="assets/css/theme.css" rel="stylesheet" type="text/css" media="all" />
+  </head>
+
+  <body>
+
+    <div class="layout layout-nav-side">
+      <div class="navbar navbar-expand-lg bg-dark navbar-dark sticky-top">
+
+        <a class="navbar-brand" href="index.html">
+          <h2>Company Logo</h2>
+        </a>
+
+        <div class="collapse navbar-collapse flex-column" id="navbar-collapse">
+          <ul class="navbar-nav d-lg-block">
+
+            <li class="nav-item">
+
+              <a class="nav-link" href="index.html">Home</a>
+
+            </li>
+
+
+            <li class="nav-item">
+
+              <a class="nav-link" href="./flow.html">Flow</a>
+
+            </li>
+
+            <li class="nav-item">
+
+              <a class="nav-link" href="documentation/changelog.html">Forms</a>
+
+            </li>
+
+          </ul>
+
+
+
+        </div>
+
+
+      </div>
+      <div class="main-container">
+
+
+        <div class="container">
+          <div class="row justify-content-center">
+            <div class="col-lg-12 col-xl-12">
+              <div class="page-header">
+                <h1>Project Name</h1>
+                <hr>
+
+
+              </div>
+
+
+                  <div class="content-list-body">
+                    <div class="card-list">
+                      <div class="card-list-head">
+                        <h6>Evaluation</h6>
+                      </div>
+
+                      <div class="card-list-body">
+
+                        <div class="card card-task">
+                          <div class="progress">
+                            <div class="progress-bar bg-danger" role="progressbar" style="width: 75%" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100"></div>
+                          </div>
+                          <div class="card-body">
+                            <div class="card-title">
+                              <a href="#">
+                                <h6 data-filter-by="text">Client objective meeting</h6>
+                              </a>
+                              <span class="text-small">Today</span>
+                            </div>
+
+                          </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6" style="border-right:2px solid black; height:300px;">
+                            </div>
+                            <div class="col-md-6" style="height:300px;">
+                            </div>
+
+                        </div>
+                      </div>
+                    </div>
+
+                    <!--end of content list body-->
+                  </div>
+                  <!--end of content list-->
+
+                <!--end of tab-->
+
+              </div>
+              <form class="modal fade" id="user-manage-modal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog" role="document">
+                  <div class="modal-content">
+                    <div class="modal-header">
+                      <h5 class="modal-title">Manage Users</h5>
+                      <button type="button" class="close btn btn-round" data-dismiss="modal" aria-label="Close">
+                        <i class="material-icons">close</i>
+                      </button>
+                    </div>
+                    <!--end of modal head-->
+                    <div class="modal-body">
+                      <div class="users-manage" data-filter-list="form-group-users">
+                        <div class="mb-3">
+                          <ul class="avatars text-center">
+
+                            <li>
+                              <img alt="Claire Connors" src="assets/img/avatar-female-1.jpg" class="avatar" data-toggle="tooltip" data-title="Claire Connors" />
+                            </li>
+
+                            <li>
+                              <img alt="Marcus Simmons" src="assets/img/avatar-male-1.jpg" class="avatar" data-toggle="tooltip" data-title="Marcus Simmons" />
+                            </li>
+
+                            <li>
+                              <img alt="Peggy Brown" src="assets/img/avatar-female-2.jpg" class="avatar" data-toggle="tooltip" data-title="Peggy Brown" />
+                            </li>
+
+                            <li>
+                              <img alt="Harry Xai" src="assets/img/avatar-male-2.jpg" class="avatar" data-toggle="tooltip" data-title="Harry Xai" />
+                            </li>
+
+                          </ul>
+                        </div>
+                        <div class="input-group input-group-round">
+                          <div class="input-group-prepend">
+                            <span class="input-group-text">
+                              <i class="material-icons">filter_list</i>
+                            </span>
+                          </div>
+                          <input type="search" class="form-control filter-list-input" placeholder="Filter members" aria-label="Filter Members">
+                        </div>
+                        <div class="form-group-users">
+
+                          <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="user-manage-1" checked>
+                            <label class="custom-control-label" for="user-manage-1">
+                              <span class="d-flex align-items-center">
+                                <img alt="Claire Connors" src="assets/img/avatar-female-1.jpg" class="avatar mr-2" />
+                                <span class="h6 mb-0" data-filter-by="text">Claire Connors</span>
+                              </span>
+                            </label>
+                          </div>
+
+                          <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="user-manage-2" checked>
+                            <label class="custom-control-label" for="user-manage-2">
+                              <span class="d-flex align-items-center">
+                                <img alt="Marcus Simmons" src="assets/img/avatar-male-1.jpg" class="avatar mr-2" />
+                                <span class="h6 mb-0" data-filter-by="text">Marcus Simmons</span>
+                              </span>
+                            </label>
+                          </div>
+
+                          <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="user-manage-3" checked>
+                            <label class="custom-control-label" for="user-manage-3">
+                              <span class="d-flex align-items-center">
+                                <img alt="Peggy Brown" src="assets/img/avatar-female-2.jpg" class="avatar mr-2" />
+                                <span class="h6 mb-0" data-filter-by="text">Peggy Brown</span>
+                              </span>
+                            </label>
+                          </div>
+
+                          <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="user-manage-4" checked>
+                            <label class="custom-control-label" for="user-manage-4">
+                              <span class="d-flex align-items-center">
+                                <img alt="Harry Xai" src="assets/img/avatar-male-2.jpg" class="avatar mr-2" />
+                                <span class="h6 mb-0" data-filter-by="text">Harry Xai</span>
+                              </span>
+                            </label>
+                          </div>
+
+                          <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="user-manage-5">
+                            <label class="custom-control-label" for="user-manage-5">
+                              <span class="d-flex align-items-center">
+                                <img alt="Sally Harper" src="assets/img/avatar-female-3.jpg" class="avatar mr-2" />
+                                <span class="h6 mb-0" data-filter-by="text">Sally Harper</span>
+                              </span>
+                            </label>
+                          </div>
+
+                          <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="user-manage-6">
+                            <label class="custom-control-label" for="user-manage-6">
+                              <span class="d-flex align-items-center">
+                                <img alt="Ravi Singh" src="assets/img/avatar-male-3.jpg" class="avatar mr-2" />
+                                <span class="h6 mb-0" data-filter-by="text">Ravi Singh</span>
+                              </span>
+                            </label>
+                          </div>
+
+                          <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="user-manage-7">
+                            <label class="custom-control-label" for="user-manage-7">
+                              <span class="d-flex align-items-center">
+                                <img alt="Kristina Van Der Stroem" src="assets/img/avatar-female-4.jpg" class="avatar mr-2" />
+                                <span class="h6 mb-0" data-filter-by="text">Kristina Van Der Stroem</span>
+                              </span>
+                            </label>
+                          </div>
+
+                          <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="user-manage-8">
+                            <label class="custom-control-label" for="user-manage-8">
+                              <span class="d-flex align-items-center">
+                                <img alt="David Whittaker" src="assets/img/avatar-male-4.jpg" class="avatar mr-2" />
+                                <span class="h6 mb-0" data-filter-by="text">David Whittaker</span>
+                              </span>
+                            </label>
+                          </div>
+
+                          <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="user-manage-9">
+                            <label class="custom-control-label" for="user-manage-9">
+                              <span class="d-flex align-items-center">
+                                <img alt="Kerri-Anne Banks" src="assets/img/avatar-female-5.jpg" class="avatar mr-2" />
+                                <span class="h6 mb-0" data-filter-by="text">Kerri-Anne Banks</span>
+                              </span>
+                            </label>
+                          </div>
+
+                          <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="user-manage-10">
+                            <label class="custom-control-label" for="user-manage-10">
+                              <span class="d-flex align-items-center">
+                                <img alt="Masimba Sibanda" src="assets/img/avatar-male-5.jpg" class="avatar mr-2" />
+                                <span class="h6 mb-0" data-filter-by="text">Masimba Sibanda</span>
+                              </span>
+                            </label>
+                          </div>
+
+                          <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="user-manage-11">
+                            <label class="custom-control-label" for="user-manage-11">
+                              <span class="d-flex align-items-center">
+                                <img alt="Krishna Bajaj" src="assets/img/avatar-female-6.jpg" class="avatar mr-2" />
+                                <span class="h6 mb-0" data-filter-by="text">Krishna Bajaj</span>
+                              </span>
+                            </label>
+                          </div>
+
+                          <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="user-manage-12">
+                            <label class="custom-control-label" for="user-manage-12">
+                              <span class="d-flex align-items-center">
+                                <img alt="Kenny Tran" src="assets/img/avatar-male-6.jpg" class="avatar mr-2" />
+                                <span class="h6 mb-0" data-filter-by="text">Kenny Tran</span>
+                              </span>
+                            </label>
+                          </div>
+
+                        </div>
+                      </div>
+                    </div>
+                    <!--end of modal body-->
+                    <div class="modal-footer">
+                      <button role="button" class="btn btn-primary" type="submit">
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </form>
+              <form class="modal fade" id="project-edit-modal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog" role="document">
+                  <div class="modal-content">
+                    <div class="modal-header">
+                      <h5 class="modal-title">Edit Project</h5>
+                      <button type="button" class="close btn btn-round" data-dismiss="modal" aria-label="Close">
+                        <i class="material-icons">close</i>
+                      </button>
+                    </div>
+                    <!--end of modal head-->
+                    <ul class="nav nav-tabs nav-fill" role="tablist">
+                      <li class="nav-item">
+                        <a class="nav-link active" id="project-edit-details-tab" data-toggle="tab" href="#project-edit-details" role="tab" aria-controls="project-edit-details" aria-selected="true">Details</a>
+                      </li>
+                      <li class="nav-item">
+                        <a class="nav-link" id="project-edit-members-tab" data-toggle="tab" href="#project-edit-members" role="tab" aria-controls="project-edit-members" aria-selected="false">Members</a>
+                      </li>
+                    </ul>
+                    <div class="modal-body">
+                      <div class="tab-content">
+                        <div class="tab-pane fade show active" id="project-edit-details" role="tabpanel">
+                          <h6>General Details</h6>
+                          <div class="form-group row align-items-center">
+                            <label class="col-3">Name</label>
+                            <input class="form-control col" type="text" value="Brand Concept and Design" name="project-name" />
+                          </div>
+                          <div class="form-group row">
+                            <label class="col-3">Description</label>
+                            <textarea class="form-control col" rows="3" placeholder="Project description" name="project-description">Research, ideate and present brand concepts for client consideration</textarea>
+                          </div>
+                          <hr>
+                          <h6>Timeline</h6>
+                          <div class="form-group row align-items-center">
+                            <label class="col-3">Start Date</label>
+                            <input class="form-control col" type="text" name="project-start" placeholder="Select a date" data-flatpickr data-default-date="2021-04-21" data-alt-input="true" />
+                          </div>
+                          <div class="form-group row align-items-center">
+                            <label class="col-3">Due Date</label>
+                            <input class="form-control col" type="text" name="project-due" placeholder="Select a date" data-flatpickr data-default-date="2021-09-15" data-alt-input="true" />
+                          </div>
+                          <div class="alert alert-warning text-small" role="alert">
+                            <span>You can change due dates at any time.</span>
+                          </div>
+                          <hr>
+                          <h6>Visibility</h6>
+                          <div class="row">
+                            <div class="col">
+                              <div class="custom-control custom-radio">
+                                <input type="radio" id="visibility-everyone" name="visibility" class="custom-control-input" checked>
+                                <label class="custom-control-label" for="visibility-everyone">Everyone</label>
+                              </div>
+                            </div>
+                            <div class="col">
+                              <div class="custom-control custom-radio">
+                                <input type="radio" id="visibility-members" name="visibility" class="custom-control-input">
+                                <label class="custom-control-label" for="visibility-members">Members</label>
+                              </div>
+                            </div>
+                            <div class="col">
+                              <div class="custom-control custom-radio">
+                                <input type="radio" id="visibility-me" name="visibility" class="custom-control-input">
+                                <label class="custom-control-label" for="visibility-me">Just me</label>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="tab-pane fade" id="project-edit-members" role="tabpanel">
+                          <div class="users-manage" data-filter-list="form-group-users">
+                            <div class="mb-3">
+                              <ul class="avatars text-center">
+
+                                <li>
+                                  <img alt="Claire Connors" src="assets/img/avatar-female-1.jpg" class="avatar" data-toggle="tooltip" data-title="Claire Connors" />
+                                </li>
+
+                                <li>
+                                  <img alt="Marcus Simmons" src="assets/img/avatar-male-1.jpg" class="avatar" data-toggle="tooltip" data-title="Marcus Simmons" />
+                                </li>
+
+                                <li>
+                                  <img alt="Peggy Brown" src="assets/img/avatar-female-2.jpg" class="avatar" data-toggle="tooltip" data-title="Peggy Brown" />
+                                </li>
+
+                                <li>
+                                  <img alt="Harry Xai" src="assets/img/avatar-male-2.jpg" class="avatar" data-toggle="tooltip" data-title="Harry Xai" />
+                                </li>
+
+                              </ul>
+                            </div>
+                            <div class="input-group input-group-round">
+                              <div class="input-group-prepend">
+                                <span class="input-group-text">
+                                  <i class="material-icons">filter_list</i>
+                                </span>
+                              </div>
+                              <input type="search" class="form-control filter-list-input" placeholder="Filter members" aria-label="Filter Members">
+                            </div>
+                            <div class="form-group-users">
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="project-user-1" checked>
+                                <label class="custom-control-label" for="project-user-1">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Claire Connors" src="assets/img/avatar-female-1.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Claire Connors</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="project-user-2" checked>
+                                <label class="custom-control-label" for="project-user-2">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Marcus Simmons" src="assets/img/avatar-male-1.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Marcus Simmons</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="project-user-3" checked>
+                                <label class="custom-control-label" for="project-user-3">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Peggy Brown" src="assets/img/avatar-female-2.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Peggy Brown</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="project-user-4" checked>
+                                <label class="custom-control-label" for="project-user-4">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Harry Xai" src="assets/img/avatar-male-2.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Harry Xai</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="project-user-5">
+                                <label class="custom-control-label" for="project-user-5">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Sally Harper" src="assets/img/avatar-female-3.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Sally Harper</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="project-user-6">
+                                <label class="custom-control-label" for="project-user-6">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Ravi Singh" src="assets/img/avatar-male-3.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Ravi Singh</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="project-user-7">
+                                <label class="custom-control-label" for="project-user-7">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Kristina Van Der Stroem" src="assets/img/avatar-female-4.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Kristina Van Der Stroem</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="project-user-8">
+                                <label class="custom-control-label" for="project-user-8">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="David Whittaker" src="assets/img/avatar-male-4.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">David Whittaker</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="project-user-9">
+                                <label class="custom-control-label" for="project-user-9">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Kerri-Anne Banks" src="assets/img/avatar-female-5.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Kerri-Anne Banks</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="project-user-10">
+                                <label class="custom-control-label" for="project-user-10">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Masimba Sibanda" src="assets/img/avatar-male-5.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Masimba Sibanda</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="project-user-11">
+                                <label class="custom-control-label" for="project-user-11">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Krishna Bajaj" src="assets/img/avatar-female-6.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Krishna Bajaj</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="project-user-12">
+                                <label class="custom-control-label" for="project-user-12">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Kenny Tran" src="assets/img/avatar-male-6.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Kenny Tran</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <!--end of modal body-->
+                    <div class="modal-footer">
+                      <button role="button" class="btn btn-primary" type="submit">
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </form>
+
+              <form class="modal fade" id="task-add-modal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog" role="document">
+                  <div class="modal-content">
+                    <div class="modal-header">
+                      <h5 class="modal-title">New Task</h5>
+                      <button type="button" class="close btn btn-round" data-dismiss="modal" aria-label="Close">
+                        <i class="material-icons">close</i>
+                      </button>
+                    </div>
+                    <!--end of modal head-->
+                    <ul class="nav nav-tabs nav-fill" role="tablist">
+                      <li class="nav-item">
+                        <a class="nav-link active" id="task-add-details-tab" data-toggle="tab" href="#task-add-details" role="tab" aria-controls="task-add-details" aria-selected="true">Details</a>
+                      </li>
+                      <li class="nav-item">
+                        <a class="nav-link" id="task-add-members-tab" data-toggle="tab" href="#task-add-members" role="tab" aria-controls="task-add-members" aria-selected="false">Members</a>
+                      </li>
+                    </ul>
+                    <div class="modal-body">
+                      <div class="tab-content">
+                        <div class="tab-pane fade show active" id="task-add-details" role="tabpanel">
+                          <h6>General Details</h6>
+                          <div class="form-group row align-items-center">
+                            <label class="col-3">Name</label>
+                            <input class="form-control col" type="text" placeholder="Task name" name="task-name" />
+                          </div>
+                          <div class="form-group row">
+                            <label class="col-3">Description</label>
+                            <textarea class="form-control col" rows="3" placeholder="Task description" name="task-description"></textarea>
+                          </div>
+                          <hr>
+                          <h6>Timeline</h6>
+                          <div class="form-group row align-items-center">
+                            <label class="col-3">Start Date</label>
+                            <input class="form-control col" type="text" name="task-start" placeholder="Select a date" data-flatpickr data-default-date="2021-04-21" data-alt-input="true" />
+                          </div>
+                          <div class="form-group row align-items-center">
+                            <label class="col-3">Due Date</label>
+                            <input class="form-control col" type="text" name="task-due" placeholder="Select a date" data-flatpickr data-default-date="2021-09-15" data-alt-input="true" />
+
+                          </div>
+                          <div class="alert alert-warning text-small" role="alert">
+                            <span>You can change due dates at any time.</span>
+                          </div>
+                        </div>
+                        <div class="tab-pane fade" id="task-add-members" role="tabpanel">
+                          <div class="users-manage" data-filter-list="form-group-users">
+                            <div class="mb-3">
+                              <ul class="avatars text-center">
+
+                                <li>
+                                  <img alt="Claire Connors" src="assets/img/avatar-female-1.jpg" class="avatar" data-toggle="tooltip" data-title="Claire Connors" />
+                                </li>
+
+                                <li>
+                                  <img alt="Marcus Simmons" src="assets/img/avatar-male-1.jpg" class="avatar" data-toggle="tooltip" data-title="Marcus Simmons" />
+                                </li>
+
+                                <li>
+                                  <img alt="Peggy Brown" src="assets/img/avatar-female-2.jpg" class="avatar" data-toggle="tooltip" data-title="Peggy Brown" />
+                                </li>
+
+                                <li>
+                                  <img alt="Harry Xai" src="assets/img/avatar-male-2.jpg" class="avatar" data-toggle="tooltip" data-title="Harry Xai" />
+                                </li>
+
+                              </ul>
+                            </div>
+                            <div class="input-group input-group-round">
+                              <div class="input-group-prepend">
+                                <span class="input-group-text">
+                                  <i class="material-icons">filter_list</i>
+                                </span>
+                              </div>
+                              <input type="search" class="form-control filter-list-input" placeholder="Filter members" aria-label="Filter Members">
+                            </div>
+                            <div class="form-group-users">
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="task-user-1" checked>
+                                <label class="custom-control-label" for="task-user-1">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Claire Connors" src="assets/img/avatar-female-1.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Claire Connors</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="task-user-2" checked>
+                                <label class="custom-control-label" for="task-user-2">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Marcus Simmons" src="assets/img/avatar-male-1.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Marcus Simmons</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="task-user-3" checked>
+                                <label class="custom-control-label" for="task-user-3">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Peggy Brown" src="assets/img/avatar-female-2.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Peggy Brown</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="task-user-4" checked>
+                                <label class="custom-control-label" for="task-user-4">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Harry Xai" src="assets/img/avatar-male-2.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Harry Xai</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="task-user-5">
+                                <label class="custom-control-label" for="task-user-5">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Sally Harper" src="assets/img/avatar-female-3.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Sally Harper</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="task-user-6">
+                                <label class="custom-control-label" for="task-user-6">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Ravi Singh" src="assets/img/avatar-male-3.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Ravi Singh</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="task-user-7">
+                                <label class="custom-control-label" for="task-user-7">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Kristina Van Der Stroem" src="assets/img/avatar-female-4.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Kristina Van Der Stroem</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="task-user-8">
+                                <label class="custom-control-label" for="task-user-8">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="David Whittaker" src="assets/img/avatar-male-4.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">David Whittaker</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="task-user-9">
+                                <label class="custom-control-label" for="task-user-9">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Kerri-Anne Banks" src="assets/img/avatar-female-5.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Kerri-Anne Banks</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="task-user-10">
+                                <label class="custom-control-label" for="task-user-10">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Masimba Sibanda" src="assets/img/avatar-male-5.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Masimba Sibanda</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="task-user-11">
+                                <label class="custom-control-label" for="task-user-11">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Krishna Bajaj" src="assets/img/avatar-female-6.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Krishna Bajaj</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="task-user-12">
+                                <label class="custom-control-label" for="task-user-12">
+                                  <span class="d-flex align-items-center">
+                                    <img alt="Kenny Tran" src="assets/img/avatar-male-6.jpg" class="avatar mr-2" />
+                                    <span class="h6 mb-0" data-filter-by="text">Kenny Tran</span>
+                                  </span>
+                                </label>
+                              </div>
+
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <!--end of modal body-->
+                    <div class="modal-footer">
+                      <button role="button" class="btn btn-primary" type="submit">
+                        Create Task
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </form>
+
+            </div>
+          </div>
+        </div>
+
+
+
+      </div>
+    </div>
+
+    <!-- Required vendor scripts (Do not remove) -->
+    <script type="text/javascript" src="https://pipeline.mediumra.re/assets/js/jquery.min.js"></script>
+    <script type="text/javascript" src="https://pipeline.mediumra.re/assets/js/popper.min.js"></script>
+    <script type="text/javascript" src="https://pipeline.mediumra.re/assets/js/bootstrap.js"></script>
+
+    <!-- Optional Vendor Scripts (Remove the plugin script here and comment initializer script out of index.js if site does not use that feature) -->
+
+    <!-- Autosize - resizes textarea inputs as user types -->
+    <script type="text/javascript" src="https://pipeline.mediumra.re/assets/js/autosize.min.js"></script>
+    <!-- Flatpickr (calendar/date/time picker UI) -->
+    <script type="text/javascript" src="https://pipeline.mediumra.re/assets/js/flatpickr.min.js"></script>
+    <!-- Prism - displays formatted code boxes -->
+    <script type="text/javascript" src="https://pipeline.mediumra.re/assets/js/prism.js"></script>
+    <!-- Shopify Draggable - drag, drop and sort items on page -->
+    <script type="text/javascript" src="https://pipeline.mediumra.re/assets/js/draggable.bundle.legacy.js"></script>
+    <script type="text/javascript" src="https://pipeline.mediumra.re/assets/js/swap-animation.js"></script>
+    <!-- Dropzone - drag and drop files onto the page for uploading -->
+    <script type="text/javascript" src="https://pipeline.mediumra.re/assets/js/dropzone.min.js"></script>
+    <!-- List.js - filter list elements -->
+    <script type="text/javascript" src="https://pipeline.mediumra.re/assets/js/list.min.js"></script>
+
+    <!-- Required theme scripts (Do not remove) -->
+    <script type="text/javascript" src="https://pipeline.mediumra.re/assets/js/theme.js"></script>
+
+    <!-- This appears in the demo only - demonstrates different layouts -->
+    <style type="text/css">.layout-switcher{ position: fixed; bottom: 0; left: 50%; transform: translateX(-50%) translateY(73px); color: #fff; transition: all .35s ease; background: #343a40; border-radius: .25rem .25rem 0 0; padding: .75rem; z-index: 999; }
+            .layout-switcher:not(:hover){ opacity: .95; }
+            .layout-switcher:not(:focus){ cursor: pointer; }
+            .layout-switcher-head{ font-size: .75rem; font-weight: 600; text-transform: uppercase; }
+            .layout-switcher-head i{ font-size: 1.25rem; transition: all .35s ease; }
+            .layout-switcher-body{ transition: all .55s ease; opacity: 0; padding-top: .75rem; transform: translateY(24px); text-align: center; }
+            .layout-switcher:focus{ opacity: 1; outline: none; transform: translateX(-50%) translateY(0); }
+            .layout-switcher:focus .layout-switcher-head i{ transform: rotateZ(180deg); opacity: 0; }
+            .layout-switcher:focus .layout-switcher-body{ opacity: 1; transform: translateY(0); }
+            .layout-switcher-option{ width: 72px; padding: .25rem; border: 2px solid rgba(255,255,255,0); display: inline-block; border-radius: 4px; transition: all .35s ease; }
+            .layout-switcher-option.active{ border-color: #007bff; }
+            .layout-switcher-icon{ width: 100%; border-radius: 4px; }
+            .layout-switcher-body:hover .layout-switcher-option:not(:hover){ opacity: .5; transform: scale(0.9); }
+            @media all and (max-width: 990px){ .layout-switcher{ min-width: 250px; } }
+            @media all and (max-width: 767px){ .layout-switcher{ display: none; } }
+    </style>
+
+
+  </body>
+
+</html>
