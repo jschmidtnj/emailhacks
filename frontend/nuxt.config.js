@@ -43,6 +43,9 @@ module.exports = {
     __dangerouslyDisableSanitizers: ['script'],
     script: [
       {
+        src: 'https://apis.google.com/js/api.js'
+      },
+      {
         innerHTML: JSON.stringify({
           '@context': 'https://schema.org',
           '@type': 'Organization',

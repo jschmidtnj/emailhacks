@@ -1,4 +1,5 @@
 import * as jwt from 'jsonwebtoken'
+import { oauthConfig } from '~/assets/config'
 
 /**
  * authentication
@@ -46,6 +47,11 @@ export const actions = {
     }
     commit('setLoggedIn', res)
     return res
+  },
+  async loginGoogle({}, payload) {
+    return new Promise((resolve, reject) => {
+      // use gmail api from script here
+    })
   },
   async loginLocal({ commit }, payload) {
     return new Promise((resolve, reject) => {

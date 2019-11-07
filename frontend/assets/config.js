@@ -14,3 +14,10 @@ export const toasts = {
 export const regex = {
   password: /^$|^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/
 }
+
+export const oauthConfig = {
+  google: {
+    oauth2Endpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
+    scope: ['profile', 'email'].join(' ')
+  }
+}
