@@ -53,7 +53,7 @@
               </div>
               <div
                 :id="`question-${index}-select-area`"
-                @click="evt => focusItem(evt, index)"
+                @click="(evt) => focusItem(evt, index)"
               >
                 <b-input-group :id="`question-${index}-name-type-input`">
                   <b-container>
@@ -76,7 +76,9 @@
                           <b-dropdown-item-button
                             v-for="(type, indexType) in questionTypes"
                             :key="`question-${index}-select-${indexType}`"
-                            @click="evt => selectQuestionType(evt, index, type)"
+                            @click="
+                              (evt) => selectQuestionType(evt, index, type)
+                            "
                             >{{ type.label }}</b-dropdown-item-button
                           >
                         </b-dropdown>
@@ -103,9 +105,9 @@
                           >
                             <b-form-input
                               v-model="question.options[optionIndex]"
+                              :placeholder="`option ${optionIndex}`"
                               size="sm"
                               type="text"
-                              :placeholder="`option ${optionIndex}`"
                             ></b-form-input>
                           </b-form-radio>
                           <b-form-checkbox
@@ -114,19 +116,19 @@
                           >
                             <b-form-input
                               v-model="question.options[optionIndex]"
+                              :placeholder="`option ${optionIndex}`"
                               size="sm"
                               type="text"
-                              :placeholder="`option ${optionIndex}`"
                             ></b-form-input>
                           </b-form-checkbox>
                         </b-col>
                         <b-col>
                           <button
-                            class="button-link"
                             :disabled="question.options.length <= 1"
                             @click="
-                              evt => removeOption(evt, index, optionIndex)
+                              (evt) => removeOption(evt, index, optionIndex)
                             "
+                            class="button-link"
                           >
                             <no-ssr>
                               <font-awesome-icon class="mr-2" icon="times" />
@@ -139,12 +141,12 @@
                         disabled
                       >
                         <button
-                          class="button-link"
                           :disabled="
                             question.options[question.options.length - 1]
                               .length === 0
                           "
-                          @click="evt => addOption(evt, index)"
+                          @click="(evt) => addOption(evt, index)"
+                          class="button-link"
                         >
                           Add Radio Option
                         </button>
@@ -154,12 +156,12 @@
                         disabled
                       >
                         <button
-                          class="button-link"
                           :disabled="
                             question.options[question.options.length - 1]
                               .length === 0
                           "
-                          @click="evt => addOption(evt, index)"
+                          @click="(evt) => addOption(evt, index)"
+                          class="button-link"
                         >
                           Add Checkbox Option
                         </button>
@@ -183,10 +185,10 @@
                     <b-row>
                       <b-col class="text-right">
                         <button
+                          :disabled="questions.length <= 1"
+                          @click="(evt) => removeQuestion(evt, index)"
                           class="button-link"
                           style="display: inline-block;"
-                          :disabled="questions.length <= 1"
-                          @click="evt => removeQuestion(evt, index)"
                         >
                           <no-ssr>
                             <font-awesome-icon class="mr-2" icon="trash" />
@@ -207,10 +209,10 @@
               </div>
             </div>
           </draggable>
-          <b-button squared variant="primary" @click="addQuestion"
+          <b-button @click="addQuestion" squared variant="primary"
             >Add Question</b-button
           >
-          <b-button squared variant="primary" type="submit" @click="submit"
+          <b-button @click="submit" squared variant="primary" type="submit"
             >Save</b-button
           >
         </b-form>
@@ -247,7 +249,7 @@ export default Vue.extend({
   name: 'Create',
   data() {
     return {
-      questionTypes: questionTypes,
+      questionTypes,
       name: '',
       description: '',
       questions: [clonedeep(defaultQuestion)],

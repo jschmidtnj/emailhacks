@@ -24,7 +24,7 @@ export default Vue.extend({
     }`
     const image = `${seo.url}/icon.png`
     return {
-      title: title,
+      title,
       meta: [
         { property: 'og:title', content: title },
         { property: 'og:description', content: description },
@@ -61,7 +61,7 @@ export default Vue.extend({
             query: `mutation{deleteAccount(){id}}`
           }
         })
-        .then(res => {
+        .then((res) => {
           if (res.status === 200) {
             if (res.data) {
               if (res.data.data && res.data.data.deleteAccount) {
@@ -91,13 +91,13 @@ export default Vue.extend({
             })
           }
         })
-        .catch(err => {
+        .catch((err) => {
           let message = `got error: ${err}`
           if (err.response && err.response.data) {
             message = err.response.data.message
           }
           this.$toasted.global.error({
-            message: message
+            message
           })
         })
     }

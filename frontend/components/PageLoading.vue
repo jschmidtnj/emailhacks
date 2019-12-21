@@ -1,9 +1,9 @@
 <template>
   <atom-spinner
-    class="centered"
     :animation-duration="1000"
     :size="60"
     :color="'#ff1d5e'"
+    class="centered"
   />
 </template>
 

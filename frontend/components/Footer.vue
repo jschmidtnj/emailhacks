@@ -2,7 +2,7 @@
   <div class="main-footer">
     <footer>
       <b-container>
-        <p>&copy; Joshua Schmidt 2019</p>
+        <p>&copy; Mail Pear 2020</p>
         <ul class="list-inline">
           <li class="list-inline-item">
             <a href="/privacy">Privacy</a>
@@ -23,7 +23,7 @@ export default Vue.extend({
   name: 'Footer',
   data() {
     return {
-      githuburl: githuburl
+      githuburl
     }
   }
 })

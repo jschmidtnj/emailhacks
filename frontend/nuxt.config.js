@@ -4,7 +4,7 @@ const seodata = JSON.parse(process.env.SEOCONFIG)
 const apiurl = process.env.APIURL
 const recaptchasitekey = process.env.RECAPTCHASITEKEY
 
-const name = 'Email Hacks'
+const name = 'Mail Pear'
 
 module.exports = {
   mode: 'spa',
@@ -15,8 +15,8 @@ module.exports = {
     seoconfig: process.env.SEOCONFIG,
     githuburl: pkg.repository.url,
     authconfig: process.env.AUTHCONFIG,
-    apiurl: apiurl,
-    recaptchasitekey: recaptchasitekey
+    apiurl,
+    recaptchasitekey
   },
 
   /*
@@ -49,7 +49,7 @@ module.exports = {
         innerHTML: JSON.stringify({
           '@context': 'https://schema.org',
           '@type': 'Organization',
-          name: name,
+          name,
           url: seodata.url,
           logo: `${seodata.url}/icon.png`,
           contactPoint: {
@@ -82,22 +82,14 @@ module.exports = {
       }
     ]
   },
-
-  /*
-   ** Router config
-   */
-  router: {},
-
   /*
    ** Customize the progress-bar color
    */
   loading: { color: '#fff' },
-
   /*
    ** Global CSS
    */
   css: [],
-
   /*
    ** Plugins to load before mounting the App
    */
@@ -113,44 +105,36 @@ module.exports = {
     { src: '~/plugins/pdf', ssr: false },
     { src: '~/plugins/draggable', ssr: false }
   ],
-
+  /*
+   ** Nuxt.js dev-modules
+   */
+  buildModules: [
+    // Doc: https://github.com/nuxt-community/eslint-module
+    '@nuxtjs/eslint-module',
+    '@nuxt/typescript-build'
+  ],
   /*
    ** Nuxt.js modules
    */
   modules: [
+    // Doc: https://bootstrap-vue.js.org
+    'bootstrap-vue/nuxt',
     // Doc: https://axios.nuxtjs.org/usage
     '@nuxtjs/axios',
-    // Doc: https://bootstrap-vue.js.org/docs/
-    'bootstrap-vue/nuxt',
     '@nuxtjs/pwa',
-    '@nuxtjs/style-resources',
+    // Doc: https://github.com/nuxt-community/dotenv-module
     '@nuxtjs/dotenv',
     '@nuxtjs/sitemap',
+    '@nuxtjs/style-resources',
     'nuxt-webfontloader',
     '@nuxtjs/google-analytics'
   ],
-
-  /*
-   ** google analytics config
-   */
-  googleAnalytics: {
-    id: seodata.googleanalyticstrackingid
-  },
-
-  /*
-   ** generate config
-   */
-  generate: {
-    fallback: '404.html'
-  },
-
   /*
    ** scss global config
    */
   styleResources: {
     scss: ['~assets/styles/global.scss']
   },
-
   /*
    ** google web fonts
    */
@@ -159,31 +143,25 @@ module.exports = {
       families: ['Roboto']
     }
   },
-
+  /*
+   ** google analytics config
+   */
+  googleAnalytics: {
+    id: seodata.googleanalyticstrackingid
+  },
+  /*
+   ** generate config
+   */
+  generate: {
+    fallback: '404.html'
+  },
   /*
    ** Axios module configuration
+   ** See https://axios.nuxtjs.org/options
    */
   axios: {
-    // See https://github.com/nuxt-community/axios-module#options
     baseURL: apiurl
   },
-
-  /*
-   ** babel config
-   */
-  babel: {
-    presets: ['es2015', 'stage-0'],
-    plugins: [
-      [
-        'transform-runtime',
-        {
-          polyfill: true,
-          regenerator: true
-        }
-      ]
-    ]
-  },
-
   /*
    ** Sitemap config
    */
@@ -199,29 +177,13 @@ module.exports = {
       lastmodrealtime: true
     }
   },
-
-  extensions: ['js', 'ts'],
-
   /*
    ** Build configuration
    */
   build: {
-    // put CSS in files instead of JS bundles
-    extractCSS: true,
     /*
      ** You can extend webpack config here
      */
-    extend(config, ctx) {
-      config.output.globalObject = 'this'
-      // Run ESLint on save
-      if (ctx.isDev && ctx.isClient) {
-        config.module.rules.push({
-          enforce: 'pre',
-          test: /\.(js|vue)$/,
-          loader: 'eslint-loader',
-          exclude: /(node_modules)/
-        })
-      }
-    }
+    extend(config, ctx) {}
   }
 }

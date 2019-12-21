@@ -18,7 +18,7 @@ export default Vue.extend({
     const description = 'email 2.0'
     const image = `${seo.url}/icon.png`
     return {
-      title: title,
+      title,
       meta: [
         { property: 'og:title', content: title },
         { property: 'og:description', content: description },
@@ -44,7 +44,7 @@ export default Vue.extend({
             '@context': 'http://schema.org',
             '@type': 'WebPage',
             name: title,
-            description: description
+            description
           }),
           type: 'application/ld+json'
         }

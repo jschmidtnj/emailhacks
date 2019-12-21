@@ -12,9 +12,9 @@
           <b-form-input
             id="email-address"
             v-model="emailform.email"
+            :state="!$v.emailform.email.$invalid"
             type="text"
             autocomplete="off"
-            :state="!$v.emailform.email.$invalid"
             placeholder="Enter email"
             aria-describedby="emailfeedback"
           ></b-form-input>
@@ -29,10 +29,10 @@
           </b-form-invalid-feedback>
         </b-form-group>
         <b-button
+          :disabled="$v.emailform.$invalid"
           variant="primary"
           type="submit"
           class="mt-4"
-          :disabled="$v.emailform.$invalid"
           >Submit</b-button
         >
       </b-form>
@@ -46,8 +46,8 @@
           <b-form-input
             id="password"
             v-model="passwordform.password"
-            type="password"
             :state="!$v.passwordform.password.$invalid"
+            type="password"
             placeholder="Enter password"
             aria-describedby="passwordfeedback"
           ></b-form-input>
@@ -64,10 +64,10 @@
           </b-form-invalid-feedback>
         </b-form-group>
         <b-button
+          :disabled="$v.passwordform.$invalid"
           variant="primary"
           type="submit"
           class="mt-4"
-          :disabled="$v.passwordform.$invalid"
           >Submit</b-button
         >
       </b-form>
@@ -88,7 +88,7 @@ import { validationMixin } from 'vuelidate'
 import { required, email } from 'vuelidate/lib/validators'
 import { regex } from '~/assets/config'
 import Loading from '~/components/PageLoading.vue'
-const validPassword = val => regex.password.test(val)
+const validPassword = (val) => regex.password.test(val)
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({
@@ -130,7 +130,7 @@ export default Vue.extend({
     const description = 'reset your account password'
     const image = `${seo.url}/icon.png`
     return {
-      title: title,
+      title,
       meta: [
         { property: 'og:title', content: title },
         { property: 'og:description', content: description },
@@ -169,7 +169,7 @@ export default Vue.extend({
           token: this.$route.query.token,
           password: this.passwordform.password
         })
-        .then(res => {
+        .then((res) => {
           if (res.status === 200) {
             if (res.data) {
               let message = 'password reset successfully'
@@ -177,7 +177,7 @@ export default Vue.extend({
                 message = res.data.message
               }
               this.$toasted.global.success({
-                message: message
+                message
               })
               this.$router.push({
                 path: '/login'
@@ -197,7 +197,7 @@ export default Vue.extend({
             })
           }
         })
-        .catch(err => {
+        .catch((err) => {
           /* eslint-disable */
           let message = `got error: ${err}`
           if (err.response && err.response.data) {

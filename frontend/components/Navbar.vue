@@ -14,7 +14,7 @@
             <em>User</em>
           </template>
           <b-dropdown-item href="/account">Profile</b-dropdown-item>
-          <b-dropdown-item href="#" @click="logout">
+          <b-dropdown-item @click="logout" href="#">
             Sign Out
           </b-dropdown-item>
         </b-nav-item-dropdown>

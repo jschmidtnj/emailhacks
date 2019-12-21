@@ -11,8 +11,8 @@
           <b-form-input
             id="email-address"
             v-model="form.email"
-            type="text"
             :state="!$v.form.email.$invalid"
+            type="text"
             placeholder="Enter email"
             aria-describedby="emailfeedback"
           ></b-form-input>
@@ -33,8 +33,8 @@
           <b-form-input
             id="password"
             v-model="form.password"
-            type="password"
             :state="!$v.form.password.$invalid"
+            type="password"
             placeholder="Enter password"
             aria-describedby="passwordfeedback"
           ></b-form-input>
@@ -51,10 +51,10 @@
         <b-link href="/reset" class="card-link">reset password</b-link>
         <br />
         <b-button
+          :disabled="$v.form.$invalid"
           variant="primary"
           type="submit"
           class="mt-4"
-          :disabled="$v.form.$invalid"
           >Submit</b-button
         >
       </b-form>
@@ -69,19 +69,18 @@
   </div>
 </template>
 
-<script lang="ts">
+<script lang="js">
 import Vue from 'vue'
 import { validationMixin } from 'vuelidate'
 import { required, email } from 'vuelidate/lib/validators'
 import { regex } from '~/assets/config'
-const validPassword = val => regex.password.test(val)
+const validPassword = (val) => regex.password.test(val)
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({
   name: 'Login',
   mixins: [validationMixin],
-  // @ts-ignore
-  middleware: 'loginredirect',
+  middleware: 'loginRedirect',
   data() {
     return {
       redirect_uri: null,
@@ -97,7 +96,7 @@ export default Vue.extend({
     const description = 'login to your account'
     const image = `${seo.url}/icon.png`
     return {
-      title: title,
+      title,
       meta: [
         { property: 'og:title', content: title },
         { property: 'og:description', content: description },
@@ -141,7 +140,7 @@ export default Vue.extend({
         .post('/verify', {
           token: this.$route.query.token
         })
-        .then(res => {
+        .then((res) => {
           if (res.status === 200) {
             if (res.data) {
               let message = 'email verified. you can now log in'
@@ -149,7 +148,7 @@ export default Vue.extend({
                 message = res.data.message
               }
               this.$toasted.global.success({
-                message: message
+                message
               })
             } else {
               this.$toasted.global.error({
@@ -166,13 +165,13 @@ export default Vue.extend({
             })
           }
         })
-        .catch(err => {
+        .catch((err) => {
           let message = `got error: ${err}`
           if (err.response && err.response.data) {
             message = err.response.data.message
           }
           this.$toasted.global.error({
-            message: message
+            message
           })
         })
     }
@@ -184,7 +183,7 @@ export default Vue.extend({
     loginlocal(evt) {
       evt.preventDefault()
       this.$recaptcha('login')
-        .then(recaptchatoken => {
+        .then((recaptchatoken) => {
           /* eslint-disable */
           console.log(`got recaptcha token ${recaptchatoken}`)
           this.$store

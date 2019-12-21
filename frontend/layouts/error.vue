@@ -3,6 +3,7 @@
     <div id="particles-js"></div>
     <div class="denied__wrapper">
       <h1>{{ error.statusCode }}</h1>
+      <p>{{ error }}</p>
       <div v-if="error.statusCode === 404">
         <h3>
           LOST IN SPACE? Hmm, looks like that page doesn't exist.
@@ -386,7 +387,7 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
 export default {
   name: 'Error',
   layout: 'nothing',
@@ -407,7 +408,7 @@ export default {
     const title = `Error ${this.error.statusCode}`
     const description = 'Error code found when loading page'
     return {
-      title: title,
+      title,
       meta: [{ hid: 'description', name: 'description', content: description }]
     }
   },

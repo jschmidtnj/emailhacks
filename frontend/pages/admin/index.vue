@@ -1,7 +1,7 @@
 <template>
   <div>
     <p>Admin Page</p>
-    <b-btn block @click="logout">Logout</b-btn>
+    <b-btn @click="logout" block>Logout</b-btn>
   </div>
 </template>
 
@@ -18,7 +18,7 @@ export default Vue.extend({
     const description = 'main admin dashboard'
     const image = `${seo.url}/icon.png`
     return {
-      title: title,
+      title,
       meta: [
         { property: 'og:title', content: title },
         { property: 'og:description', content: description },
