@@ -1,14 +1,18 @@
 <template>
-  <div class="main-wrapper">
-    <navbar />
-    <nuxt class="content" />
-    <main-footer />
+  <div>
+    <sidebar />
+    <div class="main-wrapper main-wrapper-sidebar">
+      <navbar />
+      <nuxt class="content" />
+      <main-footer />
+    </div>
   </div>
 </template>
 
 <script lang="js">
 import Vue from 'vue'
 import Navbar from '~/components/Navbar.vue'
+import Sidebar from '~/components/Sidebar.vue'
 import MainFooter from '~/components/Footer.vue'
 export default Vue.extend({
   name: 'Secure',
@@ -16,6 +20,7 @@ export default Vue.extend({
   middleware: 'auth',
   components: {
     Navbar,
+    Sidebar,
     MainFooter
   },
   computed: {

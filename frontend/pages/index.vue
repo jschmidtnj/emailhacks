@@ -1,6 +1,6 @@
 <template>
   <b-container>
-    <b-jumbotron header="Email hacks" class="mt-4" />
+    <b-jumbotron header="Mail Pear" class="mt-4" />
   </b-container>
 </template>
 

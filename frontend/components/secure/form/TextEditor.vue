@@ -1,6 +1,10 @@
 <template>
   <div class="editor">
-    <editor-menu-bar :editor="editor" v-slot="{ commands, isActive }">
+    <editor-menu-bar
+      v-if="showMenu"
+      :editor="editor"
+      v-slot="{ commands, isActive }"
+    >
       <b-nav pills class="menubar">
         <b-nav-item :active="isActive.bold()" @click="commands.bold">
           <client-only>
@@ -130,6 +134,12 @@ export default Vue.extend({
   components: {
     EditorContent,
     EditorMenuBar
+  },
+  props: {
+    showMenu: {
+      default: true,
+      type: Boolean
+    }
   },
   data() {
     return {

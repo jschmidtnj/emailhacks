@@ -193,6 +193,7 @@
                     ></b-form-input>
                     <text-editor
                       v-else-if="item.type === itemTypes[3].id"
+                      :show-menu="focusIndex === index"
                       class="mt-2 mb-2"
                     />
                   </b-container>
@@ -250,7 +251,7 @@
         </b-form>
       </b-card-body>
     </b-card>
-    <b-container style="margin-top: 3rem;">
+    <b-container style="margin-top: 3rem; margin-bottom: 2rem;">
       <b-row>
         <b-col class="text-right">
           <b-button
@@ -346,6 +347,13 @@ export default Vue.extend({
     removeItem(evt, itemIndex) {
       evt.preventDefault()
       this.items.splice(itemIndex, 1)
+      if (this.focusIndex >= this.items.length) {
+        if (this.items.length > 0) {
+          this.focusIndex = this.items.length - 1
+        } else {
+          this.focusIndex = 0
+        }
+      }
     },
     addOption(evt, itemIndex) {
       evt.preventDefault()

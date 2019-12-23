@@ -5,8 +5,8 @@ const auth = ({ store, redirect }) => {
     } else {
       store
         .dispatch('auth/checkLoggedIn')
-        .then((loggedin) => {
-          if (!loggedin) {
+        .then((loggedIn) => {
+          if (!loggedIn) {
             redirect('/login')
           } else if (!store.state.auth.user) {
             store

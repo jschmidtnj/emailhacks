@@ -23,6 +23,24 @@
 .content {
   flex: 1;
 }
+.main-wrapper-sidebar {
+  width: calc(100% - 250px);
+  transition: all 0.3s;
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+.main-wrapper-sidebar.active {
+  width: 100%;
+}
+@media (max-width: 768px) {
+  .main-wrapper-sidebar {
+    width: 100%;
+  }
+  .main-wrapper-sidebar.active {
+    width: calc(100% - 250px);
+  }
+}
 
 /* get bullet points back */
 .markdown ul {

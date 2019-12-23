@@ -1,7 +1,7 @@
 <template>
   <b-navbar toggleable="lg" type="dark" variant="info">
     <nuxt-link to="/" class="no-underline">
-      <b-navbar-brand href="/">Email Hacks</b-navbar-brand>
+      <b-navbar-brand href="/">Mail Pear</b-navbar-brand>
     </nuxt-link>
     <b-navbar-toggle target="nav-collapse"></b-navbar-toggle>
     <b-collapse id="nav-collapse" is-nav>
@@ -11,17 +11,17 @@
             About
           </b-nav-item>
         </nuxt-link>
-        <nuxt-link v-if="!loggedin" to="/signup" class="no-underline">
+        <nuxt-link v-if="!loggedIn" to="/signup" class="no-underline">
           <b-nav-item href="/signup">Signup</b-nav-item>
         </nuxt-link>
-        <nuxt-link v-if="!loggedin" to="/login" class="no-underline">
+        <nuxt-link v-if="!loggedIn" to="/login" class="no-underline">
           <b-nav-item href="/login">Login</b-nav-item>
         </nuxt-link>
-        <nuxt-link v-if="loggedin" to="/form" class="no-underline">
+        <nuxt-link v-if="loggedIn" to="/form" class="no-underline">
           <b-nav-item href="/form">Form</b-nav-item>
         </nuxt-link>
       </b-navbar-nav>
-      <b-navbar-nav v-if="loggedin" class="ml-auto">
+      <b-navbar-nav v-if="loggedIn" class="ml-auto">
         <b-nav-item-dropdown right>
           <template slot="button-content">
             <em>User</em>
@@ -46,7 +46,7 @@ export default Vue.extend({
     return {}
   },
   computed: {
-    loggedin() {
+    loggedIn() {
       return this.$store.state.auth && this.$store.state.auth.loggedIn
     }
   },

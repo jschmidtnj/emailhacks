@@ -11,7 +11,8 @@ export default Vue.extend({
   name: 'Form',
   components: {
     Create
-  }
+  },
+  layout: 'secure'
 })
 </script>
 
