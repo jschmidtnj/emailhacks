@@ -199,7 +199,7 @@ export default Vue.extend({
               if (!this.redirect_uri) {
                 this.$store.commit('auth/setToken', token)
                 this.$router.push({
-                  path: '/account'
+                  path: '/profile'
                 })
               } else {
                 this.redirect_uri += `?token=${token}`

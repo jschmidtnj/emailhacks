@@ -1,5 +1,5 @@
 <template>
-  <b-card title="Account Page">
+  <b-card title="Profile">
     <p>user: {{ this.$store.state.auth.user }}</p>
     <p>token: {{ this.$store.state.auth.token }}</p>
     <b-btn @click="logout">Logout</b-btn>
@@ -7,7 +7,7 @@
   </b-card>
 </template>
 
-<script lang="ts">
+<script lang="js">
 import Vue from 'vue'
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)

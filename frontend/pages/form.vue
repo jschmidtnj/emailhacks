@@ -4,7 +4,7 @@
   </b-container>
 </template>
 
-<script lang="ts">
+<script lang="js">
 import Vue from 'vue'
 import Create from '~/components/secure/form/Create.vue'
 export default Vue.extend({

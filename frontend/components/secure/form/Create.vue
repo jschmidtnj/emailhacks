@@ -1,84 +1,94 @@
 <template>
   <div id="create">
-    <b-card no-body>
+    <b-card no-body class="card-data shadow-lg">
       <b-card-body>
         <b-form>
           <b-input-group>
             <b-container>
-              <b-row>
+              <b-row class="mb-2">
                 <b-col sm>
                   <b-form-input
-                    id="name"
-                    v-model="name"
+                    id="subject"
+                    v-model="subject"
                     size="lg"
                     type="text"
-                    placeholder="Title"
+                    placeholder="Subject"
                   ></b-form-input>
                 </b-col>
               </b-row>
-              <b-row>
+              <b-row class="mt-2">
                 <b-col sm>
                   <b-form-input
-                    id="description"
-                    v-model="description"
-                    size="sm"
+                    id="recipient"
+                    v-model="recipient"
+                    size="lg"
                     type="text"
-                    placeholder="Description"
+                    placeholder="Recipient"
                   ></b-form-input>
                 </b-col>
+              </b-row>
+              <b-row class="mt-2 mb-2">
                 <b-col sm>
                   <b-form-checkbox
                     v-model="multiple"
                     class="pull-right"
                     name="allow-multiple"
                     switch
+                    >Allow Multiple Submissions</b-form-checkbox
                   >
-                    Allow Multiple Submissions
-                  </b-form-checkbox>
                 </b-col>
               </b-row>
             </b-container>
           </b-input-group>
           <hr />
-          <draggable v-model="questions" group="questions">
+          <draggable
+            v-model="items"
+            @end="finishedDragging"
+            group="items"
+            ghost-class="ghost"
+          >
             <div
-              v-for="(question, index) in questions"
-              :key="`question-${index}`"
-              :class="{ 'question-focus': focusIndex === index }"
+              v-for="(item, index) in items"
+              :key="`item-${index}`"
+              :class="{ 'item-focus': focusIndex === index }"
             >
-              <div class="drag-area">
-                <no-ssr>
-                  <font-awesome-icon class="icon-grip" icon="grip-horizontal" />
-                </no-ssr>
-              </div>
-              <div
-                :id="`question-${index}-select-area`"
-                @click="(evt) => focusItem(evt, index)"
+              <span
+                :id="`item-${index}-select-area`"
+                v-touch:start="(evt) => focusItem(evt, index)"
               >
-                <b-input-group :id="`question-${index}-name-type-input`">
+                <div class="drag-area">
+                  <client-only>
+                    <font-awesome-icon
+                      class="icon-grip"
+                      icon="grip-horizontal"
+                    />
+                  </client-only>
+                </div>
+                <b-input-group :id="`item-${index}-name-type-input`">
                   <b-container>
                     <b-row>
                       <b-col sm>
                         <b-form-input
-                          :id="`question-${index}-name`"
-                          v-model="question.name"
+                          v-if="item.type !== itemTypes[3].id"
+                          :id="`item-${index}-name`"
+                          v-model="item.name"
                           size="md"
                           type="text"
-                          placeholder="Name"
+                          placeholder="Question"
                         ></b-form-input>
+                        <div v-else></div>
                       </b-col>
                       <b-col sm>
                         <b-dropdown
                           v-if="focusIndex === index"
-                          :id="`question-type-${index}`"
-                          text="type"
+                          :id="`item-type-${index}`"
+                          :text="getItemTypeLabel(index)"
+                          variant="outline-primary"
                         >
                           <b-dropdown-item-button
-                            v-for="(type, indexType) in questionTypes"
-                            :key="`question-${index}-select-${indexType}`"
-                            @click="
-                              (evt) => selectQuestionType(evt, index, type)
-                            "
+                            v-for="(type, indexType) in itemTypes"
+                            :key="`item-${index}-select-${indexType}`"
+                            @click="(evt) => selectItemType(evt, index, type)"
                             >{{ type.label }}</b-dropdown-item-button
                           >
                         </b-dropdown>
@@ -86,98 +96,108 @@
                     </b-row>
                   </b-container>
                 </b-input-group>
-                <b-input-group :id="`question-${index}-content`">
+                <b-input-group :id="`item-${index}-content`">
                   <b-container>
                     <div
                       v-if="
-                        question.type === questionTypes[0].id ||
-                          question.type === questionTypes[1].id
+                        item.type === itemTypes[0].id ||
+                          item.type === itemTypes[1].id
                       "
                     >
                       <b-row
-                        v-for="(option, optionIndex) in question.options"
-                        :key="`question-${index}-option-${optionIndex}`"
+                        v-for="(option, optionIndex) in item.options"
+                        :key="`item-${index}-option-${optionIndex}`"
+                        class="mt-2 mb-2"
+                        style="max-width:30rem;"
                       >
-                        <b-col sm>
+                        <b-col style="max-width:30px;">
                           <b-form-radio
-                            v-if="question.type === questionTypes[0].id"
+                            v-if="item.type === itemTypes[0].id"
                             disabled
                           >
-                            <b-form-input
-                              v-model="question.options[optionIndex]"
-                              :placeholder="`option ${optionIndex}`"
-                              size="sm"
-                              type="text"
-                            ></b-form-input>
                           </b-form-radio>
                           <b-form-checkbox
-                            v-else-if="question.type === questionTypes[1].id"
+                            v-else-if="item.type === itemTypes[1].id"
                             disabled
                           >
-                            <b-form-input
-                              v-model="question.options[optionIndex]"
-                              :placeholder="`option ${optionIndex}`"
-                              size="sm"
-                              type="text"
-                            ></b-form-input>
                           </b-form-checkbox>
                         </b-col>
-                        <b-col>
+                        <b-col
+                          v-if="
+                            item.type === itemTypes[0].id ||
+                              item.type === itemTypes[1].id
+                          "
+                        >
+                          <b-form-input
+                            v-model="item.options[optionIndex]"
+                            :placeholder="`option ${optionIndex + 1}`"
+                            size="sm"
+                            type="text"
+                            style="width:100%;"
+                          ></b-form-input>
+                        </b-col>
+                        <b-col style="padding-left:0;max-width:30px;">
                           <button
-                            :disabled="question.options.length <= 1"
+                            :disabled="item.options.length <= 1"
                             @click="
                               (evt) => removeOption(evt, index, optionIndex)
                             "
+                            :class="{
+                              'disable-button': item.options.length <= 1
+                            }"
                             class="button-link"
                           >
-                            <no-ssr>
+                            <client-only>
                               <font-awesome-icon class="mr-2" icon="times" />
-                            </no-ssr>
+                            </client-only>
                           </button>
                         </b-col>
                       </b-row>
                       <b-form-radio
-                        v-if="question.type === questionTypes[0].id"
+                        v-if="
+                          item.type === itemTypes[0].id ||
+                            item.type === itemTypes[1].id
+                        "
                         disabled
                       >
                         <button
                           :disabled="
-                            question.options[question.options.length - 1]
-                              .length === 0
+                            item.options[item.options.length - 1].length === 0
                           "
                           @click="(evt) => addOption(evt, index)"
+                          :class="{
+                            'disable-button':
+                              item.options[item.options.length - 1].length === 0
+                          }"
                           class="button-link"
                         >
-                          Add Radio Option
+                          Add
+                          {{
+                            item.type === itemTypes[0].id
+                              ? 'Multiple Choice'
+                              : 'Checkbox'
+                          }}
+                          Option
                         </button>
                       </b-form-radio>
-                      <b-form-checkbox
-                        v-else-if="question.type === questionTypes[1].id"
-                        disabled
-                      >
-                        <button
-                          :disabled="
-                            question.options[question.options.length - 1]
-                              .length === 0
-                          "
-                          @click="(evt) => addOption(evt, index)"
-                          class="button-link"
-                        >
-                          Add Checkbox Option
-                        </button>
-                      </b-form-checkbox>
                     </div>
                     <b-form-input
-                      v-else-if="question.type === questionTypes[2].id"
-                      :id="`question-${index}-shortAnswer`"
+                      v-else-if="item.type === itemTypes[2].id"
+                      :id="`item-${index}-shortAnswer`"
                       size="sm"
                       type="text"
                       disabled
                       placeholder="short answer"
+                      class="mt-2 mb-2"
+                      style="max-width:30rem;"
                     ></b-form-input>
+                    <text-editor
+                      v-else-if="item.type === itemTypes[3].id"
+                      class="mt-2 mb-2"
+                    />
                   </b-container>
                 </b-input-group>
-              </div>
+              </span>
               <div v-if="focusIndex === index">
                 <hr />
                 <b-input-group>
@@ -185,47 +205,76 @@
                     <b-row>
                       <b-col class="text-right">
                         <button
-                          :disabled="questions.length <= 1"
-                          @click="(evt) => removeQuestion(evt, index)"
+                          :disabled="items.length <= 1"
+                          @click="(evt) => removeItem(evt, index)"
                           class="button-link"
                           style="display: inline-block;"
                         >
-                          <no-ssr>
+                          <client-only>
                             <font-awesome-icon class="mr-2" icon="trash" />
-                          </no-ssr>
+                          </client-only>
                         </button>
                         <b-form-checkbox
-                          v-model="question.required"
+                          v-model="item.required"
                           style="display: inline-block;"
                           name="required"
                           switch
+                          >Required</b-form-checkbox
                         >
-                          Required
-                        </b-form-checkbox>
                       </b-col>
                     </b-row>
                   </b-container>
                 </b-input-group>
               </div>
+              <div v-else style="separate-items">
+                <hr />
+              </div>
             </div>
           </draggable>
-          <b-button @click="addQuestion" squared variant="primary"
-            >Add Question</b-button
-          >
-          <b-button @click="submit" squared variant="primary" type="submit"
-            >Save</b-button
-          >
+          <b-container>
+            <b-row>
+              <b-col class="text-center">
+                <b-button
+                  @click="addItem"
+                  pill
+                  variant="primary"
+                  class="add-button"
+                >
+                  <client-only>
+                    <font-awesome-icon size="lg" icon="plus" />
+                  </client-only>
+                </b-button>
+              </b-col>
+            </b-row>
+          </b-container>
         </b-form>
       </b-card-body>
     </b-card>
+    <b-container style="margin-top: 3rem;">
+      <b-row>
+        <b-col class="text-right">
+          <b-button
+            @click="submit"
+            pill
+            variant="primary"
+            class="submit-button shadow-lg"
+          >
+            <client-only>
+              <font-awesome-icon size="3x" icon="paper-plane" />
+            </client-only>
+          </b-button>
+        </b-col>
+      </b-row>
+    </b-container>
   </div>
 </template>
 
-<script lang="ts">
+<script lang="js">
 import Vue from 'vue'
 import clonedeep from 'lodash.clonedeep'
+import TextEditor from '~/components/secure/form/TextEditor.vue'
 
-const questionTypes = [
+const itemTypes = [
   {
     id: 'radio',
     label: 'Multiple Choice'
@@ -237,22 +286,29 @@ const questionTypes = [
   {
     id: 'short',
     label: 'Short Answer'
+  },
+  {
+    id: 'text',
+    label: 'Text'
   }
 ]
-const defaultQuestion = {
+const defaultItem = {
   name: '',
-  type: questionTypes[0].id,
+  type: itemTypes[0].id,
   options: [''],
   required: false
 }
 export default Vue.extend({
   name: 'Create',
+  components: {
+    TextEditor
+  },
   data() {
     return {
-      questionTypes,
-      name: '',
-      description: '',
-      questions: [clonedeep(defaultQuestion)],
+      itemTypes,
+      subject: '',
+      recipient: '',
+      items: [clonedeep(defaultItem)],
       focusIndex: 0,
       multiple: false
     }
@@ -264,30 +320,40 @@ export default Vue.extend({
       console.log('submit')
       /* eslint-enable */
     },
-    focusItem(evt, questionIndex) {
-      evt.preventDefault()
-      this.focusIndex = questionIndex
+    finishedDragging(evt) {
+      this.focusIndex = evt.newIndex
     },
-    selectQuestionType(evt, questionIndex, type) {
-      evt.preventDefault()
-      this.questions[questionIndex].options = ['']
-      this.questions[questionIndex].type = type.id
+    focusItem(evt, itemIndex) {
+      this.focusIndex = itemIndex
     },
-    addQuestion(evt) {
-      evt.preventDefault()
-      this.questions.push(clonedeep(defaultQuestion))
+    getItemTypeLabel(itemIndex) {
+      const itemType = itemTypes.find((elem) => elem.id === this.items[itemIndex].type)
+      if (itemType) {
+        return itemType.label
+      }
+      return 'cannot find item type'
     },
-    removeQuestion(evt, questionIndex) {
+    selectItemType(evt, itemIndex, type) {
       evt.preventDefault()
-      this.questions.splice(questionIndex, 1)
+      this.items[itemIndex].options = ['']
+      this.items[itemIndex].type = type.id
     },
-    addOption(evt, questionIndex) {
+    addItem(evt) {
       evt.preventDefault()
-      this.questions[questionIndex].options.push('')
+      this.items.push(clonedeep(defaultItem))
+      this.focusIndex = this.items.length - 1
     },
-    removeOption(evt, questionIndex, optionIndex) {
+    removeItem(evt, itemIndex) {
       evt.preventDefault()
-      this.questions[questionIndex].options.splice(optionIndex, 1)
+      this.items.splice(itemIndex, 1)
+    },
+    addOption(evt, itemIndex) {
+      evt.preventDefault()
+      this.items[itemIndex].options.push('')
+    },
+    removeOption(evt, itemIndex, optionIndex) {
+      evt.preventDefault()
+      this.items[itemIndex].options.splice(optionIndex, 1)
     }
   }
 })
@@ -301,6 +367,34 @@ export default Vue.extend({
     color: lightgray;
     font-size: 20px;
     margin-left: 37px;
+  }
+}
+.ghost {
+  opacity: 0;
+}
+.separate-items {
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+.disable-button {
+  pointer-events: none;
+}
+.add-button {
+  margin-right: 5rem;
+  height: 3rem;
+  width: 3rem;
+  text-align: center;
+  line-height: 50%;
+}
+.submit-button {
+  height: 6rem;
+  width: 6rem;
+  text-align: center;
+  line-height: 50%;
+}
+.card-data {
+  @media (min-width: 600px) {
+    max-width: 50rem;
   }
 }
 </style>

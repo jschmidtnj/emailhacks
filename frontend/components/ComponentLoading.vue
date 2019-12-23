@@ -7,7 +7,7 @@
   />
 </template>
 
-<script lang="ts">
+<script lang="js">
 import Vue from 'vue'
 import { AtomSpinner } from 'epic-spinners/dist/lib/epic-spinners.min.js'
 export default Vue.extend({

@@ -4,8 +4,9 @@ go 1.12
 
 require (
 	9fans.net/go v0.0.2 // indirect
-	cloud.google.com/go v0.47.0
-	cloud.google.com/go/storage v1.2.1
+	cloud.google.com/go v0.50.0
+	cloud.google.com/go/storage v1.4.0
+	github.com/DataDog/zstd v1.4.4 // indirect
 	github.com/Depado/bfchroma v1.1.2
 	github.com/PuerkitoBio/goquery v1.5.0
 	github.com/acroca/go-symbols v0.1.1 // indirect
@@ -58,20 +59,22 @@ require (
 	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c // indirect
 	github.com/xdg/stringprep v1.0.0 // indirect
 	github.com/zmb3/gogetdoc v0.0.0-20190228002656-b37376c5da6a // indirect
-	go.mongodb.org/mongo-driver v1.1.3
-	go.opencensus.io v0.22.1 // indirect
+	go.mongodb.org/mongo-driver v1.2.0
+	go.opencensus.io v0.22.2 // indirect
+	go.uber.org/atomic v1.5.1 // indirect
 	go.uber.org/multierr v1.4.0 // indirect
-	go.uber.org/zap v1.12.0
-	golang.org/x/crypto v0.0.0-20191106202628-ed6320f186d4
+	go.uber.org/zap v1.13.0
+	golang.org/x/crypto v0.0.0-20191219195013-becbf705a915
 	golang.org/x/mobile v0.0.0-20190814143026-e8b3e6111d02 // indirect
-	golang.org/x/net v0.0.0-20191105084925-a882066a44e0 // indirect
-	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
-	golang.org/x/sys v0.0.0-20191105231009-c1f44814a5cd // indirect
-	golang.org/x/tools v0.0.0-20191106185728-c2ac6c2a2d7e // indirect
+	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553 // indirect
+	golang.org/x/oauth2 v0.0.0-20191202225959-858c2ad4c8b6 // indirect
+	golang.org/x/sys v0.0.0-20191220220014-0732a990476f // indirect
+	golang.org/x/tools v0.0.0-20191220234730-f13409bbebaf // indirect
 	golang.org/x/tools/gopls v0.1.3 // indirect
-	google.golang.org/api v0.13.0
+	google.golang.org/api v0.15.0
 	google.golang.org/appengine v1.6.5 // indirect
-	google.golang.org/grpc v1.25.0 // indirect
+	google.golang.org/genproto v0.0.0-20191220175831-5c49e3ecc1c1 // indirect
+	google.golang.org/grpc v1.26.0 // indirect
 	gopkg.in/alecthomas/kingpin.v3-unstable v3.0.0-20180810215634-df19058c872c // indirect
 	sourcegraph.com/sqs/goreturns v0.0.0-20181028201513-538ac6014518 // indirect
 )

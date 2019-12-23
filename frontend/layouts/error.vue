@@ -3,7 +3,7 @@
     <div id="particles-js"></div>
     <div class="denied__wrapper">
       <h1>{{ error.statusCode }}</h1>
-      <p>{{ error }}</p>
+      <!--h3>{{ error }}</h3-->
       <div v-if="error.statusCode === 404">
         <h3>
           LOST IN SPACE? Hmm, looks like that page doesn't exist.
@@ -380,14 +380,14 @@
           />
         </g>
       </svg>
-      <a href="/">
+      <nuxt-link to="/" class="no-underline">
         <button class="denied__link">Go Home</button>
-      </a>
+      </nuxt-link>
     </div>
   </div>
 </template>
 
-<script lang="ts">
+<script lang="js">
 export default {
   name: 'Error',
   layout: 'nothing',

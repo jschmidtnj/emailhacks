@@ -5,7 +5,7 @@
         <p>&copy; Mail Pear 2020</p>
         <ul class="list-inline">
           <li class="list-inline-item">
-            <a href="/privacy">Privacy</a>
+            <nuxt-link to="/privacy">Privacy</nuxt-link>
           </li>
           <li class="list-inline-item">
             <a :href="githuburl">Github</a>
@@ -16,7 +16,7 @@
   </div>
 </template>
 
-<script lang="ts">
+<script lang="js">
 import Vue from 'vue'
 const githuburl = process.env.githuburl
 export default Vue.extend({

@@ -13,7 +13,7 @@ const loginRedirect = ({ store, redirect, query }) => {
               .dispatch('auth/getUser')
               .then((res) => {
                 if (!query.redirect_uri) {
-                  redirect('/account')
+                  redirect('/profile')
                 } else {
                   resolve()
                 }
@@ -22,7 +22,7 @@ const loginRedirect = ({ store, redirect, query }) => {
                 resolve()
               })
           } else if (!query.redirect_uri) {
-            redirect('/account')
+            redirect('/profile')
           } else {
             resolve()
           }

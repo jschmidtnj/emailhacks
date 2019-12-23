@@ -50,6 +50,7 @@
   },
   "homepage": "https://github.com/jschmidtnj/emailhacks#readme",
   "dependencies": {
-    "husky": "^2.1.0"
+    "husky": "^2.1.0",
+    "vue2-touch-events": "^2.1.0"
   }
 }

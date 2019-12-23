@@ -91,6 +91,12 @@ module.exports = {
    */
   css: [],
   /*
+   ** fix vue meta
+   */
+  vueMeta: {
+    debounceWait: 50
+  },
+  /*
    ** Plugins to load before mounting the App
    */
   plugins: [
@@ -103,7 +109,8 @@ module.exports = {
     { src: '~/plugins/recaptcha', ssr: false },
     { src: '~/plugins/scroll-reveal', ssr: false },
     { src: '~/plugins/pdf', ssr: false },
-    { src: '~/plugins/draggable', ssr: false }
+    { src: '~/plugins/draggable', ssr: false },
+    { src: '~/plugins/touch', ssr: false }
   ],
   /*
    ** Nuxt.js dev-modules
