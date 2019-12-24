@@ -342,9 +342,6 @@ export default Vue.extend({
       evt.preventDefault()
       for (let i = 0; i < this.items.length; i++) {
         if (this.items[i].type === itemTypes[3].id) {
-          if (!Object.hasOwnProperty(i)) {
-            this.editorContent[i] = this.$refs[`editor-${i}`][0]._data.editor.getJSON()
-          }
           this.items[i].text = this.editorContent[i]
         }
       }
@@ -408,12 +405,18 @@ export default Vue.extend({
       evt.preventDefault()
       if (type.id === itemTypes[3].id) {
         this.items[itemIndex].options = []
+        this.items[itemIndex].type = type.id
+        this.$nextTick(() => {
+          if (!this.editorContent.hasOwnProperty(itemIndex)) {
+            this.editorContent[itemIndex] = this.$refs[`editor-${itemIndex}`][0]._data.editor.getJSON()
+          }
+        })
       } else {
         this.deleteEditorData(itemIndex)
         this.items[itemIndex].text = ''
         this.items[itemIndex].options = ['']
+        this.items[itemIndex].type = type.id
       }
-      this.items[itemIndex].type = type.id
     },
     deleteEditorData(itemIndex) {
       if (this.editorContent.hasOwnProperty(itemIndex)) {
