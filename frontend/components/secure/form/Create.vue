@@ -71,7 +71,7 @@
                         <b-form-input
                           v-if="item.type !== itemTypes[3].id"
                           :id="`item-${index}-name`"
-                          v-model="item.name"
+                          v-model="item.question"
                           size="md"
                           type="text"
                           placeholder="Question"
@@ -84,6 +84,7 @@
                           :id="`item-type-${index}`"
                           :text="getItemTypeLabel(index)"
                           variant="outline-primary"
+                          class="mt-2 mb-2"
                         >
                           <b-dropdown-item-button
                             v-for="(type, indexType) in itemTypes"
@@ -114,13 +115,11 @@
                           <b-form-radio
                             v-if="item.type === itemTypes[0].id"
                             disabled
-                          >
-                          </b-form-radio>
+                          />
                           <b-form-checkbox
                             v-else-if="item.type === itemTypes[1].id"
                             disabled
-                          >
-                          </b-form-checkbox>
+                          />
                         </b-col>
                         <b-col
                           v-if="
@@ -153,33 +152,45 @@
                           </button>
                         </b-col>
                       </b-row>
-                      <b-form-radio
+                      <b-row
                         v-if="
                           item.type === itemTypes[0].id ||
                             item.type === itemTypes[1].id
                         "
-                        disabled
                       >
-                        <button
-                          :disabled="
-                            item.options[item.options.length - 1].length === 0
-                          "
-                          @click="(evt) => addOption(evt, index)"
-                          :class="{
-                            'disable-button':
-                              item.options[item.options.length - 1].length === 0
-                          }"
-                          class="button-link"
-                        >
-                          Add
-                          {{
-                            item.type === itemTypes[0].id
-                              ? 'Multiple Choice'
-                              : 'Checkbox'
-                          }}
-                          Option
-                        </button>
-                      </b-form-radio>
+                        <b-col style="max-width:30px;">
+                          <b-form-radio
+                            v-if="item.type === itemTypes[0].id"
+                            disabled
+                          />
+                          <b-form-checkbox v-else disabled />
+                        </b-col>
+                        <b-col>
+                          <button
+                            :disabled="
+                              item.options.length !== 0 &&
+                                item.options[item.options.length - 1].length ===
+                                  0
+                            "
+                            @click="(evt) => addOption(evt, index)"
+                            :class="{
+                              'disable-button':
+                                item.options.length !== 0 &&
+                                item.options[item.options.length - 1].length ===
+                                  0
+                            }"
+                            class="button-link"
+                          >
+                            Add
+                            {{
+                              item.type === itemTypes[0].id
+                                ? 'Multiple Choice'
+                                : 'Checkbox'
+                            }}
+                            Option
+                          </button>
+                        </b-col>
+                      </b-row>
                     </div>
                     <b-form-input
                       v-else-if="item.type === itemTypes[2].id"
@@ -191,11 +202,16 @@
                       class="mt-2 mb-2"
                       style="max-width:30rem;"
                     ></b-form-input>
-                    <text-editor
+                    <div
                       v-else-if="item.type === itemTypes[3].id"
-                      :show-menu="focusIndex === index"
-                      class="mt-2 mb-2"
-                    />
+                      class="editor mt-2 mb-2"
+                    >
+                      <text-editor
+                        :ref="`editor-${index}`"
+                        :show-menu="index === focusIndex"
+                        @updated-text="(text) => updatedText(text, index)"
+                      />
+                    </div>
                   </b-container>
                 </b-input-group>
               </span>
@@ -294,9 +310,10 @@ const itemTypes = [
   }
 ]
 const defaultItem = {
-  name: '',
+  question: '',
   type: itemTypes[0].id,
-  options: [''],
+  options: [],
+  text: [],
   required: false
 }
 export default Vue.extend({
@@ -311,17 +328,67 @@ export default Vue.extend({
       recipient: '',
       items: [clonedeep(defaultItem)],
       focusIndex: 0,
-      multiple: false
+      multiple: false,
+      editorContent: {}
+    }
+  },
+  mounted() {
+    if (this.items[0].type !== itemTypes[3].id) {
+      this.items[0].options.push('')
     }
   },
   methods: {
     submit(evt) {
       evt.preventDefault()
-      /* eslint-disable */
-      console.log('submit')
-      /* eslint-enable */
+      for (let i = 0; i < this.items.length; i++) {
+        if (this.items[i].type === itemTypes[3].id) {
+          this.items[i].text = this.editorContent[i]
+        }
+      }
+      console.log(this.items)
     },
     finishedDragging(evt) {
+      if (evt.oldIndex === evt.newIndex) {
+        return;
+      }
+      const oldTextLocations = Object.keys(this.editorContent).map(elem => Number(elem)).sort()
+      const newTextLocations = [...oldTextLocations]
+      let indexOld
+      const movingText = this.items[evt.newIndex].type === itemTypes[3].id
+      if (movingText) {
+        indexOld = oldTextLocations.indexOf(evt.oldIndex)
+        if (indexOld < 0) {
+          return;
+        }
+        newTextLocations.splice(indexOld, 1)
+      }
+      let inserted = false
+      for (let i = 0; i < newTextLocations.length; i++) {
+        let addAbove
+        if (newTextLocations[i] < evt.oldIndex && newTextLocations[i] >= evt.newIndex) {
+          newTextLocations[i]++
+          addAbove = false
+        } else if (newTextLocations[i] > evt.oldIndex && newTextLocations[i] <= evt.newIndex) {
+          newTextLocations[i]--
+          addAbove = true
+        }
+        if (newTextLocations[i] === evt.newIndex && movingText) {
+          newTextLocations.splice(i + (addAbove ? 1 : -1), 0, evt.newIndex)
+          i++
+          inserted = true
+        }
+      }
+      if (!inserted && movingText) {
+        newTextLocations.splice(indexOld, 0, evt.newIndex)
+      }
+      const newEditorContent = {}
+      for (let i = 0; i < newTextLocations.length; i++) {
+        newEditorContent[newTextLocations[i]] = this.editorContent[oldTextLocations[i]]
+      }
+      for (let i = 0; i < newTextLocations.length; i++) {
+        this.$refs[`editor-${newTextLocations[i]}`][0]._data.editor.setContent(newEditorContent[newTextLocations[i]])
+      }
+      this.editorContent = newEditorContent
       this.focusIndex = evt.newIndex
     },
     focusItem(evt, itemIndex) {
@@ -336,16 +403,43 @@ export default Vue.extend({
     },
     selectItemType(evt, itemIndex, type) {
       evt.preventDefault()
-      this.items[itemIndex].options = ['']
+      if (type.id === itemTypes[3].id) {
+        this.items[itemIndex].options = []
+      } else {
+        this.deleteEditorData(itemIndex)
+        this.items[itemIndex].text = ''
+        this.items[itemIndex].options = ['']
+      }
       this.items[itemIndex].type = type.id
+    },
+    deleteEditorData(itemIndex) {
+      if (this.editorContent.hasOwnProperty(itemIndex)) {
+        delete this.editorContent[itemIndex]
+      }
+    },
+    showImagePrompt(command) {
+      const src = prompt('Enter the url of your image here')
+      if (src !== null) {
+        command({ src })
+      }
+    },
+    updatedText(newText, itemIndex) {
+      this.editorContent[itemIndex] = newText
     },
     addItem(evt) {
       evt.preventDefault()
-      this.items.push(clonedeep(defaultItem))
+      const newItem = clonedeep(defaultItem)
+      if (newItem.type !== itemTypes[3].id) {
+        newItem.options.push('')
+      }
+      this.items.push(newItem)
       this.focusIndex = this.items.length - 1
     },
     removeItem(evt, itemIndex) {
       evt.preventDefault()
+      if (this.items[itemIndex].type === itemTypes[3].id) {
+        this.deleteEditorData(itemIndex)
+      }
       this.items.splice(itemIndex, 1)
       if (this.focusIndex >= this.items.length) {
         if (this.items.length > 0) {

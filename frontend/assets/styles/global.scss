@@ -7,6 +7,9 @@
 :root {
   --font-family-main: 'Roboto', sans-serif;
 }
+$color-black: #000000;
+$color-white: #ffffff;
+$color-grey: #dddddd;
 
 /* set fonts */
 * {
@@ -23,6 +26,7 @@
 .content {
   flex: 1;
 }
+/* sidebar stuff */
 .main-wrapper-sidebar {
   width: calc(100% - 250px);
   transition: all 0.3s;
@@ -63,4 +67,196 @@
 /* remove underline */
 .no-underline {
   text-decoration: none !important;
+}
+
+/* tiptap render */
+.ProseMirror [contenteditable="false"] {
+  white-space: normal;
+}
+.ProseMirror [contenteditable="true"] {
+  white-space: pre-wrap;
+}
+.ProseMirror-focused {
+  outline: none;
+}
+// see https://github.com/scrumpy/tiptap/tree/master/examples/assets/sass
+.editor {
+  position: relative;
+  max-width: 30rem;
+  margin: 0 auto 5rem auto;
+
+  &__content {
+
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+
+    * {
+      caret-color: currentColor;
+    }
+
+    pre {
+      padding: 0.7rem 1rem;
+      border-radius: 5px;
+      background: $color-black;
+      color: $color-white;
+      font-size: 0.8rem;
+      overflow-x: auto;
+
+      code {
+        display: block;
+      }
+    }
+    pre {
+      &::before {
+        content: attr(data-language);
+        text-transform: uppercase;
+        display: block;
+        text-align: right;
+        font-weight: bold;
+        font-size: 0.6rem;
+      }
+      code {
+        .hljs-comment,
+        .hljs-quote {
+          color: #999999;
+        }
+        .hljs-variable,
+        .hljs-template-variable,
+        .hljs-attribute,
+        .hljs-tag,
+        .hljs-name,
+        .hljs-regexp,
+        .hljs-link,
+        .hljs-name,
+        .hljs-selector-id,
+        .hljs-selector-class {
+          color: #f2777a;
+        }
+        .hljs-number,
+        .hljs-meta,
+        .hljs-built_in,
+        .hljs-builtin-name,
+        .hljs-literal,
+        .hljs-type,
+        .hljs-params {
+          color: #f99157;
+        }
+        .hljs-string,
+        .hljs-symbol,
+        .hljs-bullet {
+          color: #99cc99;
+        }
+        .hljs-title,
+        .hljs-section {
+          color: #ffcc66;
+        }
+        .hljs-keyword,
+        .hljs-selector-tag {
+          color: #6699cc;
+        }
+        .hljs-emphasis {
+          font-style: italic;
+        }
+        .hljs-strong {
+          font-weight: 700;
+        }
+      }
+    }
+
+    p code {
+      display: inline-block;
+      padding: 0 0.4rem;
+      border-radius: 5px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      background: rgba($color-black, 0.1);
+      color: rgba($color-black, 0.8);
+    }
+
+    ul,
+    ol {
+      padding-left: 1rem;
+    }
+
+    li > p,
+    li > ol,
+    li > ul {
+      margin: 0;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    blockquote {
+      border-left: 3px solid rgba($color-black, 0.1);
+      color: rgba($color-black, 0.8);
+      padding-left: 0.8rem;
+      font-style: italic;
+
+      p {
+        margin: 0;
+      }
+    }
+
+    img {
+      max-width: 100%;
+      border-radius: 3px;
+    }
+
+    table {
+      border-collapse: collapse;
+      table-layout: fixed;
+      width: 100%;
+      margin: 0;
+      overflow: hidden;
+
+      td, th {
+        min-width: 1em;
+        border: 2px solid $color-grey;
+        padding: 3px 5px;
+        vertical-align: top;
+        box-sizing: border-box;
+        position: relative;
+        > * {
+          margin-bottom: 0;
+        }
+      }
+
+      th {
+        font-weight: bold;
+        text-align: left;
+      }
+
+      .selectedCell:after {
+        z-index: 2;
+        position: absolute;
+        content: "";
+        left: 0; right: 0; top: 0; bottom: 0;
+        background: rgba(200, 200, 255, 0.4);
+        pointer-events: none;
+      }
+
+      .column-resize-handle {
+        position: absolute;
+        right: -2px; top: 0; bottom: 0;
+        width: 4px;
+        z-index: 20;
+        background-color: #adf;
+        pointer-events: none;
+      }
+    }
+
+    .tableWrapper {
+      margin: 1em 0;
+      overflow-x: auto;
+    }
+
+    .resize-cursor {
+      cursor: ew-resize;
+      cursor: col-resize;
+    }
+
+  }
 }
