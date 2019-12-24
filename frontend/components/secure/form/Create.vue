@@ -342,6 +342,9 @@ export default Vue.extend({
       evt.preventDefault()
       for (let i = 0; i < this.items.length; i++) {
         if (this.items[i].type === itemTypes[3].id) {
+          if (!Object.hasOwnProperty(i)) {
+            this.editorContent[i] = this.$refs[`editor-${i}`][0]._data.editor.getJSON()
+          }
           this.items[i].text = this.editorContent[i]
         }
       }
