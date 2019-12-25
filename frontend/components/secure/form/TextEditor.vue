@@ -220,6 +220,14 @@ export default Vue.extend({
   },
   beforeDestroy() {
     this.editor.destroy()
+  },
+  methods: {
+    showImagePrompt(command) {
+      const src = prompt('Enter the url of your image here')
+      if (src !== null) {
+        command({ src })
+      }
+    }
   }
 })
 </script>

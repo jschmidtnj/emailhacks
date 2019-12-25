@@ -67,7 +67,7 @@
                 <b-input-group :id="`item-${index}-name-type-input`">
                   <b-container>
                     <b-row>
-                      <b-col sm>
+                      <b-col sm class="my-auto">
                         <b-form-input
                           v-if="item.type !== itemTypes[3].id"
                           :id="`item-${index}-name`"
@@ -212,6 +212,29 @@
                         @updated-text="(text) => updatedText(text, index)"
                       />
                     </div>
+                    <div
+                      v-else-if="item.type === itemTypes[4].id"
+                      class="mt-2 mb-2"
+                    >
+                      <b-form-checkbox
+                        :id="`item-${index}-red-green`"
+                        style="display: inline-block;"
+                        name="red-green"
+                        switch
+                        disabled
+                      />
+                    </div>
+                    <div
+                      v-else-if="item.type === itemTypes[5].id"
+                      class="mt-2 mb-2"
+                    >
+                      <b-form-file
+                        placeholder="Choose a file or drop it here..."
+                        drop-placeholder="Drop file here..."
+                        style="max-width:30rem;"
+                        disabled
+                      ></b-form-file>
+                    </div>
                   </b-container>
                 </b-input-group>
               </span>
@@ -291,6 +314,8 @@ import Vue from 'vue'
 import clonedeep from 'lodash.clonedeep'
 import TextEditor from '~/components/secure/form/TextEditor.vue'
 
+// still need image picker
+
 const itemTypes = [
   {
     id: 'radio',
@@ -307,6 +332,14 @@ const itemTypes = [
   {
     id: 'text',
     label: 'Text'
+  },
+  {
+    id: 'redgreen',
+    label: 'Red / Green Light'
+  },
+  {
+    id: 'file',
+    label: 'File Upload'
   }
 ]
 const defaultItem = {
@@ -345,6 +378,8 @@ export default Vue.extend({
           this.items[i].text = this.editorContent[i]
         }
       }
+      // send images first
+      // then send json object
       console.log(this.items)
     },
     finishedDragging(evt) {
@@ -399,7 +434,7 @@ export default Vue.extend({
       if (itemType) {
         return itemType.label
       }
-      return 'cannot find item type'
+      return 'Unknown Type'
     },
     selectItemType(evt, itemIndex, type) {
       evt.preventDefault()
@@ -421,12 +456,6 @@ export default Vue.extend({
     deleteEditorData(itemIndex) {
       if (this.editorContent.hasOwnProperty(itemIndex)) {
         delete this.editorContent[itemIndex]
-      }
-    },
-    showImagePrompt(command) {
-      const src = prompt('Enter the url of your image here')
-      if (src !== null) {
-        command({ src })
       }
     },
     updatedText(newText, itemIndex) {
