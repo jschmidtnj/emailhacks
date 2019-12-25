@@ -235,6 +235,35 @@
                         disabled
                       ></b-form-file>
                     </div>
+                    <div
+                      v-else-if="item.type === itemTypes[6].id"
+                      class="mt-2 mb-2"
+                    >
+                      <b-container>
+                        <b-row>
+                          <b-col>
+                            <b-form-file
+                              v-model="items[index].file"
+                              :id="`item-${index}-file-attachment`"
+                              placeholder="Choose a file or drop it here..."
+                              drop-placeholder="Drop file here..."
+                              style="max-width:30rem;"
+                            ></b-form-file>
+                          </b-col>
+                        </b-row>
+                        <b-row>
+                          <b-col>
+                            <a
+                              v-if="items[index].file"
+                              :href="getFileURL(index)"
+                              :download="items[index].file.name"
+                            >
+                              Download
+                            </a>
+                          </b-col>
+                        </b-row>
+                      </b-container>
+                    </div>
                   </b-container>
                 </b-input-group>
               </span>
@@ -338,8 +367,12 @@ const itemTypes = [
     label: 'Red / Green Light'
   },
   {
-    id: 'file',
+    id: 'fileupload',
     label: 'File Upload'
+  },
+  {
+    id: 'fileattachment',
+    label: 'File Attachment'
   }
 ]
 const defaultItem = {
@@ -347,7 +380,8 @@ const defaultItem = {
   type: itemTypes[0].id,
   options: [],
   text: [],
-  required: false
+  required: false,
+  file: null
 }
 export default Vue.extend({
   name: 'Create',
@@ -381,6 +415,10 @@ export default Vue.extend({
       // send images first
       // then send json object
       console.log(this.items)
+    },
+    getFileURL(itemIndex) {
+      console.log(URL.createObjectURL(this.items[itemIndex].file))
+      return URL.createObjectURL(this.items[itemIndex].file)
     },
     finishedDragging(evt) {
       if (evt.oldIndex === evt.newIndex) {
