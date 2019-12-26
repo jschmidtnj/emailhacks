@@ -115,6 +115,9 @@
           </b-nav-item>
         </b-nav>
       </editor-menu-bar>
+      <div v-else-if="showMenu">
+        <hr style="margin-top:3rem;" />
+      </div>
     </span>
     <editor-content
       :editor="editor"
@@ -122,7 +125,7 @@
         'margin-top': showMenu
           ? focusMenu || focusEditor
             ? '1rem'
-            : '6rem'
+            : '3.5rem'
           : '15px'
       }"
       class="editor__content"

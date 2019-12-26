@@ -15,6 +15,7 @@ const auth = ({ store, redirect }) => {
                 resolve()
               })
               .catch((err) => {
+                console.error(err)
                 redirect('/login')
               })
           } else {

@@ -43,35 +43,35 @@ func checkAccessObj(accessObj map[string]interface{}) error {
 	return nil
 }
 
-func checkQuestionObjCreate(questionObj map[string]interface{}) error {
-	if questionObj["name"] == nil {
+func checkItemObjCreate(itemObj map[string]interface{}) error {
+	if itemObj["name"] == nil {
 		return errors.New("no name field given")
 	}
-	if questionObj["type"] == nil {
+	if itemObj["type"] == nil {
 		return errors.New("no type field given")
 	}
-	if questionObj["options"] == nil {
+	if itemObj["options"] == nil {
 		return errors.New("no options field given")
 	}
-	if questionObj["required"] == nil {
+	if itemObj["required"] == nil {
 		return errors.New("no required field given")
 	}
-	return checkQuestionObjUpdate(questionObj)
+	return checkItemObjUpdate(itemObj)
 }
 
-func checkQuestionObjUpdate(questionObj map[string]interface{}) error {
-	if questionObj["name"] != nil {
-		if _, ok := questionObj["name"].(string); !ok {
+func checkItemObjUpdate(itemObj map[string]interface{}) error {
+	if itemObj["name"] != nil {
+		if _, ok := itemObj["name"].(string); !ok {
 			return errors.New("problem casting id to string")
 		}
 	}
-	if questionObj["type"] != nil {
-		if _, ok := questionObj["type"].(string); !ok {
+	if itemObj["type"] != nil {
+		if _, ok := itemObj["type"].(string); !ok {
 			return errors.New("problem casting name to string")
 		}
 	}
-	if questionObj["options"] != nil {
-		optionsArray, ok := questionObj["options"].([]interface{})
+	if itemObj["options"] != nil {
+		optionsArray, ok := itemObj["options"].([]interface{})
 		if !ok {
 			return errors.New("problem casting options to interface array")
 		}
@@ -79,8 +79,8 @@ func checkQuestionObjUpdate(questionObj map[string]interface{}) error {
 			return errors.New("problem casting options to string array")
 		}
 	}
-	if questionObj["required"] != nil {
-		if _, ok := questionObj["required"].(bool); !ok {
+	if itemObj["required"] != nil {
+		if _, ok := itemObj["required"].(bool); !ok {
 			return errors.New("problem casting required to boolean")
 		}
 	}
@@ -158,8 +158,8 @@ func rootMutation() *graphql.Object {
 					"description": &graphql.ArgumentConfig{
 						Type: graphql.String,
 					},
-					"questions": &graphql.ArgumentConfig{
-						Type: graphql.NewList(QuestionInputType),
+					"items": &graphql.ArgumentConfig{
+						Type: graphql.NewList(ItemInputType),
 					},
 				},
 				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
@@ -181,8 +181,8 @@ func rootMutation() *graphql.Object {
 					if params.Args["description"] == nil {
 						return nil, errors.New("description not provided")
 					}
-					if params.Args["questions"] == nil {
-						return nil, errors.New("questions not provided")
+					if params.Args["items"] == nil {
+						return nil, errors.New("items not provided")
 					}
 					name, ok := params.Args["name"].(string)
 					if !ok {
@@ -192,23 +192,23 @@ func rootMutation() *graphql.Object {
 					if !ok {
 						return nil, errors.New("problem casting description to string")
 					}
-					questionsInterface, ok := params.Args["questions"].([]interface{})
+					itemsInterface, ok := params.Args["items"].([]interface{})
 					if !ok {
-						return nil, errors.New("problem casting questions to interface array")
+						return nil, errors.New("problem casting items to interface array")
 					}
-					questions, err := interfaceListToMapList(questionsInterface)
+					items, err := interfaceListToMapList(itemsInterface)
 					if err != nil {
 						return nil, err
 					}
-					for _, question := range questions {
-						if err := checkQuestionObjCreate(question); err != nil {
+					for _, item := range items {
+						if err := checkItemObjCreate(item); err != nil {
 							return nil, err
 						}
 					}
 					formData := bson.M{
 						"name":        name,
 						"description": description,
-						"questions":   questions,
+						"items":       items,
 						"access": bson.A{
 							bson.M{
 								"id":     userIDString,
@@ -244,8 +244,8 @@ func rootMutation() *graphql.Object {
 					"description": &graphql.ArgumentConfig{
 						Type: graphql.String,
 					},
-					"questions": &graphql.ArgumentConfig{
-						Type: graphql.NewList(QuestionInputType),
+					"items": &graphql.ArgumentConfig{
+						Type: graphql.NewList(ItemInputType),
 					},
 					"access": &graphql.ArgumentConfig{
 						Type: graphql.NewList(AccessInputType),
@@ -348,22 +348,22 @@ func rootMutation() *graphql.Object {
 						updateSet["description"] = description
 						allFormData["description"] = description
 					}
-					if params.Args["questions"] != nil {
-						questionsInterface, ok := params.Args["questions"].([]interface{})
+					if params.Args["items"] != nil {
+						itemsInterface, ok := params.Args["items"].([]interface{})
 						if !ok {
-							return nil, errors.New("problem casting questions to interface array")
+							return nil, errors.New("problem casting items to interface array")
 						}
-						questions, err := interfaceListToMapList(questionsInterface)
+						items, err := interfaceListToMapList(itemsInterface)
 						if err != nil {
 							return nil, err
 						}
-						for _, question := range questions {
-							if err := checkQuestionObjUpdate(question); err != nil {
+						for _, item := range items {
+							if err := checkItemObjUpdate(item); err != nil {
 								return nil, err
 							}
 						}
-						updateSet["questions"] = questions
-						allFormData["questions"] = questions
+						updateSet["items"] = items
+						allFormData["items"] = items
 					}
 					var access []map[string]interface{}
 					if params.Args["access"] != nil {

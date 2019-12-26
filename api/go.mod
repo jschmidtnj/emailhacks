@@ -21,6 +21,8 @@ require (
 	github.com/disintegration/imaging v1.6.0
 	github.com/dlclark/regexp2 v1.2.0 // indirect
 	github.com/fatih/gomodifytags v1.0.0 // indirect
+	github.com/gin-contrib/cors v1.3.0
+	github.com/gin-gonic/gin v1.5.0
 	github.com/go-redis/redis v6.15.2+incompatible
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
@@ -30,17 +32,18 @@ require (
 	github.com/google/shlex v0.0.0-20181106134648-c34317bd91bf // indirect
 	github.com/gorilla/handlers v1.4.2 // indirect
 	github.com/graphql-go/graphql v0.7.8
+	github.com/graphql-go/handler v0.2.3
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
 	github.com/haya14busa/goplay v1.0.0 // indirect
 	github.com/ikeikeikeike/go-sitemap-generator/v2 v2.0.2 // indirect
 	github.com/joho/godotenv v1.3.0
 	github.com/josharian/impl v0.0.0-20190715203526-f0d59e96e372 // indirect
+	github.com/json-iterator/go v1.1.9
 	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/karrick/godirwalk v1.10.12 // indirect
 	github.com/kr/pty v1.1.8 // indirect
 	github.com/mattn/go-colorable v0.1.2 // indirect
 	github.com/mdempsky/gocode v0.0.0-20190203001940-7fb65232883f // indirect
-	github.com/medium/medium-sdk-go v0.0.0-20171230201202-4daca056cf6a
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/mongodb/mongo-go-driver v1.1.0 // indirect
 	github.com/nicksnyder/go-i18n v2.0.2+incompatible // indirect

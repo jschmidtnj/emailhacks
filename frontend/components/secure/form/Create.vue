@@ -241,13 +241,14 @@
                     >
                       <b-container>
                         <b-row>
-                          <b-col>
+                          <b-col style="padding-left:0;">
                             <b-form-file
                               v-model="items[index].file"
                               :id="`item-${index}-file-attachment`"
                               placeholder="Choose a file or drop it here..."
                               drop-placeholder="Drop file here..."
                               style="max-width:30rem;"
+                              class="mb-2"
                             ></b-form-file>
                           </b-col>
                         </b-row>
@@ -257,6 +258,7 @@
                               v-if="items[index].file"
                               :href="getFileURL(index)"
                               :download="items[index].file.name"
+                              class="mt-2 mb-2"
                             >
                               Download
                             </a>

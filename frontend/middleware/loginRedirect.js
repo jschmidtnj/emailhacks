@@ -19,6 +19,7 @@ const loginRedirect = ({ store, redirect, query }) => {
                 }
               })
               .catch((err) => {
+                console.error(err)
                 resolve()
               })
           } else if (!query.redirect_uri) {

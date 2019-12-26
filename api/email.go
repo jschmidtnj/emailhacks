@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -11,6 +10,8 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/gin-gonic/gin"
+	json "github.com/json-iterator/go"
 	"github.com/sendgrid/rest"
 	"github.com/sendgrid/sendgrid-go"
 )
@@ -95,7 +96,9 @@ func sendEmailVerification(email string) (*rest.Response, error) {
  * @apiSuccess {String} message Success message for email sent
  * @apiGroup emails
  */
-func sendPasswordResetEmail(response http.ResponseWriter, request *http.Request) {
+func sendPasswordResetEmail(c *gin.Context) {
+	response := c.Writer
+	request := c.Request
 	if request.Method != http.MethodPut {
 		handleError("reset http method not PUT", http.StatusBadRequest, response)
 		return
@@ -223,7 +226,9 @@ func sendPasswordResetEmail(response http.ResponseWriter, request *http.Request)
  * @apiSuccess {String} message Success message for email sent
  * @apiGroup emails
  */
-func sendTestEmail(response http.ResponseWriter, request *http.Request) {
+func sendTestEmail(c *gin.Context) {
+	response := c.Writer
+	request := c.Request
 	if request.Method != http.MethodPost {
 		handleError("register http method not POST", http.StatusBadRequest, response)
 		return

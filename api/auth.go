@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"net/http"
@@ -10,6 +9,8 @@ import (
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/gin-gonic/gin"
+	json "github.com/json-iterator/go"
 	"github.com/mitchellh/mapstructure"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -82,7 +83,9 @@ func verifyRecaptcha(recaptchaToken string, recaptchaSecret string) error {
  * @apiSuccess {String} message Response message
  * @apiGroup authentication
  */
-func register(response http.ResponseWriter, request *http.Request) {
+func register(c *gin.Context) {
+	response := c.Writer
+	request := c.Request
 	if request.Method != http.MethodPost {
 		handleError("register http method not POST", http.StatusBadRequest, response)
 		return
@@ -171,7 +174,9 @@ func register(response http.ResponseWriter, request *http.Request) {
  * @apiSuccess {String} token User token for authenticated requests
  * @apiGroup authentication
  */
-func loginEmailPassword(response http.ResponseWriter, request *http.Request) {
+func loginEmailPassword(c *gin.Context) {
+	response := c.Writer
+	request := c.Request
 	if request.Method != http.MethodPut {
 		handleError("login http method not PUT", http.StatusBadRequest, response)
 		return
@@ -264,7 +269,9 @@ func loginEmailPassword(response http.ResponseWriter, request *http.Request) {
 	}
 }
 
-func verifyEmail(response http.ResponseWriter, request *http.Request) {
+func verifyEmail(c *gin.Context) {
+	response := c.Writer
+	request := c.Request
 	if request.Method != http.MethodPost {
 		handleError("verify http method not POST", http.StatusBadRequest, response)
 		return
@@ -378,7 +385,9 @@ func verifyEmail(response http.ResponseWriter, request *http.Request) {
  * @apiSuccess {String} message Response message
  * @apiGroup authentication
  */
-func resetPassword(response http.ResponseWriter, request *http.Request) {
+func resetPassword(c *gin.Context) {
+	response := c.Writer
+	request := c.Request
 	if request.Method != http.MethodPost {
 		handleError("reset http method not POST", http.StatusBadRequest, response)
 		return

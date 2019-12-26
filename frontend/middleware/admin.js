@@ -19,6 +19,7 @@ const admin = ({ store, redirect }) => {
                 }
               })
               .catch((err) => {
+                console.error(err)
                 redirect('/login')
               })
           } else if (store.state.auth.user.type === 'admin') {
