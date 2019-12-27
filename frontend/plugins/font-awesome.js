@@ -18,7 +18,9 @@ import {
   faRedo,
   faPlus,
   faPaperPlane,
-  faImage
+  faImage,
+  faPlusCircle,
+  faAngleDoubleRight
 } from '@fortawesome/free-solid-svg-icons'
 
 import {} from '@fortawesome/free-brands-svg-icons'
@@ -43,7 +45,9 @@ library.add(
   faRedo,
   faPlus,
   faPaperPlane,
-  faImage
+  faImage,
+  faPlusCircle,
+  faAngleDoubleRight
 )
 
 Vue.component('font-awesome-icon', FontAwesomeIcon)

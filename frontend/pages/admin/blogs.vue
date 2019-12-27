@@ -116,12 +116,12 @@
                   <b-form-group>
                     <label class="form-required">Theme Color</label>
                     <span>
-                      <no-ssr>
+                      <client-only>
                         <color-picker
                           v-model="blog.color"
                           aria-describedby="colorfeedback"
                         />
-                      </no-ssr>
+                      </client-only>
                     </span>
                     <b-form-invalid-feedback
                       id="colorfeedback"
@@ -135,7 +135,7 @@
                   <b-form-group>
                     <label class="form-required">Categories</label>
                     <span>
-                      <no-ssr>
+                      <client-only>
                         <v-select
                           v-model="blog.categories"
                           :options="categoryOptions"
@@ -143,7 +143,7 @@
                           :taggable="true"
                           aria-describedby="categoryfeedback"
                         ></v-select>
-                      </no-ssr>
+                      </client-only>
                     </span>
                     <b-form-invalid-feedback
                       id="categoryfeedback"
@@ -162,7 +162,7 @@
                   <b-form-group>
                     <label class="form-required">Tags</label>
                     <span>
-                      <no-ssr>
+                      <client-only>
                         <v-select
                           v-model="blog.tags"
                           :options="tagOptions"
@@ -170,7 +170,7 @@
                           :taggable="true"
                           aria-describedby="tagfeedback"
                         ></v-select>
-                      </no-ssr>
+                      </client-only>
                     </span>
                     <b-form-invalid-feedback
                       id="tagfeedback"
@@ -391,11 +391,11 @@
                           variant="primary"
                           class="mr-2"
                         >
-                          <no-ssr>
+                          <client-only>
                             <font-awesome-icon
                               class="mr-2 arrow-size-edit"
                               icon="plus-circle"
-                            /> </no-ssr
+                            /> </client-only
                           >Add
                         </b-btn>
                         <b-btn
@@ -404,11 +404,11 @@
                           variant="primary"
                           class="mr-2"
                         >
-                          <no-ssr>
+                          <client-only>
                             <font-awesome-icon
                               class="mr-2 arrow-size-edit"
                               icon="times"
-                            /> </no-ssr
+                            /> </client-only
                           >Remove
                         </b-btn>
                       </b-col>
@@ -422,19 +422,19 @@
                           variant="primary"
                           type="submit"
                         >
-                          <no-ssr>
+                          <client-only>
                             <font-awesome-icon
                               class="mr-2 arrow-size-edit"
                               icon="angle-double-right"
-                            /> </no-ssr
+                            /> </client-only
                           >Submit
                         </b-btn>
                         <b-btn variant="primary" type="reset" class="mr-4">
-                          <no-ssr>
+                          <client-only>
                             <font-awesome-icon
                               class="mr-2 arrow-size-edit"
                               icon="times"
-                            /> </no-ssr
+                            /> </client-only
                           >Clear
                         </b-btn>
                       </b-col>
@@ -492,19 +492,19 @@
                     type="submit"
                     class="mr-4"
                   >
-                    <no-ssr>
+                    <client-only>
                       <font-awesome-icon
                         class="mr-2 arrow-size-edit"
                         icon="angle-double-right"
-                      /> </no-ssr
+                      /> </client-only
                     >Search
                   </b-btn>
                   <b-btn variant="primary" type="reset" class="mr-4">
-                    <no-ssr>
+                    <client-only>
                       <font-awesome-icon
                         class="mr-2 arrow-size-edit"
                         icon="times"
-                      /> </no-ssr
+                      /> </client-only
                     >Clear
                   </b-btn>
                   <br />
