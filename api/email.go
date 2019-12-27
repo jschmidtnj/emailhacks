@@ -248,8 +248,20 @@ func sendTestEmail(c *gin.Context) {
 		handleError("error parsing request body: "+err.Error(), http.StatusBadRequest, response)
 		return
 	}
-	if !(emaildata["to"] != nil && emaildata["from"] != nil && emaildata["content"] != nil && emaildata["subject"] != nil) {
-		handleError("no to or from or content or subject provided", http.StatusBadRequest, response)
+	if emaildata["to"] == nil {
+		handleError("no to provided", http.StatusBadRequest, response)
+		return
+	}
+	if emaildata["from"] == nil {
+		handleError("no from provided", http.StatusBadRequest, response)
+		return
+	}
+	if emaildata["content"] == nil {
+		handleError("no content provided", http.StatusBadRequest, response)
+		return
+	}
+	if emaildata["subject"] == nil {
+		handleError("no subject provided", http.StatusBadRequest, response)
 		return
 	}
 	res, err := http.Get(websiteURL + "/emailtemplates/test.html")

@@ -101,18 +101,26 @@ func register(c *gin.Context) {
 		handleError("error parsing request body: "+err.Error(), http.StatusBadRequest, response)
 		return
 	}
-	if !(registerdata["password"] != nil && registerdata["email"] != nil && registerdata["recaptcha"] != nil) {
-		handleError("no email or password or recaptcha token provided", http.StatusBadRequest, response)
+	if registerdata["email"] == nil {
+		handleError("no email provided", http.StatusBadRequest, response)
 		return
 	}
-	password, ok := registerdata["password"].(string)
-	if !ok {
-		handleError("password cannot be cast to string", http.StatusBadRequest, response)
+	if registerdata["password"] == nil {
+		handleError("no password provided", http.StatusBadRequest, response)
+		return
+	}
+	if registerdata["recaptcha"] == nil {
+		handleError("no recaptcha token provided", http.StatusBadRequest, response)
 		return
 	}
 	email, ok := registerdata["email"].(string)
 	if !ok {
 		handleError("email cannot be cast to string", http.StatusBadRequest, response)
+		return
+	}
+	password, ok := registerdata["password"].(string)
+	if !ok {
+		handleError("password cannot be cast to string", http.StatusBadRequest, response)
 		return
 	}
 	recaptchatoken, ok := registerdata["recaptcha"].(string)
@@ -192,8 +200,16 @@ func loginEmailPassword(c *gin.Context) {
 		handleError("error parsing request body: "+err.Error(), http.StatusBadRequest, response)
 		return
 	}
-	if logindata["email"] == nil || logindata["password"] == nil || logindata["recaptcha"] == nil {
-		handleError("no email or password or recaptcha token provided", http.StatusBadRequest, response)
+	if logindata["email"] == nil {
+		handleError("no email provided", http.StatusBadRequest, response)
+		return
+	}
+	if logindata["password"] == nil {
+		handleError("no password provided", http.StatusBadRequest, response)
+		return
+	}
+	if logindata["recaptcha"] == nil {
+		handleError("no recaptcha token provided", http.StatusBadRequest, response)
 		return
 	}
 	email, ok := logindata["email"].(string)
@@ -313,8 +329,12 @@ func verifyEmail(c *gin.Context) {
 		handleError("invalid token", http.StatusBadRequest, response)
 		return
 	}
-	if !(decodedToken["email"] != nil && decodedToken["verify"] != nil) {
-		handleError("token does not contian email or verify", http.StatusBadRequest, response)
+	if decodedToken["email"] == nil {
+		handleError("token does not contain email", http.StatusBadRequest, response)
+		return
+	}
+	if decodedToken["verify"] == nil {
+		handleError("token does not contain verify", http.StatusBadRequest, response)
 		return
 	}
 	email, ok := decodedToken["email"].(string)
@@ -346,7 +366,11 @@ func verifyEmail(c *gin.Context) {
 			return
 		}
 		userData := userDataPrimitive.Map()
-		if userData["emailverified"] != nil && userData["emailverified"].(bool) {
+		if userData["emailverified"] == nil {
+			handleError("email verified not found", http.StatusBadRequest, response)
+			return
+		}
+		if userData["emailverified"].(bool) {
 			handleError("email already verified", http.StatusBadRequest, response)
 			return
 		}
@@ -403,8 +427,12 @@ func resetPassword(c *gin.Context) {
 		handleError("error parsing request body: "+err.Error(), http.StatusBadRequest, response)
 		return
 	}
-	if resetdata["token"] == nil || resetdata["password"] == nil {
-		handleError("no token or new password provided", http.StatusBadRequest, response)
+	if resetdata["token"] == nil {
+		handleError("no token provided", http.StatusBadRequest, response)
+		return
+	}
+	if resetdata["password"] == nil {
+		handleError("no new password provided", http.StatusBadRequest, response)
 		return
 	}
 	giventoken, ok := resetdata["token"].(string)
@@ -434,8 +462,12 @@ func resetPassword(c *gin.Context) {
 		handleError("invalid token", http.StatusBadRequest, response)
 		return
 	}
-	if !(decodedToken["email"] != nil && decodedToken["reset"] != nil) {
-		handleError("token does not contian email or reset", http.StatusBadRequest, response)
+	if decodedToken["email"] == nil {
+		handleError("token does not contian email", http.StatusBadRequest, response)
+		return
+	}
+	if decodedToken["reset"] == nil {
+		handleError("token does not contian reset", http.StatusBadRequest, response)
 		return
 	}
 	email, ok := decodedToken["email"].(string)
@@ -467,8 +499,16 @@ func resetPassword(c *gin.Context) {
 			return
 		}
 		userData := userDataPrimitive.Map()
-		if !(userData["_id"] != nil && userData["emailverified"] != nil && userData["emailverified"].(bool)) {
-			handleError("user id invalid or email not verified", http.StatusBadRequest, response)
+		if userData["_id"] == nil {
+			handleError("user id invalid", http.StatusBadRequest, response)
+			return
+		}
+		if userData["emailverified"] == nil {
+			handleError("email verified not found", http.StatusBadRequest, response)
+			return
+		}
+		if !userData["emailverified"].(bool) {
+			handleError("email not verified", http.StatusBadRequest, response)
 			return
 		}
 		id := userData["_id"].(primitive.ObjectID)
@@ -526,8 +566,11 @@ func validateAdmin(t string) (jwt.MapClaims, error) {
 	if err != nil {
 		return nil, err
 	}
-	if accountdata["emailverified"] != nil && accountdata["emailverified"].(bool) {
-		return nil, errors.New("email not found or verified")
+	if accountdata["emailverified"] == nil {
+		return nil, errors.New("email verified not found")
+	}
+	if !accountdata["emailverified"].(bool) {
+		return nil, errors.New("email not verified")
 	}
 	if accountdata["type"] != "admin" {
 		return nil, errors.New("user not admin")

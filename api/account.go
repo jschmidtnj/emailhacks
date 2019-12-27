@@ -28,3 +28,16 @@ var AccountType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 		},
 	},
 })
+
+// PublicAccountType data publically available
+var PublicAccountType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
+	Name: "PublicAccount",
+	Fields: graphql.Fields{
+		"id": &graphql.Field{
+			Type: graphql.String,
+		},
+		"email": &graphql.Field{
+			Type: graphql.String,
+		},
+	},
+})

@@ -1,0 +1,38 @@
+{
+  "name": "amp",
+  "description": "amp app",
+  "license": "MIT",
+  "scripts": {
+    "lint": "tslint --project tsconfig.json --fix",
+    "precommit": "yarn lint",
+    "build": "tsc",
+    "gcp-build": "yarn build",
+    "start": "node lib/index.js",
+    "deploy:gcp": "gcloud app deploy",
+    "deploy:heroku": "sh ./deployheroku.sh",
+    "test": "echo \"no test specified\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jschmidtnj/emailhacks.git"
+  },
+  "main": "lib/index.js",
+  "dependencies": {
+    "@ampproject/toolbox-optimizer": "^1.0.0-beta.3",
+    "axios": "^0.18.0",
+    "body-parser": "^1.18.3",
+    "cheerio": "^1.0.0-rc.3",
+    "cookie-parser": "^1.4.4",
+    "cors": "^2.8.5",
+    "date-fns": "^1.30.1",
+    "express": "^4.16.4",
+    "showdown": "^1.9.0"
+  },
+  "devDependencies": {
+    "@types/cheerio": "^0.22.12",
+    "@types/node": "^12.0.7",
+    "tslint": "~5.8.0",
+    "typescript": "~3.3.1"
+  },
+  "private": false
+}

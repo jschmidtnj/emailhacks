@@ -7,9 +7,10 @@
     <b-collapse id="nav-collapse" is-nav>
       <b-navbar-nav>
         <nuxt-link to="/about" class="no-underline">
-          <b-nav-item href="/about">
-            About
-          </b-nav-item>
+          <b-nav-item href="/about">About</b-nav-item>
+        </nuxt-link>
+        <nuxt-link to="/blogs" class="no-underline">
+          <b-nav-item href="/blogs">Blogs</b-nav-item>
         </nuxt-link>
         <nuxt-link v-if="!loggedIn" to="/signup" class="no-underline">
           <b-nav-item href="/signup">Signup</b-nav-item>

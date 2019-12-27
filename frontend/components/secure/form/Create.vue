@@ -1,5 +1,5 @@
 <template>
-  <div id="create">
+  <div id="create" v-if="!loading">
     <b-card no-body class="card-data shadow-lg">
       <b-card-body>
         <b-form>
@@ -259,9 +259,8 @@
                               :href="getFileURL(index)"
                               :download="items[index].file.name"
                               class="mt-2 mb-2"
+                              >Download</a
                             >
-                              Download
-                            </a>
                           </b-col>
                         </b-row>
                       </b-container>
@@ -390,20 +389,79 @@ export default Vue.extend({
   components: {
     TextEditor
   },
+  props: {
+    getInitialData: {
+      type: Boolean,
+      default: true
+    },
+    id: {
+      type: String,
+      default: null
+    }
+  },
   data() {
     return {
+      loading: true,
       itemTypes,
+      focusIndex: 0,
+      editorContent: {},
       subject: '',
       recipient: '',
-      items: [clonedeep(defaultItem)],
-      focusIndex: 0,
+      items: [],
       multiple: false,
-      editorContent: {}
+      files: []
     }
   },
   mounted() {
-    if (this.items[0].type !== itemTypes[3].id) {
-      this.items[0].options.push('')
+    if (this.getInitialData) {
+      this.$axios.get('/graphql', {
+        params: {
+          query: `{form(id:"${this.id}"){subject,recipient,items{question,type,options,text,required,file},multiple,files{id,name,width,height,type}}}`
+        }
+      })
+      .then(res => {
+        if (res.status === 200) {
+          if (res.data) {
+            if (res.data.data && res.data.data.form) {
+              this.subject = decodeURIComponent(res.data.data.form.subject)
+              this.recipient = decodeURIComponent(res.data.data.form.recipient)
+              res.data.data.form.items.map(item => {
+                item.question = decodeURIComponent(item.question)
+                item.options = item.options.map(option => decodeURIComponent(option))
+              })
+              this.items = res.data.data.form.items
+              this.multiple = res.data.data.form.multiple
+              this.files = res.data.data.form.files
+              this.loading = false
+            } else if (res.data.errors) {
+              console.error(res.data.errors[0])
+              this.$toasted.global.error({
+                message: `found errors: ${JSON.stringify(res.data.errors)}`
+              })
+            } else {
+              this.$toasted.global.error({
+                message: 'could not find data or errors'
+              })
+            }
+          } else {
+            this.$toasted.global.error({
+              message: 'could not get data'
+            })
+          }
+        } else {
+          this.$toasted.global.error({
+            message: `status code of ${res.status}`
+          })
+        }
+      })
+      .catch(err => {
+        console.error(err)
+        this.$toasted.global.error({
+          message: err
+        })
+      })
+    } else {
+      this.loading = false
     }
   },
   methods: {
@@ -413,13 +471,83 @@ export default Vue.extend({
         if (this.items[i].type === itemTypes[3].id) {
           this.items[i].text = this.editorContent[i]
         }
+        this.items[i].file = ''
       }
       // send images first
       // then send json object
-      console.log(this.items)
+      // console.log(this.items)
+      this.$axios
+        .post('/graphql', {
+          query: `mutation{updateForm(id:"${encodeURIComponent(
+            this.id
+          )}",subject:"${encodeURIComponent(
+            this.subject
+          )}",recipient:"${encodeURIComponent(
+            this.recipient
+          )}",items:[${
+            this.items.map(item =>
+              `{question:"${
+                encodeURIComponent(item.question)
+              }",type:"${
+                encodeURIComponent(item.type)
+              }",options:${JSON.stringify(
+                item.options.map(option => encodeURIComponent(option))
+              )},text:${JSON.stringify(
+                item.text.map(text => encodeURIComponent(text))
+              )},required:${item.required},file:"${
+                encodeURIComponent(item.file)
+              }"}`
+            )
+          }],multiple:${encodeURIComponent(
+            this.multiple
+          )},files:[${
+            this.files.map(file =>
+              `{id:"${
+                encodeURIComponent(file.id)
+                }",name:"${
+                  encodeURIComponent(file.name)
+                }",height:${
+                  file.height ? file.height : 0
+                },width:${
+                    file.width ? file.width : 0
+                },type:"${
+                  file.type
+                }"}`
+            )
+          }]){id}}`
+        })
+        .then(res => {
+          if (res.status === 200) {
+            if (res.data) {
+              if (res.data.data && res.data.data.updateForm) {
+                console.log('updated!')
+              } else if (res.data.errors) {
+                this.$toasted.global.error({
+                  message: `found errors: ${JSON.stringify(res.data.errors)}`
+                })
+              } else {
+                this.$toasted.global.error({
+                  message: 'could not find data or errors'
+                })
+              }
+            } else {
+              this.$toasted.global.error({
+                message: 'could not get data'
+              })
+            }
+          } else {
+            this.$toasted.global.error({
+              message: `status code of ${res.status}`
+            })
+          }
+        })
+        .catch(err => {
+          this.$toasted.global.error({
+            message: err
+          })
+        })
     },
     getFileURL(itemIndex) {
-      console.log(URL.createObjectURL(this.items[itemIndex].file))
       return URL.createObjectURL(this.items[itemIndex].file)
     },
     finishedDragging(evt) {

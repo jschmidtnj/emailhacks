@@ -5,6 +5,10 @@ export const codes = {
   unauthorized: 403
 }
 
+export const cloudStorageURLs = {
+  blogs: 'https://cdn.mailpear.com'
+}
+
 export const toasts = {
   position: 'top-right',
   duration: 2000,
@@ -12,7 +16,8 @@ export const toasts = {
 }
 
 export const regex = {
-  password: /^$|^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/
+  password: /^$|^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/,
+  hexcode: /(^#[0-9A-F]{6}$)|(^#[0-9A-F]{3}$)/i
 }
 
 export const oauthConfig = {
@@ -21,3 +26,44 @@ export const oauthConfig = {
     scope: ['profile', 'email'].join(' ')
   }
 }
+
+export const paths = {
+  placeholder: '/placeholder',
+  original: '/original',
+  blur: '/blur'
+}
+
+export const options = {
+  categoryOptions: ['technology', 'webdesign'],
+  tagOptions: ['vue', 'nuxt']
+}
+
+export const defaultColor = '#194d332B'
+
+export const staticstorageindexes = {
+  blogfiles: 'blogfiles',
+  placeholder: 'placeholder'
+}
+
+export const validfiles = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/svg+xml',
+  'video/mpeg',
+  'video/mp4',
+  'video/webm',
+  'video/x-msvideo',
+  'application/pdf',
+  'text/plain',
+  'application/zip',
+  'text/csv',
+  'application/json',
+  'application/ld+json',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+]
+
+export const validimages = [validfiles[0], validfiles[1], validfiles[3]]
