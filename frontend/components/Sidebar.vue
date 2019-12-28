@@ -10,13 +10,13 @@
           </div>
         </li>
         <li class="nav-item">
-          <nuxt-link to="/form" class="no-underline">
-            <a class="nav-link">New Form</a>
+          <nuxt-link to="/project" class="no-underline">
+            <a class="nav-link">New Project</a>
           </nuxt-link>
         </li>
         <li class="nav-item">
-          <nuxt-link to="/savedForms" class="no-underline">
-            <a class="nav-link">Saved Forms</a>
+          <nuxt-link to="/projects" class="no-underline">
+            <a class="nav-link">Saved Projects</a>
           </nuxt-link>
         </li>
       </ul>

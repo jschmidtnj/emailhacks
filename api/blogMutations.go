@@ -230,7 +230,6 @@ var blogMutationFields = graphql.Fields{
 				"heroimage":  heroimage,
 				"tileimage":  tileimage,
 				"files":      files,
-				"comments":   []string{},
 				"shortlink":  shortlink,
 			}
 			_, err = blogCollection.InsertOne(ctxMongo, blogData)

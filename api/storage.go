@@ -2,8 +2,8 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
+	json "github.com/json-iterator/go"
 	"image"
 	"image/draw"
 	"image/gif"

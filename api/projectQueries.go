@@ -10,14 +10,11 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-var formQueryFields = graphql.Fields{
-	"forms": &graphql.Field{
-		Type:        graphql.NewList(FormType),
-		Description: "Get list of forms",
+var projectQueryFields = graphql.Fields{
+	"projects": &graphql.Field{
+		Type:        graphql.NewList(ProjectType),
+		Description: "Get list of projects",
 		Args: graphql.FieldConfigArgument{
-			"project": &graphql.ArgumentConfig{
-				Type: graphql.String,
-			},
 			"perpage": &graphql.ArgumentConfig{
 				Type: graphql.Int,
 			},
@@ -50,17 +47,6 @@ var formQueryFields = graphql.Fields{
 			userIDString, ok := claims["id"].(string)
 			if !ok {
 				return nil, errors.New("cannot cast user id to string")
-			}
-			if params.Args["project"] == nil {
-				return nil, errors.New("no project id argument found")
-			}
-			project, ok := params.Args["project"].(string)
-			if !ok {
-				return nil, errors.New("project could not be cast to string")
-			}
-			_, err = primitive.ObjectIDFromHex(project)
-			if err != nil {
-				return nil, err
 			}
 			if params.Args["perpage"] == nil {
 				return nil, errors.New("no perpage argument found")
@@ -121,28 +107,27 @@ var formQueryFields = graphql.Fields{
 				}
 				fields[i] = fieldast.Name.Value
 			}
-			var forms []map[string]interface{}
+			var projects []map[string]interface{}
 			if len(fields) > 0 {
 				sourceContext := elastic.NewFetchSourceContext(true).Include(fields...)
 				var numtags = len(tags)
-				mustQueries := make([]elastic.Query, numtags+len(categories)+3)
-				mustQueries[0] = elastic.NewTermQuery("project", project)
-				mustQueries[1] = elastic.NewTermQuery("access.id", userIDString)
-				mustQueries[2] = elastic.NewTermsQuery("access.type", stringListToInterfaceList(viewAccessLevel)...)
+				mustQueries := make([]elastic.Query, numtags+len(categories)+2)
+				mustQueries[0] = elastic.NewTermQuery("access.id", userIDString)
+				mustQueries[1] = elastic.NewTermsQuery("access.type", stringListToInterfaceList(viewAccessLevel)...)
 				for i, tag := range tags {
-					mustQueries[i+3] = elastic.NewTermQuery("tags", tag)
+					mustQueries[i+2] = elastic.NewTermQuery("tags", tag)
 				}
 				for i, category := range categories {
-					mustQueries[i+numtags+3] = elastic.NewTermQuery("categories", category)
+					mustQueries[i+numtags+2] = elastic.NewTermQuery("categories", category)
 				}
 				// add search for access here
 				query := elastic.NewBoolQuery().Must(mustQueries...)
 				if len(searchterm) > 0 {
-					mainquery := elastic.NewMultiMatchQuery(searchterm, formSearchFields...)
+					mainquery := elastic.NewMultiMatchQuery(searchterm, projectSearchFields...)
 					query = query.Filter(mainquery)
 				}
 				searchResult, err := elasticClient.Search().
-					Index(formElasticIndex).
+					Index(projectElasticIndex).
 					Query(query).
 					Sort(sort, ascending).
 					From(page * perpage).Size(perpage).
@@ -152,13 +137,13 @@ var formQueryFields = graphql.Fields{
 				if err != nil {
 					return nil, err
 				}
-				forms = make([]map[string]interface{}, len(searchResult.Hits.Hits))
+				projects = make([]map[string]interface{}, len(searchResult.Hits.Hits))
 				for i, hit := range searchResult.Hits.Hits {
 					if hit.Source == nil {
 						return nil, errors.New("no hit source found")
 					}
-					var formData map[string]interface{}
-					err := json.Unmarshal(hit.Source, &formData)
+					var projectData map[string]interface{}
+					err := json.Unmarshal(hit.Source, &projectData)
 					if err != nil {
 						return nil, err
 					}
@@ -166,18 +151,18 @@ var formQueryFields = graphql.Fields{
 					if err != nil {
 						return nil, err
 					}
-					formData["date"] = objectidtimestamp(id).Format(dateFormat)
-					formData["id"] = id.Hex()
-					delete(formData, "_id")
-					forms[i] = formData
+					projectData["date"] = objectidtimestamp(id).Format(dateFormat)
+					projectData["id"] = id.Hex()
+					delete(projectData, "_id")
+					projects[i] = projectData
 				}
 			}
-			return forms, nil
+			return projects, nil
 		},
 	},
-	"form": &graphql.Field{
-		Type:        FormType,
-		Description: "Get a Form",
+	"project": &graphql.Field{
+		Type:        ProjectType,
+		Description: "Get a Project",
 		Args: graphql.FieldConfigArgument{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
@@ -188,21 +173,21 @@ var formQueryFields = graphql.Fields{
 			if params.Args["id"] == nil {
 				return nil, errors.New("no id argument found")
 			}
-			formIDString, ok := params.Args["id"].(string)
+			projectIDString, ok := params.Args["id"].(string)
 			if !ok {
 				return nil, errors.New("cannot cast id to string")
 			}
-			formID, err := primitive.ObjectIDFromHex(formIDString)
+			projectID, err := primitive.ObjectIDFromHex(projectIDString)
 			if err != nil {
 				return nil, err
 			}
-			formData, _, err := checkFormAccess(formID, accessToken, editAccessLevel)
+			projectData, _, err := checkProjectAccess(projectID, accessToken, editAccessLevel)
 			if err != nil {
 				return nil, err
 			}
 			/*
-				_, err = formCollection.UpdateOne(ctxMongo, bson.M{
-					"_id": formID,
+				_, err = projectCollection.UpdateOne(ctxMongo, bson.M{
+					"_id": projectID,
 				}, bson.M{
 					"$inc": bson.M{
 						"views": 1,
@@ -212,18 +197,18 @@ var formQueryFields = graphql.Fields{
 					return nil, err
 				}
 				_, err = elasticClient.Update().
-					Index(formElasticIndex).
-					Type(formElasticType).
-					Id(formIDString).
+					Index(projectElasticIndex).
+					Type(projectElasticType).
+					Id(projectIDString).
 					Doc(bson.M{
-						"views": int(formData["views"].(int32)),
+						"views": int(projectData["views"].(int32)),
 					}).
 					Do(ctxElastic)
 				if err != nil {
 					return nil, err
 				}
 			*/
-			return formData, nil
+			return projectData, nil
 		},
 	},
 }

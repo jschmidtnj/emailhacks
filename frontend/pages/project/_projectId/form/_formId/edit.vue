@@ -1,6 +1,11 @@
 <template>
   <b-container class="mt-4">
-    <create v-if="id" :id="id" :get-initial-data="true" />
+    <create
+      v-if="projectId && formId"
+      :form-id="formId"
+      :project-id="projectId"
+      :get-initial-data="true"
+    />
   </b-container>
 </template>
 
@@ -15,16 +20,18 @@ export default Vue.extend({
   },
   data() {
     return {
-      id: null
+      projectId: null,
+      formId: null
     }
   },
   mounted() {
-    if (this.$route.params && this.$route.params.id) {
-      this.id = this.$route.params.id
+    if (this.$route.params && this.$route.params.projectId && this.$route.params.formId) {
+      this.projectId = this.$route.params.projectId
+      this.formId = this.$route.params.formId
     } else {
       this.$nuxt.error({
         statusCode: 404,
-        message: 'could not find form id'
+        message: 'could not find form id or project id'
       })
     }
   }

@@ -30,6 +30,25 @@
               <font-awesome-icon icon="underline" />
             </client-only>
           </b-nav-item>
+          <b-nav-item
+            :active="isActive.emoji()"
+            @click="
+              () => {
+                const key =
+                  emojiData.ordered[
+                    Math.floor(Math.random() * emojiData.ordered.length)
+                  ]
+                commands.emoji({
+                  id: key,
+                  label: emojiData.lib[key].char
+                })
+              }
+            "
+          >
+            <client-only>
+              <font-awesome-icon icon="smile" />
+            </client-only>
+          </b-nav-item>
           <b-nav-item :active="isActive.code()" @click="commands.code">
             <client-only>
               <font-awesome-icon icon="code" />
@@ -46,21 +65,18 @@
           <b-nav-item
             :active="isActive.heading({ level: 1 })"
             @click="commands.heading({ level: 1 })"
+            >H1</b-nav-item
           >
-            H1
-          </b-nav-item>
           <b-nav-item
             :active="isActive.heading({ level: 2 })"
             @click="commands.heading({ level: 2 })"
+            >H2</b-nav-item
           >
-            H2
-          </b-nav-item>
           <b-nav-item
             :active="isActive.heading({ level: 3 })"
             @click="commands.heading({ level: 3 })"
+            >H3</b-nav-item
           >
-            H3
-          </b-nav-item>
           <b-nav-item
             :active="isActive.bullet_list()"
             @click="commands.bullet_list"
@@ -157,11 +173,18 @@ import {
   CodeBlockHighlight,
   Image
 } from 'tiptap-extensions'
+import emojiData from 'emojilib'
 import javascript from 'highlight.js/lib/languages/javascript'
 import css from 'highlight.js/lib/languages/css'
 import go from 'highlight.js/lib/languages/go'
 import java from 'highlight.js/lib/languages/java'
 import cpp from 'highlight.js/lib/languages/cpp'
+import Emoji from '~/components/secure/form/Emoji'
+// tried to get emojis working, following this:
+// https://github.com/scrumpy/tiptap/blob/master/examples/Components/Routes/Suggestions/index.vue
+// turns out the tooltip doesn't want to work:
+// https://github.com/Human-Connection/Human-Connection/pull/2258
+// currently looking for alternatives
 export default Vue.extend({
   components: {
     EditorMenuBar,
@@ -175,8 +198,13 @@ export default Vue.extend({
   },
   data() {
     return {
+      emojiData,
       focusMenu: false,
       focusEditor: false,
+      query: null,
+      emojiSuggestionRange: null,
+      filteredEmojis: [],
+      insertEmoji: () => {},
       editor: new Editor({
         onFocus: () => {
           this.focusEditor = true
@@ -185,7 +213,7 @@ export default Vue.extend({
           this.focusEditor = false
         },
         onUpdate: () => {
-          const data = this.editor.getJSON()
+          const data = this.editor.getHTML()
           this.$emit('updated-text', data)
         },
         extensions: [
@@ -215,16 +243,84 @@ export default Vue.extend({
           new Strike(),
           new Underline(),
           new Image(),
-          new History()
+          new History(),
+          new Emoji({
+            // a list of all suggested items
+            items: () => {
+              return this.emojiData.ordered.map(key => {
+                return {
+                  id: key,
+                  data: this.emojiData.lib[key].char
+                }
+              })
+            },
+            // is called when a suggestion starts
+            onEnter: ({
+              items, query, range, command, decorationNode, virtualNode,
+            }) => {
+              this.query = query
+              this.filteredEmojis = items
+              this.emojiSuggestionRange = range
+              // we save the command for inserting a selected emoji
+              // via keyboard navigation and on click
+              this.insertEmoji = command
+            },
+            // is called when a suggestion has changed
+            onChange: ({
+              items, query, range, decorationNode, virtualNode
+            }) => {
+              this.query = query
+              this.filteredEmojis = items
+              this.emojiSuggestionRange = range
+            },
+            // is called when a suggestion is cancelled
+            onExit: () => {
+              // reset all saved values
+              this.query = null
+              this.filteredEmojis = []
+              this.emojiSuggestionRange = null
+            },
+            // is called on every keyDown event while a suggestion is active
+            onKeyDown: ({ event }) => {
+              // pressing enter
+              if (event.keyCode === 13) {
+                if (this.hasResults) {
+                  this.selectEmoji(this.filteredEmojis[0])
+                }
+                return true
+              }
+              return false
+            }
+          })
         ],
         content: 'text goes here'
       })
     }
   },
+  computed: {
+    hasResults() {
+      return this.filteredEmojis.length
+    },
+    showSuggestions() {
+      return this.query || this.hasResults
+    },
+  },
   beforeDestroy() {
     this.editor.destroy()
   },
   methods: {
+    // we have to replace our suggestion text with a emoji
+    // so it's important to pass also the position of your suggestion text
+    selectEmoji(emoji) {
+      this.insertEmoji({
+        range: this.emojiSuggestionRange,
+        attrs: {
+          id: emoji.id,
+          label: emoji.data,
+        },
+      })
+      this.editor.focus()
+    },
     showImagePrompt(command) {
       const src = prompt('Enter the url of your image here')
       if (src !== null) {
@@ -235,4 +331,12 @@ export default Vue.extend({
 })
 </script>
 
-<style lang="scss"></style>
+<style lang="scss">
+.emoji {
+  font-size: 0.8rem;
+  font-weight: bold;
+  border-radius: 5px;
+  padding: 0.2rem 0.5rem;
+  white-space: nowrap;
+}
+</style>

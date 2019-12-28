@@ -9,6 +9,9 @@ export const cloudStorageURLs = {
   blogs: 'https://cdn.mailpear.com'
 }
 
+// periodically check if logged in
+export const checkLoggedInInterval = 5 * 60 * 1000
+
 export const toasts = {
   position: 'top-right',
   duration: 2000,

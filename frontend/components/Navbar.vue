@@ -6,10 +6,10 @@
     <b-navbar-toggle target="nav-collapse"></b-navbar-toggle>
     <b-collapse id="nav-collapse" is-nav>
       <b-navbar-nav>
-        <nuxt-link to="/about" class="no-underline">
+        <nuxt-link v-if="!loggedIn" to="/about" class="no-underline">
           <b-nav-item href="/about">About</b-nav-item>
         </nuxt-link>
-        <nuxt-link to="/blogs" class="no-underline">
+        <nuxt-link v-if="!loggedIn" to="/blogs" class="no-underline">
           <b-nav-item href="/blogs">Blogs</b-nav-item>
         </nuxt-link>
         <nuxt-link v-if="!loggedIn" to="/signup" class="no-underline">
@@ -17,6 +17,9 @@
         </nuxt-link>
         <nuxt-link v-if="!loggedIn" to="/login" class="no-underline">
           <b-nav-item href="/login">Login</b-nav-item>
+        </nuxt-link>
+        <nuxt-link v-if="loggedIn" to="/dashboard" class="no-underline">
+          <b-nav-item href="/dashboard">Dashboard</b-nav-item>
         </nuxt-link>
         <nuxt-link v-if="loggedIn" to="/form" class="no-underline">
           <b-nav-item href="/form">Form</b-nav-item>

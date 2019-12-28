@@ -1,33 +1,33 @@
 <template>
   <b-container class="mt-4">
-    <create v-if="id" :id="id" :get-initial-data="false" />
+    <view-project v-if="projectId" :project-id="projectId" />
   </b-container>
 </template>
 
 <script lang="js">
 import Vue from 'vue'
-import Create from '~/components/secure/form/Create.vue'
+import ViewProject from '~/components/secure/project/View.vue'
 export default Vue.extend({
-  name: 'NewForm',
+  name: 'NewProject',
   layout: 'secure',
   components: {
-    Create
+    ViewProject
   },
   data() {
     return {
-      id: null
+      projectId: null
     }
   },
   mounted() {
     this.$axios.post('/graphql', {
-      query: 'mutation{addForm(subject:"",recipient:"",items:[],multiple:false,tags:[],categories:[],files:[]){id}}'
+      query: 'mutation{addProject(name:"",tags:[],categories:[]){id}}'
     })
     .then(res => {
       if (res.status === 200) {
         if (res.data) {
-          if (res.data.data && res.data.data.addForm) {
-            this.id = res.data.data.addForm.id
-            history.replaceState({}, null, `/form/${this.id}/edit`)
+          if (res.data.data && res.data.data.addProject) {
+            this.projectId = res.data.data.addProject.id
+            history.replaceState({}, null, `/project/${this.projectId}`)
           } else if (res.data.errors) {
             console.error(res.data.errors)
             this.$toasted.global.error({

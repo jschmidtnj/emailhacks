@@ -20,7 +20,8 @@ import {
   faPaperPlane,
   faImage,
   faPlusCircle,
-  faAngleDoubleRight
+  faAngleDoubleRight,
+  faSmile
 } from '@fortawesome/free-solid-svg-icons'
 
 import {} from '@fortawesome/free-brands-svg-icons'
@@ -47,7 +48,8 @@ library.add(
   faPaperPlane,
   faImage,
   faPlusCircle,
-  faAngleDoubleRight
+  faAngleDoubleRight,
+  faSmile
 )
 
 Vue.component('font-awesome-icon', FontAwesomeIcon)

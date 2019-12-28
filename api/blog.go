@@ -1,8 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"github.com/graphql-go/graphql"
+	json "github.com/json-iterator/go"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -53,9 +53,6 @@ var BlogType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 		"files": &graphql.Field{
 			Type: graphql.NewList(FileType),
 		},
-		"comments": &graphql.Field{
-			Type: JSONType,
-		},
 		"shortlink": &graphql.Field{
 			Type: graphql.String,
 		},
@@ -76,7 +73,6 @@ func removeEmptyStrings(input []string) []string {
  * @api {get} /countBlogs Count posts for search term
  * @apiVersion 0.0.1
  * @apiParam {String} searchterm Search term to count results
- * @apiParam {string="blog","project"} type Post type
  * @apiSuccess {String} count Result count
  * @apiGroup misc
  */
@@ -117,7 +113,7 @@ func countBlogs(c *gin.Context) {
 		return
 	}
 	cachepath := string(cachepathBytes)
-	if getcache != "false" && mode != "debug" {
+	if getcache != "false" && !isDebug() {
 		cachedres, err := redisClient.Get(cachepath).Result()
 		if err != nil {
 			if err != redis.Nil {

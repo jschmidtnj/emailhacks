@@ -10,6 +10,7 @@
 import Vue from 'vue'
 import Navbar from '~/components/Navbar.vue'
 import MainFooter from '~/components/Footer.vue'
+import { checkLoggedInInterval } from '~/assets/config'
 export default Vue.extend({
   name: 'Admin',
   // @ts-ignore
@@ -38,6 +39,36 @@ export default Vue.extend({
     return {
       links,
       meta
+    }
+  },
+  data() {
+    return {
+      interval: null
+    }
+  },
+  mounted() {
+    this.interval = setInterval(() => {
+      this.$store
+        .dispatch('auth/checkLoggedIn')
+        .then((loggedIn) => {
+          if (!loggedIn) {
+            this.$store.commit('auth/logout')
+            this.$router.push({
+              path: '/login'
+            })
+          }
+        })
+        .catch((err) => {
+          this.$store.commit('auth/logout')
+          this.$router.push({
+            path: '/login'
+          })
+        })
+    }, checkLoggedInInterval)
+  },
+  beforeDestroy() {
+    if (this.interval) {
+      clearInterval(this.interval)
     }
   }
 })

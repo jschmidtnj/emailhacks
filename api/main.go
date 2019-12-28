@@ -42,6 +42,8 @@ var userCollection *mongo.Collection
 
 var formCollection *mongo.Collection
 
+var projectCollection *mongo.Collection
+
 var blogCollection *mongo.Collection
 
 var shortLinkCollection *mongo.Collection
@@ -159,6 +161,7 @@ func main() {
 	}
 	userCollection = mongoClient.Database(mainDatabase).Collection(userMongoName)
 	formCollection = mongoClient.Database(mainDatabase).Collection(formMongoName)
+	projectCollection = mongoClient.Database(mainDatabase).Collection(projectMongoName)
 	blogCollection = mongoClient.Database(mainDatabase).Collection(blogMongoName)
 	shortLinkCollection = mongoClient.Database(mainDatabase).Collection(shortLinkMongoName)
 	elasticuri := os.Getenv("ELASTICURI")
@@ -264,7 +267,9 @@ func main() {
 	router.GET("/getFile", getFile)
 	router.PUT("/writeFile", writeFile)
 	router.DELETE("/deleteFiles", deleteFiles)
-	router.GET("countBlogs", countBlogs)
+	router.GET("/countForms", countForms)
+	router.GET("/countProjects", countProjects)
+	router.GET("/countBlogs", countBlogs)
 	router.Any("/shortLink", shortLinkRedirect)
 	router.GET("/hello", hello)
 	router.Run()

@@ -10,7 +10,7 @@
                 (evt) => {
                   evt.preventDefault()
                   currentPage = 1
-                  searchBlogs()
+                  searchForms()
                 }
               "
               placeholder="Type to Search"
@@ -21,7 +21,7 @@
                 @click="
                   search = ''
                   currentPage = 1
-                  searchBlogs()
+                  searchForms()
                 "
                 >Clear</b-button
               >
@@ -37,7 +37,7 @@
               :options="sortOptions"
               @change="
                 currentPage = 1
-                searchBlogs()
+                searchForms()
               "
             >
               <option slot="first" :value="null">-- none --</option>
@@ -48,7 +48,7 @@
               :disabled="!sortBy"
               @change="
                 currentPage = 1
-                searchBlogs()
+                searchForms()
               "
             >
               <option :value="false">Asc</option>
@@ -64,7 +64,7 @@
             :options="pageOptions"
             @change="
               currentPage = 1
-              searchBlogs()
+              searchForms()
             "
           ></b-form-select>
         </b-form-group>
@@ -79,14 +79,12 @@
       stacked="md"
     >
       <template slot="title" slot-scope="row">{{ row.value }}</template>
-      <template slot="author" slot-scope="row">{{ row.value }}</template>
       <template slot="date" slot-scope="row">{{
         formatDate(row.value, 'M/D/YYYY')
       }}</template>
-      <template slot="views" slot-scope="row">{{ row.value }}</template>
-      <template slot="read" slot-scope="row">
-        <a :href="`/blog/${row.item.id}`" class="btn btn-primary btn-sm"
-          >Read</a
+      <template slot="view" slot-scope="row">
+        <a :href="`/form/${row.item.id}/view`" class="btn btn-primary btn-sm"
+          >View</a
         >
       </template>
     </b-table>
@@ -99,7 +97,7 @@
           @change="
             (newpage) => {
               currentPage = newpage
-              searchBlogs()
+              searchForms()
             }
           "
           class="my-0"
@@ -115,10 +113,15 @@ import { format } from 'date-fns'
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({
-  name: 'Blogs',
+  name: 'ViewProject',
+  props: {
+    projectId: {
+      type: String,
+      default: null
+    }
+  },
   data() {
     return {
-      type: 'blog',
       items: [],
       fields: [
         {
@@ -128,25 +131,14 @@ export default Vue.extend({
           sortDirection: 'desc'
         },
         {
-          key: 'author',
-          label: 'Author',
-          sortable: true
-        },
-        {
           key: 'date',
           label: 'Date',
           sortable: true,
           class: 'text-center'
         },
         {
-          key: 'views',
-          label: 'Views',
-          sortable: true,
-          class: 'text-center'
-        },
-        {
-          key: 'read',
-          label: 'Read',
+          key: 'view',
+          label: 'View',
           sortable: false
         }
       ],
@@ -171,8 +163,8 @@ export default Vue.extend({
   },
   // @ts-ignore
   head() {
-    const title = 'Search Blogs'
-    const description = 'search for blogs, by name, views, etc'
+    const title = 'Search Forms'
+    const description = 'search for forms, by name, views, etc'
     const image = `${seo.url}/icon.png`
     return {
       title,
@@ -211,19 +203,21 @@ export default Vue.extend({
       )
         this.sortBy = this.$route.query.sortby
     }
-    this.searchBlogs(this.currentPage)
+
+    this.searchForms(this.currentPage)
   },
   methods: {
     sort(ctx) {
       this.sortBy = ctx.sortBy //   ==> Field key for sorting by (or null for no sorting)
       this.sortDesc = ctx.sortDesc // ==> true if sorting descending, false otherwise
       this.currentPage = 1
-      this.searchBlogs(this.currentPage)
+      this.searchForms(this.currentPage)
     },
     updateCount() {
       this.$axios
-        .get('/countBlogs', {
+        .get('/countForms', {
           params: {
+            project: this.projectId,
             searchterm: this.search,
             tags: [].join(',tags='),
             categories: [].join(',categories=')
@@ -260,37 +254,36 @@ export default Vue.extend({
           })
         })
     },
-    searchBlogs() {
+    searchForms() {
       this.updateCount()
       const sort = this.sortBy ? this.sortBy : this.sortOptions[0].value
       this.$axios
         .get('/graphql', {
           params: {
-            query: `{blogs(perpage:${
+            query: `{forms(project:"${
+              this.projectId
+            }",perpage:${
               this.perPage
             },page:${this.currentPage - 1},searchterm:"${encodeURIComponent(
               this.search
             )}",sort:"${encodeURIComponent(sort)}",ascending:${!this
               .sortDesc},tags:${JSON.stringify([])},categories:${JSON.stringify(
               []
-            )},cache:${(!(
-              this.$store.state.auth.user &&
-              this.$store.state.auth.user.type === 'admin'
-            )).toString()}){title views id author date}}`
+            )}){title views id author date}}`
           }
         })
         .then(res => {
           if (res.status === 200) {
             if (res.data) {
-              if (res.data.data && res.data.data.blogs) {
-                const blogs = res.data.data.blogs
-                blogs.forEach(blog => {
-                  Object.keys(blog).forEach(key => {
-                    if (typeof blog[key] === 'string')
-                      blog[key] = decodeURIComponent(blog[key])
+              if (res.data.data && res.data.data.forms) {
+                const forms = res.data.data.forms
+                forms.forEach(form => {
+                  Object.keys(form).forEach(key => {
+                    if (typeof form[key] === 'string')
+                      form[key] = decodeURIComponent(form[key])
                   })
                 })
-                this.items = blogs
+                this.items = forms
               } else if (res.data.errors) {
                 this.$toasted.global.error({
                   message: `found errors: ${JSON.stringify(res.data.errors)}`

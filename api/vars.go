@@ -8,6 +8,8 @@ var userMongoName = "users"
 
 var formMongoName = "forms"
 
+var projectMongoName = "projects"
+
 var blogMongoName = "blogs"
 
 var shortLinkMongoName = "shortlink"
@@ -45,6 +47,8 @@ var validAccessTypes = []string{
 	"none",
 }
 
+var noAccessLevel = validAccessTypes[3]
+
 var editAccessLevel = []string{
 	validAccessTypes[0],
 	validAccessTypes[1],
@@ -59,6 +63,10 @@ var viewAccessLevel = []string{
 var formElasticIndex = "forms"
 
 var formElasticType = "form"
+
+var projectElasticIndex = "projects"
+
+var projectElasticType = "project"
 
 var blogElasticIndex = "blogs"
 
@@ -82,8 +90,11 @@ var blogSearchFields = []string{
 }
 
 var formSearchFields = []string{
-	"subject",
-	"recipient",
+	"title",
+}
+
+var projectSearchFields = []string{
+	"name",
 }
 
 // all valid file types for attachments

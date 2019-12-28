@@ -26,6 +26,9 @@ var AccountType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 		"forms": &graphql.Field{
 			Type: graphql.NewList(AccessType),
 		},
+		"projects": &graphql.Field{
+			Type: graphql.NewList(AccessType),
+		},
 	},
 })
 

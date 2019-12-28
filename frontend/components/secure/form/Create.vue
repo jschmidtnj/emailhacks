@@ -8,22 +8,11 @@
               <b-row class="mb-2">
                 <b-col sm>
                   <b-form-input
-                    id="subject"
-                    v-model="subject"
+                    id="title"
+                    v-model="title"
                     size="lg"
                     type="text"
-                    placeholder="Subject"
-                  ></b-form-input>
-                </b-col>
-              </b-row>
-              <b-row class="mt-2">
-                <b-col sm>
-                  <b-form-input
-                    id="recipient"
-                    v-model="recipient"
-                    size="lg"
-                    type="text"
-                    placeholder="Recipient"
+                    placeholder="Title"
                   ></b-form-input>
                 </b-col>
               </b-row>
@@ -394,7 +383,11 @@ export default Vue.extend({
       type: Boolean,
       default: true
     },
-    id: {
+    projectId: {
+      type: String,
+      default: null
+    },
+    formId: {
       type: String,
       default: null
     }
@@ -405,8 +398,7 @@ export default Vue.extend({
       itemTypes,
       focusIndex: 0,
       editorContent: {},
-      subject: '',
-      recipient: '',
+      title: '',
       items: [],
       multiple: false,
       files: []
@@ -416,23 +408,34 @@ export default Vue.extend({
     if (this.getInitialData) {
       this.$axios.get('/graphql', {
         params: {
-          query: `{form(id:"${this.id}"){subject,recipient,items{question,type,options,text,required,file},multiple,files{id,name,width,height,type}}}`
+          query: `{form(id:"${this.formId}"){title,items{question,type,options,text,required,file},multiple,files{id,name,width,height,type}}}`
         }
       })
       .then(res => {
         if (res.status === 200) {
           if (res.data) {
             if (res.data.data && res.data.data.form) {
-              this.subject = decodeURIComponent(res.data.data.form.subject)
-              this.recipient = decodeURIComponent(res.data.data.form.recipient)
-              res.data.data.form.items.map(item => {
-                item.question = decodeURIComponent(item.question)
-                item.options = item.options.map(option => decodeURIComponent(option))
-              })
+              this.title = decodeURIComponent(res.data.data.form.title)
+              const newEditorContent = {}
+              for (let i = 0; i < res.data.data.form.items.length; i++) {
+                res.data.data.form.items[i].question = decodeURIComponent(res.data.data.form.items[i].question)
+                res.data.data.form.items[i].options = res.data.data.form.items[i].options.map(option => decodeURIComponent(option))
+                res.data.data.form.items[i].text = decodeURIComponent(res.data.data.form.items[i].text)
+                if (res.data.data.form.items[i].type === itemTypes[3].id) {
+                  newEditorContent[i] = res.data.data.form.items[i].text
+                }
+              }
+              this.editorContent = newEditorContent
               this.items = res.data.data.form.items
               this.multiple = res.data.data.form.multiple
               this.files = res.data.data.form.files
               this.loading = false
+              this.$nextTick(() => {
+                const newTextLocations = Object.keys(this.editorContent)
+                for (let i = 0; i < newTextLocations.length; i++) {
+                  this.$refs[`editor-${newTextLocations[i]}`][0]._data.editor.setContent(this.editorContent[newTextLocations[i]])
+                }
+              })
             } else if (res.data.errors) {
               console.error(res.data.errors[0])
               this.$toasted.global.error({
@@ -479,11 +482,9 @@ export default Vue.extend({
       this.$axios
         .post('/graphql', {
           query: `mutation{updateForm(id:"${encodeURIComponent(
-            this.id
-          )}",subject:"${encodeURIComponent(
-            this.subject
-          )}",recipient:"${encodeURIComponent(
-            this.recipient
+            this.projectId
+          )}",title:"${encodeURIComponent(
+            this.title
           )}",items:[${
             this.items.map(item =>
               `{question:"${
@@ -492,9 +493,9 @@ export default Vue.extend({
                 encodeURIComponent(item.type)
               }",options:${JSON.stringify(
                 item.options.map(option => encodeURIComponent(option))
-              )},text:${JSON.stringify(
-                item.text.map(text => encodeURIComponent(text))
-              )},required:${item.required},file:"${
+              )},text:"${
+                encodeURIComponent(item.text)
+              }",required:${item.required},file:"${
                 encodeURIComponent(item.file)
               }"}`
             )
@@ -522,6 +523,7 @@ export default Vue.extend({
               if (res.data.data && res.data.data.updateForm) {
                 console.log('updated!')
               } else if (res.data.errors) {
+                console.log(res.data.errors[0])
                 this.$toasted.global.error({
                   message: `found errors: ${JSON.stringify(res.data.errors)}`
                 })
@@ -611,7 +613,7 @@ export default Vue.extend({
         this.items[itemIndex].type = type.id
         this.$nextTick(() => {
           if (!this.editorContent.hasOwnProperty(itemIndex)) {
-            this.editorContent[itemIndex] = this.$refs[`editor-${itemIndex}`][0]._data.editor.getJSON()
+            this.editorContent[itemIndex] = this.$refs[`editor-${itemIndex}`][0]._data.editor.getHTML()
           }
         })
       } else {

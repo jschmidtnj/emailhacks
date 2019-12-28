@@ -9,31 +9,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func checkAccessObj(accessObj map[string]interface{}) error {
-	if accessObj["id"] == nil {
-		return errors.New("no id field given")
-	}
-	userIDString, ok := accessObj["id"].(string)
-	if !ok {
-		return errors.New("cannot cast user id to string")
-	}
-	_, err := primitive.ObjectIDFromHex(userIDString)
-	if err != nil {
-		return err
-	}
-	if accessObj["type"] == nil {
-		return errors.New("no type field given")
-	}
-	accessType, ok := accessObj["type"].(string)
-	if !ok {
-		return errors.New("cannot cast type to string")
-	}
-	if !findInArray(accessType, validAccessTypes) {
-		return errors.New("invalid access type given")
-	}
-	return nil
-}
-
 func checkItemObjCreate(itemObj map[string]interface{}) error {
 	if itemObj["question"] == nil {
 		return errors.New("no name field given")
@@ -77,12 +52,9 @@ func checkItemObjUpdate(itemObj map[string]interface{}) error {
 		}
 	}
 	if itemObj["text"] != nil {
-		textArray, ok := itemObj["text"].([]interface{})
+		_, ok := itemObj["text"].(string)
 		if !ok {
-			return errors.New("problem casting text to interface array")
-		}
-		if _, err := interfaceListToMapList(textArray); err != nil {
-			return errors.New("problem casting text to map array")
+			return errors.New("problem casting text to string")
 		}
 	}
 	if itemObj["required"] != nil {
@@ -98,15 +70,51 @@ func checkItemObjUpdate(itemObj map[string]interface{}) error {
 	return nil
 }
 
+func changeFormProject(formIDString string, oldProjectIDString string, newProjectIDString string) error {
+	if len(oldProjectIDString) > 0 {
+		projectID, err := primitive.ObjectIDFromHex(oldProjectIDString)
+		if err != nil {
+			return err
+		}
+		_, err = projectCollection.UpdateOne(ctxMongo, bson.M{
+			"_id": projectID,
+		}, bson.M{
+			"$pull": bson.M{
+				"forms": formIDString,
+			},
+		})
+		if err != nil {
+			return err
+		}
+	}
+	if len(newProjectIDString) > 0 {
+		projectID, err := primitive.ObjectIDFromHex(newProjectIDString)
+		if err != nil {
+			return err
+		}
+		_, err = projectCollection.UpdateOne(ctxMongo, bson.M{
+			"_id": projectID,
+		}, bson.M{
+			"$addToSet": bson.M{
+				"forms": formIDString,
+			},
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 var formMutationFields = graphql.Fields{
 	"addForm": &graphql.Field{
 		Type:        FormType,
 		Description: "Create a Form",
 		Args: graphql.FieldConfigArgument{
-			"subject": &graphql.ArgumentConfig{
+			"project": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
-			"recipient": &graphql.ArgumentConfig{
+			"title": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
 			"items": &graphql.ArgumentConfig{
@@ -134,15 +142,15 @@ var formMutationFields = graphql.Fields{
 			if !ok {
 				return nil, errors.New("cannot cast user id to string")
 			}
-			userID, err := primitive.ObjectIDFromHex(userIDString)
+			_, err = primitive.ObjectIDFromHex(userIDString)
 			if err != nil {
 				return nil, err
 			}
-			if params.Args["subject"] == nil {
-				return nil, errors.New("subject not provided")
+			if params.Args["project"] == nil {
+				return nil, errors.New("project not provided")
 			}
-			if params.Args["recipient"] == nil {
-				return nil, errors.New("recipient not provided")
+			if params.Args["title"] == nil {
+				return nil, errors.New("title not provided")
 			}
 			if params.Args["items"] == nil {
 				return nil, errors.New("items not provided")
@@ -156,13 +164,13 @@ var formMutationFields = graphql.Fields{
 			if params.Args["files"] == nil {
 				return nil, errors.New("files not provided")
 			}
-			subject, ok := params.Args["subject"].(string)
+			project, ok := params.Args["project"].(string)
 			if !ok {
-				return nil, errors.New("problem casting subject to string")
+				return nil, errors.New("problem casting project id to string")
 			}
-			recipient, ok := params.Args["recipient"].(string)
+			title, ok := params.Args["title"].(string)
 			if !ok {
-				return nil, errors.New("problem casting recipient to string")
+				return nil, errors.New("problem casting title to string")
 			}
 			itemsInterface, ok := params.Args["items"].([]interface{})
 			if !ok {
@@ -210,9 +218,13 @@ var formMutationFields = graphql.Fields{
 					return nil, err
 				}
 			}
+			userAccess := []map[string]interface{}{{
+				"id":   userIDString,
+				"type": editAccessLevel[0],
+			}}
 			formData := bson.M{
-				"subject":    subject,
-				"recipient":  recipient,
+				"project":    project,
+				"title":      title,
 				"items":      items,
 				"multiple":   multiple,
 				"tags":       tags,
@@ -233,10 +245,25 @@ var formMutationFields = graphql.Fields{
 			}
 			formID := formCreateRes.InsertedID.(primitive.ObjectID)
 			formIDString := formID.Hex()
-			if err = addUserFormAccess(userID, "owner", formIDString); err != nil {
+			if err = changeUserFormAccess(formID, userAccess); err != nil {
+				return nil, err
+			}
+			if err = changeFormProject(formIDString, "", project); err != nil {
 				return nil, err
 			}
 			timestamp := objectidtimestamp(formID)
+			formData["date"] = timestamp.Unix()
+			/*
+				_, err = elasticClient.Index().
+					Index(blogElasticIndex).
+					Type(blogElasticType).
+					Id(formIDString).
+					BodyJson(formData).
+					Do(ctxElastic)
+				if err != nil {
+					return nil, err
+				}
+			*/
 			formData["date"] = timestamp.Format(dateFormat)
 			formData["id"] = formIDString
 			return formData, nil
@@ -322,76 +349,6 @@ var formMutationFields = graphql.Fields{
 			return formData, nil
 		},
 	},
-	"updateFormAccess": &graphql.Field{
-		Type:        FormType,
-		Description: "Update Form Access",
-		Args: graphql.FieldConfigArgument{
-			"id": &graphql.ArgumentConfig{
-				Type: graphql.String,
-			},
-			"value": &graphql.ArgumentConfig{
-				Type: graphql.String,
-			},
-			"add": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
-		},
-		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-			accessToken := params.Context.Value(tokenKey).(string)
-			if params.Args["id"] != nil {
-				return nil, errors.New("form id not provided")
-			}
-			formIDString, ok := params.Args["id"].(string)
-			if !ok {
-				return nil, errors.New("cannot cast form id to string")
-			}
-			formID, err := primitive.ObjectIDFromHex(formIDString)
-			if err != nil {
-				return nil, err
-			}
-			formData, _, err := checkFormAccess(formID, accessToken, editAccessLevel)
-			if err != nil {
-				return nil, err
-			}
-			if params.Args["value"] == nil {
-				return nil, errors.New("value not provided")
-			}
-			if params.Args["add"] == nil {
-				return nil, errors.New("add not provided")
-			}
-			accessType, ok := params.Args["value"].(string)
-			if !ok {
-				return nil, errors.New("problem casting access type to string")
-			}
-			if !findInArray(accessType, validAccessTypes) {
-				return nil, errors.New("invalid access type given")
-			}
-			add, ok := params.Args["value"].(bool)
-			if !ok {
-				return nil, errors.New("problem casting add to boolean")
-			}
-			updateData := bson.M{}
-			valueUpdate := bson.M{
-				"access": accessType,
-			}
-			if add {
-				updateData["$set"] = valueUpdate
-				updateData["$upsert"] = true
-			} else {
-				updateData["$pull"] = valueUpdate
-			}
-			_, err = formCollection.UpdateOne(ctxMongo, bson.M{
-				"_id": formID,
-			}, updateData)
-			if err != nil {
-				return nil, err
-			}
-			timestamp := objectidtimestamp(formID)
-			formData["date"] = timestamp.Format(dateFormat)
-			formData["id"] = formIDString
-			return formData, nil
-		},
-	},
 	"updateForm": &graphql.Field{
 		Type:        FormType,
 		Description: "Update a Form",
@@ -399,10 +356,10 @@ var formMutationFields = graphql.Fields{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
-			"subject": &graphql.ArgumentConfig{
+			"project": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
-			"recipient": &graphql.ArgumentConfig{
+			"title": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
 			"items": &graphql.ArgumentConfig{
@@ -445,21 +402,29 @@ var formMutationFields = graphql.Fields{
 				return nil, err
 			}
 			updateData := bson.M{}
-			if params.Args["subject"] != nil {
-				subject, ok := params.Args["subject"].(string)
+			var updateProject = false
+			var newProject string
+			var oldProject string
+			if params.Args["project"] != nil {
+				updateProject = true
+				newProject, ok = params.Args["project"].(string)
 				if !ok {
-					return nil, errors.New("problem casting subject to string")
+					return nil, errors.New("problem casting new project to string")
 				}
-				updateData["subject"] = subject
-				formData["subject"] = subject
+				oldProject, ok = formData["project"].(string)
+				if !ok {
+					return nil, errors.New("problem casting old project to string")
+				}
+				updateData["project"] = newProject
+				formData["project"] = newProject
 			}
-			if params.Args["recipient"] != nil {
-				recipient, ok := params.Args["recipient"].(string)
+			if params.Args["title"] != nil {
+				title, ok := params.Args["title"].(string)
 				if !ok {
-					return nil, errors.New("problem casting description to string")
+					return nil, errors.New("problem casting title to string")
 				}
-				updateData["recipient"] = recipient
-				formData["recipient"] = recipient
+				updateData["title"] = title
+				formData["title"] = title
 			}
 			if params.Args["multiple"] != nil {
 				multiple, ok := params.Args["multiple"].(bool)
@@ -541,7 +506,7 @@ var formMutationFields = graphql.Fields{
 				if !ok {
 					return nil, errors.New("problem casting access to interface array")
 				}
-				access, err = interfaceListToMapList(accessInterface)
+				access, err := interfaceListToMapList(accessInterface)
 				if err != nil {
 					return nil, err
 				}
@@ -550,39 +515,14 @@ var formMutationFields = graphql.Fields{
 						return nil, err
 					}
 				}
-				updateData["access"] = access
-			}
-			for _, accessUser := range access {
-				newAccessUserIDString, ok := accessUser["id"].(string)
-				if !ok {
-					return nil, errors.New("cannot convert access user id to string")
-				}
-				newAccessUserID, err := primitive.ObjectIDFromHex(newAccessUserIDString)
+				_, err = interfaceListToMapList(accessInterface)
 				if err != nil {
 					return nil, err
 				}
-				newAccessType, ok := accessUser["type"].(string)
-				if !ok {
-					return nil, errors.New("cannot convert access user id to string")
-				}
-				if err = addUserFormAccess(newAccessUserID, newAccessType, formIDString); err != nil {
+				if err = changeUserFormAccess(formID, access); err != nil {
 					return nil, err
 				}
-				var foundUser = false
-				for i, currentAccess := range access {
-					currentAccessID, ok := currentAccess["id"].(string)
-					if !ok {
-						return nil, errors.New("cannot convert current access user id to string")
-					}
-					if currentAccessID == newAccessUserIDString {
-						foundUser = true
-						access[i] = accessUser
-						break
-					}
-				}
-				if !foundUser {
-					access = append(access, accessUser)
-				}
+				updateData["access"] = access
 			}
 			formData["access"] = access
 			_, err = formCollection.UpdateOne(ctxMongo, bson.M{
@@ -592,6 +532,12 @@ var formMutationFields = graphql.Fields{
 			})
 			if err != nil {
 				return nil, err
+			}
+			if updateProject {
+				err = changeFormProject(formIDString, oldProject, newProject)
+				if err != nil {
+					return nil, err
+				}
 			}
 			return formData, nil
 		},
@@ -621,13 +567,6 @@ var formMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			formDataCursor, err := formCollection.Find(ctxMongo, bson.M{
-				"_id": formID,
-			})
-			defer formDataCursor.Close(ctxMongo)
-			if err != nil {
-				return nil, err
-			}
 			for _, user := range access {
 				accessUserIDString, ok := user["id"].(string)
 				if !ok {
@@ -641,14 +580,19 @@ var formMutationFields = graphql.Fields{
 					"_id": accessUserID,
 				}, bson.M{
 					"$pull": bson.M{
-						"forms": bson.M{
-							"id": formIDString,
-						},
+						"forms.id": formIDString,
 					},
 				})
 				if err != nil {
 					return nil, err
 				}
+			}
+			oldProject, ok := formData["project"].(string)
+			if !ok {
+				return nil, errors.New("problem casting old project to string")
+			}
+			if err = changeFormProject(formIDString, oldProject, ""); err != nil {
+				return nil, err
 			}
 			_, err = formCollection.DeleteOne(ctxMongo, bson.M{
 				"_id": formID,

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
+	json "github.com/json-iterator/go"
 
 	"github.com/go-redis/redis"
 	"github.com/graphql-go/graphql"
@@ -122,7 +122,7 @@ var blogQueryFields = graphql.Fields{
 				return nil, err
 			}
 			cachepath := string(cachepathBytes)
-			if cache && mode != "debug" {
+			if cache && !isDebug() {
 				cachedresStr, err := redisClient.Get(cachepath).Result()
 				if err != nil {
 					if err != redis.Nil {
@@ -258,7 +258,7 @@ var blogQueryFields = graphql.Fields{
 				return nil, err
 			}
 			cachepath := string(cachepathBytes)
-			if cache && mode != "debug" {
+			if cache && !isDebug() {
 				cachedresStr, err := redisClient.Get(cachepath).Result()
 				if err != nil {
 					if err != redis.Nil {
