@@ -46,6 +46,7 @@ require (
 	github.com/nicksnyder/go-i18n v2.0.2+incompatible // indirect
 	github.com/nicksnyder/go-i18n/v2 v2.0.2 // indirect
 	github.com/nkovacs/streamquote v1.0.0 // indirect
+	github.com/olivere/elastic v6.2.26+incompatible
 	github.com/olivere/elastic/v7 v7.0.9
 	github.com/onsi/ginkgo v1.11.0 // indirect
 	github.com/onsi/gomega v1.8.1 // indirect

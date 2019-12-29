@@ -2,11 +2,13 @@ package main
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/language/ast"
 	json "github.com/json-iterator/go"
 	"github.com/olivere/elastic/v7"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -36,6 +38,9 @@ var projectQueryFields = graphql.Fields{
 			"tags": &graphql.ArgumentConfig{
 				Type: graphql.NewList(graphql.String),
 			},
+			"formatDate": &graphql.ArgumentConfig{
+				Type: graphql.Boolean,
+			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			// see this: https://github.com/olivere/elastic/issues/483
@@ -47,6 +52,14 @@ var projectQueryFields = graphql.Fields{
 			userIDString, ok := claims["id"].(string)
 			if !ok {
 				return nil, errors.New("cannot cast user id to string")
+			}
+			var formatDate = false
+			if params.Args["formatDate"] != nil {
+				var ok bool
+				formatDate, ok = params.Args["formatDate"].(bool)
+				if !ok {
+					return nil, errors.New("problem casting format date to boolean")
+				}
 			}
 			if params.Args["perpage"] == nil {
 				return nil, errors.New("no perpage argument found")
@@ -111,14 +124,13 @@ var projectQueryFields = graphql.Fields{
 			if len(fields) > 0 {
 				sourceContext := elastic.NewFetchSourceContext(true).Include(fields...)
 				var numtags = len(tags)
-				mustQueries := make([]elastic.Query, numtags+len(categories)+2)
-				mustQueries[0] = elastic.NewTermQuery("access.id", userIDString)
-				mustQueries[1] = elastic.NewTermsQuery("access.type", stringListToInterfaceList(viewAccessLevel)...)
+				mustQueries := make([]elastic.Query, numtags+len(categories)+1)
+				mustQueries[0] = elastic.NewTermsQuery(fmt.Sprintf("access.%s.type", userIDString), stringListToInterfaceList(viewAccessLevel)...)
 				for i, tag := range tags {
-					mustQueries[i+2] = elastic.NewTermQuery("tags", tag)
+					mustQueries[i+1] = elastic.NewTermQuery(fmt.Sprintf("access.%s.tags", userIDString), tag)
 				}
 				for i, category := range categories {
-					mustQueries[i+numtags+2] = elastic.NewTermQuery("categories", category)
+					mustQueries[i+numtags+1] = elastic.NewTermQuery(fmt.Sprintf("access.%s.categories", userIDString), category)
 				}
 				// add search for access here
 				query := elastic.NewBoolQuery().Must(mustQueries...)
@@ -151,9 +163,28 @@ var projectQueryFields = graphql.Fields{
 					if err != nil {
 						return nil, err
 					}
-					projectData["date"] = objectidtimestamp(id).Format(dateFormat)
+					createdTimestamp := objectidTimestamp(id)
+					if formatDate {
+						projectData["created"] = createdTimestamp.Format(dateFormat)
+					} else {
+						projectData["created"] = createdTimestamp.Unix()
+					}
+					updatedInt, ok := projectData["updated"].(int32)
+					if !ok {
+						return nil, errors.New("cannot cast updated time to int")
+					}
+					updatedTimestamp := intTimestamp(int64(updatedInt))
+					if formatDate {
+						projectData["updated"] = updatedTimestamp.Format(dateFormat)
+					} else {
+						projectData["updated"] = updatedTimestamp.Unix()
+					}
 					projectData["id"] = id.Hex()
 					delete(projectData, "_id")
+					access, categories, tags := getFormattedGQLData(projectData, nil, userIDString)
+					projectData["access"] = access
+					projectData["categories"] = categories
+					projectData["tags"] = tags
 					projects[i] = projectData
 				}
 			}
@@ -167,9 +198,14 @@ var projectQueryFields = graphql.Fields{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
+			"formatDate": &graphql.ArgumentConfig{
+				Type: graphql.Boolean,
+			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			accessToken := params.Context.Value(tokenKey).(string)
+			claims, err := validateLoggedIn(accessToken)
+			userIDString := claims["id"].(string)
 			if params.Args["id"] == nil {
 				return nil, errors.New("no id argument found")
 			}
@@ -181,33 +217,48 @@ var projectQueryFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			projectData, _, err := checkProjectAccess(projectID, accessToken, editAccessLevel)
+			var formatDate = false
+			if params.Args["formatDate"] != nil {
+				var ok bool
+				formatDate, ok = params.Args["formatDate"].(bool)
+				if !ok {
+					return nil, errors.New("problem casting format date to boolean")
+				}
+			}
+			projectData, err := checkProjectAccess(projectID, accessToken, editAccessLevel, formatDate, false)
+			access, categories, tags := getFormattedGQLData(projectData, nil, userIDString)
+			projectData["access"] = access
+			projectData["categories"] = categories
+			projectData["tags"] = tags
 			if err != nil {
 				return nil, err
 			}
-			/*
-				_, err = projectCollection.UpdateOne(ctxMongo, bson.M{
-					"_id": projectID,
-				}, bson.M{
-					"$inc": bson.M{
-						"views": 1,
-					},
-				})
-				if err != nil {
-					return nil, err
-				}
-				_, err = elasticClient.Update().
-					Index(projectElasticIndex).
-					Type(projectElasticType).
-					Id(projectIDString).
-					Doc(bson.M{
-						"views": int(projectData["views"].(int32)),
-					}).
-					Do(ctxElastic)
-				if err != nil {
-					return nil, err
-				}
-			*/
+			_, err = projectCollection.UpdateOne(ctxMongo, bson.M{
+				"_id": projectID,
+			}, bson.M{
+				"$inc": bson.M{
+					"views": 1,
+				},
+			})
+			if err != nil {
+				return nil, err
+			}
+			views, ok := projectData["views"].(int32)
+			if !ok {
+				return nil, errors.New("cannot convert views to int")
+			}
+			newViews := int(views) + 1
+			_, err = elasticClient.Update().
+				Index(projectElasticIndex).
+				Type(projectElasticType).
+				Id(projectIDString).
+				Doc(bson.M{
+					"views": newViews,
+				}).
+				Do(ctxElastic)
+			if err != nil {
+				return nil, err
+			}
 			return projectData, nil
 		},
 	},

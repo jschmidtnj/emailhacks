@@ -49,9 +49,13 @@ func handleError(message string, statuscode int, response http.ResponseWriter) {
 	response.Write([]byte(`{"message":"` + message + `"}`))
 }
 
-func objectidtimestamp(id primitive.ObjectID) time.Time {
+func objectidTimestamp(id primitive.ObjectID) time.Time {
 	unixSecs := binary.BigEndian.Uint32(id[0:4])
 	return time.Unix(int64(unixSecs), 0).UTC()
+}
+
+func intTimestamp(data int64) time.Time {
+	return time.Unix(data, 0).UTC()
 }
 
 func findInArray(thetype string, arr []string) bool {

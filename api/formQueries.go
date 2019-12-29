@@ -2,11 +2,13 @@ package main
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/language/ast"
 	json "github.com/json-iterator/go"
 	"github.com/olivere/elastic/v7"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -39,11 +41,15 @@ var formQueryFields = graphql.Fields{
 			"tags": &graphql.ArgumentConfig{
 				Type: graphql.NewList(graphql.String),
 			},
+			"formatDate": &graphql.ArgumentConfig{
+				Type: graphql.Boolean,
+			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			// see this: https://github.com/olivere/elastic/issues/483
 			// for potential fix to source issue (tried gave null pointer error)
-			claims, err := validateLoggedIn(params.Context.Value(tokenKey).(string))
+			accessToken := params.Context.Value(tokenKey).(string)
+			claims, err := validateLoggedIn(accessToken)
 			if err != nil {
 				return nil, err
 			}
@@ -51,12 +57,30 @@ var formQueryFields = graphql.Fields{
 			if !ok {
 				return nil, errors.New("cannot cast user id to string")
 			}
-			if params.Args["project"] == nil {
-				return nil, errors.New("no project id argument found")
+			var foundProject = false
+			var project string
+			if params.Args["project"] != nil {
+				foundProject = true
+				project, ok = params.Args["project"].(string)
+				if !ok {
+					return nil, errors.New("project could not be cast to string")
+				}
+				projectID, err := primitive.ObjectIDFromHex(project)
+				if err != nil {
+					return nil, err
+				}
+				_, err = checkProjectAccess(projectID, accessToken, viewAccessLevel, false, false)
+				if err != nil {
+					return nil, err
+				}
 			}
-			project, ok := params.Args["project"].(string)
-			if !ok {
-				return nil, errors.New("project could not be cast to string")
+			var formatDate = false
+			if params.Args["formatDate"] != nil {
+				var ok bool
+				formatDate, ok = params.Args["formatDate"].(bool)
+				if !ok {
+					return nil, errors.New("problem casting format date to boolean")
+				}
 			}
 			_, err = primitive.ObjectIDFromHex(project)
 			if err != nil {
@@ -125,17 +149,19 @@ var formQueryFields = graphql.Fields{
 			if len(fields) > 0 {
 				sourceContext := elastic.NewFetchSourceContext(true).Include(fields...)
 				var numtags = len(tags)
-				mustQueries := make([]elastic.Query, numtags+len(categories)+3)
-				mustQueries[0] = elastic.NewTermQuery("project", project)
-				mustQueries[1] = elastic.NewTermQuery("access.id", userIDString)
-				mustQueries[2] = elastic.NewTermsQuery("access.type", stringListToInterfaceList(viewAccessLevel)...)
+				mustQueries := make([]elastic.Query, numtags+len(categories)+1)
+				if foundProject {
+					mustQueries[0] = elastic.NewTermQuery("project", project)
+				} else {
+					// get all shared directly forms (not in a project)
+					mustQueries[0] = elastic.NewTermsQuery(fmt.Sprintf("access.%s.type", userIDString), stringListToInterfaceList(viewAccessLevel)...)
+				}
 				for i, tag := range tags {
-					mustQueries[i+3] = elastic.NewTermQuery("tags", tag)
+					mustQueries[i+1] = elastic.NewTermQuery(fmt.Sprintf("access.%s.tags", userIDString), tag)
 				}
 				for i, category := range categories {
-					mustQueries[i+numtags+3] = elastic.NewTermQuery("categories", category)
+					mustQueries[i+numtags+1] = elastic.NewTermQuery(fmt.Sprintf("access.%s.categories", userIDString), category)
 				}
-				// add search for access here
 				query := elastic.NewBoolQuery().Must(mustQueries...)
 				if len(searchterm) > 0 {
 					mainquery := elastic.NewMultiMatchQuery(searchterm, formSearchFields...)
@@ -166,9 +192,28 @@ var formQueryFields = graphql.Fields{
 					if err != nil {
 						return nil, err
 					}
-					formData["date"] = objectidtimestamp(id).Format(dateFormat)
+					createdTimestamp := objectidTimestamp(id)
+					if formatDate {
+						formData["created"] = createdTimestamp.Format(dateFormat)
+					} else {
+						formData["created"] = createdTimestamp.Unix()
+					}
+					updatedInt, ok := formData["updated"].(int32)
+					if !ok {
+						return nil, errors.New("cannot cast updated time to int")
+					}
+					updatedTimestamp := intTimestamp(int64(updatedInt))
+					if formatDate {
+						formData["updated"] = updatedTimestamp.Format(dateFormat)
+					} else {
+						formData["updated"] = updatedTimestamp.Unix()
+					}
 					formData["id"] = id.Hex()
 					delete(formData, "_id")
+					access, categories, tags := getFormattedGQLData(formData, nil, userIDString)
+					formData["access"] = access
+					formData["categories"] = categories
+					formData["tags"] = tags
 					forms[i] = formData
 				}
 			}
@@ -182,9 +227,17 @@ var formQueryFields = graphql.Fields{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
+			"formatDate": &graphql.ArgumentConfig{
+				Type: graphql.Boolean,
+			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			accessToken := params.Context.Value(tokenKey).(string)
+			var userIDString = ""
+			claims, err := validateLoggedIn(accessToken)
+			if err == nil {
+				userIDString = claims["id"].(string)
+			}
 			if params.Args["id"] == nil {
 				return nil, errors.New("no id argument found")
 			}
@@ -196,33 +249,54 @@ var formQueryFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			formData, _, err := checkFormAccess(formID, accessToken, editAccessLevel)
+			var formatDate = false
+			if params.Args["formatDate"] != nil {
+				var ok bool
+				formatDate, ok = params.Args["formatDate"].(bool)
+				if !ok {
+					return nil, errors.New("problem casting format date to boolean")
+				}
+			}
+			formData, err := checkFormAccess(formID, accessToken, editAccessLevel, formatDate, false)
 			if err != nil {
 				return nil, err
 			}
-			/*
-				_, err = formCollection.UpdateOne(ctxMongo, bson.M{
-					"_id": formID,
-				}, bson.M{
-					"$inc": bson.M{
-						"views": 1,
-					},
-				})
-				if err != nil {
-					return nil, err
-				}
-				_, err = elasticClient.Update().
-					Index(formElasticIndex).
-					Type(formElasticType).
-					Id(formIDString).
-					Doc(bson.M{
-						"views": int(formData["views"].(int32)),
-					}).
-					Do(ctxElastic)
-				if err != nil {
-					return nil, err
-				}
-			*/
+			if len(userIDString) == 0 {
+				formData["access"] = map[string]interface{}{}
+				formData["categories"] = []string{}
+				formData["tags"] = []string{}
+			} else {
+				access, categories, tags := getFormattedGQLData(formData, nil, userIDString)
+				formData["access"] = access
+				formData["categories"] = categories
+				formData["tags"] = tags
+			}
+			_, err = formCollection.UpdateOne(ctxMongo, bson.M{
+				"_id": formID,
+			}, bson.M{
+				"$inc": bson.M{
+					"views": 1,
+				},
+			})
+			if err != nil {
+				return nil, err
+			}
+			views, ok := formData["views"].(int32)
+			if !ok {
+				return nil, errors.New("cannot convert views to int")
+			}
+			newViews := int(views) + 1
+			_, err = elasticClient.Update().
+				Index(formElasticIndex).
+				Type(formElasticType).
+				Id(formIDString).
+				Doc(bson.M{
+					"views": newViews,
+				}).
+				Do(ctxElastic)
+			if err != nil {
+				return nil, err
+			}
 			return formData, nil
 		},
 	},

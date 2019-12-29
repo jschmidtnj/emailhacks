@@ -8,7 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func deleteAccount(idstring string) (interface{}, error) {
+func deleteAccount(idstring string, formatDate bool) (interface{}, error) {
 	id, err := primitive.ObjectIDFromHex(idstring)
 	if err != nil {
 		return nil, err
@@ -30,7 +30,20 @@ func deleteAccount(idstring string) (interface{}, error) {
 		}
 		userData = userPrimitive.Map()
 		id := userData["_id"].(primitive.ObjectID)
-		userData["date"] = objectidtimestamp(id).Format(dateFormat)
+		if formatDate {
+			userData["created"] = objectidTimestamp(id).Format(dateFormat)
+		} else {
+			userData["created"] = objectidTimestamp(id).Unix()
+		}
+		updatedInt, ok := userData["updated"].(int32)
+		if !ok {
+			return nil, errors.New("cannot cast updated time to int")
+		}
+		if formatDate {
+			userData["updated"] = intTimestamp(int64(updatedInt)).Format(dateFormat)
+		} else {
+			userData["updated"] = intTimestamp(int64(updatedInt)).Unix()
+		}
 		userData["id"] = id.Hex()
 		delete(userData, "_id")
 		foundstuff = true
@@ -56,6 +69,9 @@ var userMutationFields = graphql.Fields{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
+			"formatDate": &graphql.ArgumentConfig{
+				Type: graphql.Boolean,
+			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			_, err := validateAdmin(params.Context.Value(tokenKey).(string))
@@ -69,13 +85,24 @@ var userMutationFields = graphql.Fields{
 			if !ok {
 				return nil, errors.New("cannot cast id to string")
 			}
-			return deleteAccount(idstring)
+			var formatDate = false
+			if params.Args["formatDate"] != nil {
+				formatDate, ok = params.Args["formatDate"].(bool)
+				if !ok {
+					return nil, errors.New("problem casting format date to boolean")
+				}
+			}
+			return deleteAccount(idstring, formatDate)
 		},
 	},
 	"deleteAccount": &graphql.Field{
 		Type:        AccountType,
 		Description: "Delete a User",
-		Args:        graphql.FieldConfigArgument{},
+		Args: graphql.FieldConfigArgument{
+			"formatDate": &graphql.ArgumentConfig{
+				Type: graphql.Boolean,
+			},
+		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			claims, err := validateLoggedIn(params.Context.Value(tokenKey).(string))
 			if err != nil {
@@ -85,7 +112,14 @@ var userMutationFields = graphql.Fields{
 			if !ok {
 				return nil, errors.New("cannot cast id to string")
 			}
-			return deleteAccount(idstring)
+			var formatDate = false
+			if params.Args["formatDate"] != nil {
+				formatDate, ok = params.Args["formatDate"].(bool)
+				if !ok {
+					return nil, errors.New("problem casting format date to boolean")
+				}
+			}
+			return deleteAccount(idstring, formatDate)
 		},
 	},
 }

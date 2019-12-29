@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/graphql-go/graphql"
@@ -22,7 +23,10 @@ var ProjectType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 		"name": &graphql.Field{
 			Type: graphql.String,
 		},
-		"date": &graphql.Field{
+		"created": &graphql.Field{
+			Type: graphql.String,
+		},
+		"updated": &graphql.Field{
 			Type: graphql.String,
 		},
 		"forms": &graphql.Field{
@@ -43,44 +47,69 @@ var ProjectType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-func checkProjectAccess(projectID primitive.ObjectID, accessToken string, necessaryAccess []string) (map[string]interface{}, []map[string]interface{}, error) {
+func processProjectFromDB(projectData bson.M, formatDate bool, updated bool) (bson.M, error) {
+	id := projectData["_id"].(primitive.ObjectID)
+	if formatDate {
+		projectData["created"] = objectidTimestamp(id).Format(dateFormat)
+	} else {
+		projectData["created"] = objectidTimestamp(id).Unix()
+	}
+	var updatedTimestamp time.Time
+	if updated {
+		updatedTimestamp = time.Now()
+	} else {
+		updatedInt, ok := projectData["updated"].(int32)
+		if !ok {
+			return nil, errors.New("cannot cast updated time to int")
+		}
+		updatedTimestamp = intTimestamp(int64(updatedInt))
+	}
+	if formatDate {
+		projectData["updated"] = updatedTimestamp.Format(dateFormat)
+	} else {
+		projectData["updated"] = updatedTimestamp.Unix()
+	}
+	projectData["id"] = id.Hex()
+	delete(projectData, "_id")
+	accessPrimitive, ok := projectData["access"].(primitive.A)
+	if !ok {
+		return nil, errors.New("cannot cast access to array")
+	}
+	access := make([]map[string]interface{}, len(accessPrimitive))
+	for i, accessData := range accessPrimitive {
+		primativeAccessDoc, ok := accessData.(primitive.D)
+		if !ok {
+			return nil, errors.New("cannot cast access to primitive D")
+		}
+		access[i] = primativeAccessDoc.Map()
+	}
+	projectData["access"] = access
+	return projectData, nil
+}
+
+func checkProjectAccess(projectID primitive.ObjectID, accessToken string, necessaryAccess []string, formatDate bool, updated bool) (map[string]interface{}, error) {
 	projectDataCursor, err := projectCollection.Find(ctxMongo, bson.M{
 		"_id": projectID,
 	})
 	defer projectDataCursor.Close(ctxMongo)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	var projectData map[string]interface{}
-	var access []map[string]interface{}
 	var foundProject = false
 	for projectDataCursor.Next(ctxMongo) {
 		foundProject = true
 		projectPrimitive := &bson.D{}
 		err = projectDataCursor.Decode(projectPrimitive)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		projectData = projectPrimitive.Map()
-		id := projectData["_id"].(primitive.ObjectID)
-		projectData["date"] = objectidtimestamp(id).Format(dateFormat)
-		projectData["id"] = id.Hex()
-		delete(projectData, "_id")
-		accessPrimitive, ok := projectData["access"].(primitive.A)
-		if !ok {
-			return nil, nil, errors.New("cannot cast access to array")
+		projectData, err = processProjectFromDB(projectPrimitive.Map(), formatDate, updated)
+		if err != nil {
+			return nil, err
 		}
-		access = make([]map[string]interface{}, len(accessPrimitive))
-		for i, accessData := range accessPrimitive {
-			primativeAccessDoc, ok := accessData.(primitive.D)
-			if !ok {
-				return nil, nil, errors.New("cannot cast access to primitive D")
-			}
-			access[i] = primativeAccessDoc.Map()
-		}
-		projectData["access"] = access
 		// if public just break
-		publicAccess, ok := projectData["public"].(string)
+		publicAccess := projectData["public"].(string)
 		if findInArray(publicAccess, viewAccessLevel) {
 			break
 		}
@@ -91,35 +120,25 @@ func checkProjectAccess(projectID primitive.ObjectID, accessToken string, necess
 		if err == nil {
 			break
 		}
-		userIDString, ok := claims["id"].(string)
+		userIDString := claims["id"].(string)
 		var foundUser = false
-		for _, user := range access {
-			accessUserIDString, ok := user["id"].(string)
-			if !ok {
-				return nil, nil, errors.New("cannot cast user id in form to string")
-			}
-			if accessUserIDString == userIDString {
+		access := projectData["access"].(map[string]primitive.M)
+		for currentUserID, _ := range access {
+			if currentUserID == userIDString {
 				foundUser = true
-				accessType, ok := user["access"].(string)
-				if !ok {
-					return nil, nil, errors.New("cannot cast access type to string")
-				}
-				if !findInArray(accessType, necessaryAccess) {
-					return nil, nil, errors.New("user not authorized to access form")
-				}
 				break
 			}
 		}
 		if !foundUser {
 			// check if user has access to project directly
-			return nil, nil, errors.New("user not authorized to access form")
+			return nil, errors.New("user not authorized to access project")
 		}
 		break
 	}
 	if !foundProject {
-		return nil, nil, errors.New("form not found with given id")
+		return nil, errors.New("project not found with given id")
 	}
-	return projectData, access, nil
+	return projectData, nil
 }
 
 /**

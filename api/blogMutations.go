@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"net/url"
+	"time"
 
 	"github.com/graphql-go/graphql"
 
@@ -65,6 +66,9 @@ var blogMutationFields = graphql.Fields{
 		Args: graphql.FieldConfigArgument{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
+			},
+			"formatDate": &graphql.ArgumentConfig{
+				Type: graphql.Boolean,
 			},
 			"title": &graphql.ArgumentConfig{
 				Type: graphql.String,
@@ -143,6 +147,14 @@ var blogMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
+			var formatDate = false
+			if params.Args["formatDate"] != nil {
+				var ok bool
+				formatDate, ok = params.Args["formatDate"].(bool)
+				if !ok {
+					return nil, errors.New("problem casting format date to boolean")
+				}
+			}
 			title, ok := params.Args["title"].(string)
 			if !ok {
 				return nil, errors.New("problem casting title to string")
@@ -170,19 +182,19 @@ var blogMutationFields = graphql.Fields{
 			if !validHexcode.MatchString(decodedColor) {
 				return nil, errors.New("invalid hex code for color")
 			}
-			tagsinterface, ok := params.Args["tags"].([]interface{})
+			tagsInterface, ok := params.Args["tags"].([]interface{})
 			if !ok {
 				return nil, errors.New("problem casting tags to interface array")
 			}
-			tags, err := interfaceListToStringList(tagsinterface)
+			tags, err := interfaceListToStringList(tagsInterface)
 			if err != nil {
 				return nil, err
 			}
-			categoriesinterface, ok := params.Args["categories"].([]interface{})
+			categoriesInterface, ok := params.Args["categories"].([]interface{})
 			if !ok {
 				return nil, errors.New("problem casting categories to interface array")
 			}
-			categories, err := interfaceListToStringList(categoriesinterface)
+			categories, err := interfaceListToStringList(categoriesInterface)
 			if err != nil {
 				return nil, err
 			}
@@ -217,6 +229,7 @@ var blogMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
+			created := objectidTimestamp(id)
 			blogData := bson.M{
 				"_id":        id,
 				"title":      title,
@@ -224,6 +237,7 @@ var blogMutationFields = graphql.Fields{
 				"content":    content,
 				"author":     author,
 				"color":      color,
+				"updated":    created.Unix(),
 				"tags":       tags,
 				"categories": categories,
 				"views":      0,
@@ -236,8 +250,7 @@ var blogMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			timestamp := objectidtimestamp(id)
-			blogData["date"] = timestamp.Unix()
+			blogData["created"] = blogData["updated"]
 			delete(blogData, "_id")
 			_, err = elasticClient.Index().
 				Index(blogElasticIndex).
@@ -248,7 +261,10 @@ var blogMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			blogData["date"] = timestamp.Format(dateFormat)
+			if formatDate {
+				blogData["created"] = created.Format(dateFormat)
+				blogData["updated"] = blogData["updated"]
+			}
 			blogData["id"] = idstring
 			return blogData, nil
 		},
@@ -259,6 +275,9 @@ var blogMutationFields = graphql.Fields{
 		Args: graphql.FieldConfigArgument{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
+			},
+			"formatDate": &graphql.ArgumentConfig{
+				Type: graphql.Boolean,
 			},
 			"title": &graphql.ArgumentConfig{
 				Type: graphql.String,
@@ -307,6 +326,14 @@ var blogMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
+			var formatDate = false
+			if params.Args["formatDate"] != nil {
+				var ok bool
+				formatDate, ok = params.Args["formatDate"].(bool)
+				if !ok {
+					return nil, errors.New("problem casting format date to boolean")
+				}
+			}
 			updateData := bson.M{}
 			if params.Args["title"] != nil {
 				title, ok := params.Args["title"].(string)
@@ -351,22 +378,22 @@ var blogMutationFields = graphql.Fields{
 				updateData["color"] = color
 			}
 			if params.Args["tags"] != nil {
-				tagsinterface, ok := params.Args["tags"].([]interface{})
+				tagsInterface, ok := params.Args["tags"].([]interface{})
 				if !ok {
 					return nil, errors.New("problem casting tags to interface array")
 				}
-				tags, err := interfaceListToStringList(tagsinterface)
+				tags, err := interfaceListToStringList(tagsInterface)
 				if err != nil {
 					return nil, err
 				}
 				updateData["tags"] = tags
 			}
 			if params.Args["categories"] != nil {
-				categoriesinterface, ok := params.Args["categories"].([]interface{})
+				categoriesInterface, ok := params.Args["categories"].([]interface{})
 				if !ok {
 					return nil, errors.New("problem casting categories to interface array")
 				}
-				categories, err := interfaceListToStringList(categoriesinterface)
+				categories, err := interfaceListToStringList(categoriesInterface)
 				if err != nil {
 					return nil, err
 				}
@@ -412,6 +439,7 @@ var blogMutationFields = graphql.Fields{
 				}
 				updateData["files"] = files
 			}
+			updateData["updated"] = time.Now().Unix()
 			_, err = elasticClient.Update().
 				Index(blogElasticIndex).
 				Type(blogElasticType).
@@ -446,7 +474,20 @@ var blogMutationFields = graphql.Fields{
 				}
 				blogData = blogPrimitive.Map()
 				id := blogData["_id"].(primitive.ObjectID)
-				blogData["date"] = objectidtimestamp(id).Format(dateFormat)
+				if formatDate {
+					blogData["created"] = objectidTimestamp(id).Format(dateFormat)
+				} else {
+					blogData["created"] = objectidTimestamp(id).Unix()
+				}
+				updatedInt, ok := blogData["updated"].(int32)
+				if !ok {
+					return nil, errors.New("cannot cast updated time to int")
+				}
+				if formatDate {
+					blogData["updated"] = intTimestamp(int64(updatedInt)).Format(dateFormat)
+				} else {
+					blogData["updated"] = intTimestamp(int64(updatedInt)).Unix()
+				}
 				blogData["id"] = id.Hex()
 				delete(blogData, "_id")
 				foundstuff = true
@@ -468,6 +509,9 @@ var blogMutationFields = graphql.Fields{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
+			"formatDate": &graphql.ArgumentConfig{
+				Type: graphql.Boolean,
+			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			_, err := validateAdmin(params.Context.Value(tokenKey).(string))
@@ -484,6 +528,14 @@ var blogMutationFields = graphql.Fields{
 			id, err := primitive.ObjectIDFromHex(idstring)
 			if err != nil {
 				return nil, err
+			}
+			var formatDate = false
+			if params.Args["formatDate"] != nil {
+				var ok bool
+				formatDate, ok = params.Args["formatDate"].(bool)
+				if !ok {
+					return nil, errors.New("problem casting format date to boolean")
+				}
 			}
 			_, err = elasticClient.Delete().
 				Index(blogElasticIndex).
@@ -511,7 +563,20 @@ var blogMutationFields = graphql.Fields{
 				}
 				blogData = blogPrimitive.Map()
 				id := blogData["_id"].(primitive.ObjectID)
-				blogData["date"] = objectidtimestamp(id).Format(dateFormat)
+				if formatDate {
+					blogData["created"] = objectidTimestamp(id).Format(dateFormat)
+				} else {
+					blogData["created"] = objectidTimestamp(id).Unix()
+				}
+				updatedInt, ok := blogData["updated"].(int32)
+				if !ok {
+					return nil, errors.New("cannot cast updated time to int")
+				}
+				if formatDate {
+					blogData["updated"] = intTimestamp(int64(updatedInt)).Format(dateFormat)
+				} else {
+					blogData["updated"] = intTimestamp(int64(updatedInt)).Unix()
+				}
 				blogData["id"] = idstr
 				delete(blogData, "_id")
 				foundstuff = true

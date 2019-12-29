@@ -2,8 +2,10 @@ package main
 
 import (
 	"errors"
+	"time"
 
 	"github.com/graphql-go/graphql"
+	"github.com/olivere/elastic/v7"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -111,6 +113,9 @@ var formMutationFields = graphql.Fields{
 		Type:        FormType,
 		Description: "Create a Form",
 		Args: graphql.FieldConfigArgument{
+			"formatDate": &graphql.ArgumentConfig{
+				Type: graphql.Boolean,
+			},
 			"project": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
@@ -163,6 +168,14 @@ var formMutationFields = graphql.Fields{
 			}
 			if params.Args["files"] == nil {
 				return nil, errors.New("files not provided")
+			}
+			var formatDate = false
+			if params.Args["formatDate"] != nil {
+				var ok bool
+				formatDate, ok = params.Args["formatDate"].(bool)
+				if !ok {
+					return nil, errors.New("problem casting format date to boolean")
+				}
 			}
 			project, ok := params.Args["project"].(string)
 			if !ok {
@@ -218,22 +231,23 @@ var formMutationFields = graphql.Fields{
 					return nil, err
 				}
 			}
+			now := time.Now()
 			userAccess := []map[string]interface{}{{
 				"id":   userIDString,
 				"type": editAccessLevel[0],
 			}}
 			formData := bson.M{
-				"project":    project,
-				"title":      title,
-				"items":      items,
-				"multiple":   multiple,
-				"tags":       tags,
-				"categories": categories,
-				"views":      0,
-				"access": bson.A{
-					bson.M{
-						"id":     userIDString,
-						"access": editAccessLevel[0],
+				"updated":  now.Unix(),
+				"project":  project,
+				"title":    title,
+				"items":    items,
+				"multiple": multiple,
+				"views":    0,
+				"access": bson.M{
+					userIDString: bson.M{
+						"type":       userAccess[0]["type"].(string),
+						"categories": categories,
+						"tags":       tags,
 					},
 				},
 				"files":  files,
@@ -245,107 +259,31 @@ var formMutationFields = graphql.Fields{
 			}
 			formID := formCreateRes.InsertedID.(primitive.ObjectID)
 			formIDString := formID.Hex()
-			if err = changeUserFormAccess(formID, userAccess); err != nil {
+			if _, err = changeUserAccessData(formID, formType, userIDString, categories, tags, userAccess); err != nil {
 				return nil, err
 			}
 			if err = changeFormProject(formIDString, "", project); err != nil {
 				return nil, err
 			}
-			timestamp := objectidtimestamp(formID)
-			formData["date"] = timestamp.Unix()
-			/*
-				_, err = elasticClient.Index().
-					Index(blogElasticIndex).
-					Type(blogElasticType).
-					Id(formIDString).
-					BodyJson(formData).
-					Do(ctxElastic)
-				if err != nil {
-					return nil, err
-				}
-			*/
-			formData["date"] = timestamp.Format(dateFormat)
+			formData["created"] = now.Unix()
+			_, err = elasticClient.Index().
+				Index(blogElasticIndex).
+				Type(blogElasticType).
+				Id(formIDString).
+				BodyJson(formData).
+				Do(ctxElastic)
+			if err != nil {
+				return nil, err
+			}
+			if formatDate {
+				formData["created"] = now.Format(dateFormat)
+				formData["updated"] = now.Format(dateFormat)
+			}
 			formData["id"] = formIDString
-			return formData, nil
-		},
-	},
-	"updateFormOrganization": &graphql.Field{
-		Type:        FormType,
-		Description: "Update Form Organization",
-		Args: graphql.FieldConfigArgument{
-			"id": &graphql.ArgumentConfig{
-				Type: graphql.String,
-			},
-			"type": &graphql.ArgumentConfig{
-				Type: graphql.String,
-			},
-			"value": &graphql.ArgumentConfig{
-				Type: graphql.String,
-			},
-			"add": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
-		},
-		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-			accessToken := params.Context.Value(tokenKey).(string)
-			if params.Args["id"] != nil {
-				return nil, errors.New("form id not provided")
-			}
-			formIDString, ok := params.Args["id"].(string)
-			if !ok {
-				return nil, errors.New("cannot cast form id to string")
-			}
-			formID, err := primitive.ObjectIDFromHex(formIDString)
-			if err != nil {
-				return nil, err
-			}
-			formData, _, err := checkFormAccess(formID, accessToken, editAccessLevel)
-			if err != nil {
-				return nil, err
-			}
-			if params.Args["type"] == nil {
-				return nil, errors.New("type not provided")
-			}
-			if params.Args["value"] == nil {
-				return nil, errors.New("value not provided")
-			}
-			if params.Args["add"] == nil {
-				return nil, errors.New("add not provided")
-			}
-			thetype, ok := params.Args["type"].(string)
-			if !ok {
-				return nil, errors.New("problem casting type to string")
-			}
-			if !findInArray(thetype, validOrganization) {
-				return nil, errors.New("invalid type given")
-			}
-			value, ok := params.Args["value"].(string)
-			if !ok {
-				return nil, errors.New("problem casting value to string")
-			}
-			add, ok := params.Args["value"].(bool)
-			if !ok {
-				return nil, errors.New("problem casting add to boolean")
-			}
-			updateData := bson.M{}
-			valueUpdate := bson.M{
-				thetype: value,
-			}
-			if add {
-				updateData["$set"] = valueUpdate
-				updateData["$upsert"] = true
-			} else {
-				updateData["$pull"] = valueUpdate
-			}
-			_, err = formCollection.UpdateOne(ctxMongo, bson.M{
-				"_id": formID,
-			}, updateData)
-			if err != nil {
-				return nil, err
-			}
-			timestamp := objectidtimestamp(formID)
-			formData["date"] = timestamp.Format(dateFormat)
-			formData["id"] = formIDString
+			delete(formData["access"].(map[string]interface{}), userIDString)
+			formData["access"] = userAccess[0]
+			formData["tags"] = tags
+			formData["categories"] = categories
 			return formData, nil
 		},
 	},
@@ -355,6 +293,9 @@ var formMutationFields = graphql.Fields{
 		Args: graphql.FieldConfigArgument{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
+			},
+			"formatDate": &graphql.ArgumentConfig{
+				Type: graphql.Boolean,
 			},
 			"project": &graphql.ArgumentConfig{
 				Type: graphql.String,
@@ -371,10 +312,10 @@ var formMutationFields = graphql.Fields{
 			"access": &graphql.ArgumentConfig{
 				Type: graphql.NewList(AccessInputType),
 			},
-			"categories": &graphql.ArgumentConfig{
+			"tags": &graphql.ArgumentConfig{
 				Type: graphql.NewList(graphql.String),
 			},
-			"tags": &graphql.ArgumentConfig{
+			"categories": &graphql.ArgumentConfig{
 				Type: graphql.NewList(graphql.String),
 			},
 			"public": &graphql.ArgumentConfig{
@@ -386,6 +327,14 @@ var formMutationFields = graphql.Fields{
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			accessToken := params.Context.Value(tokenKey).(string)
+			claims, err := validateLoggedIn(accessToken)
+			if err != nil {
+				return nil, err
+			}
+			userIDString, ok := claims["id"].(string)
+			if !ok {
+				return nil, errors.New("cannot cast user id to string")
+			}
 			if params.Args["id"] == nil {
 				return nil, errors.New("form id not provided")
 			}
@@ -397,11 +346,75 @@ var formMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			formData, _, err := checkFormAccess(formID, accessToken, editAccessLevel)
+			var formatDate = false
+			if params.Args["formatDate"] != nil {
+				var ok bool
+				formatDate, ok = params.Args["formatDate"].(bool)
+				if !ok {
+					return nil, errors.New("problem casting format date to boolean")
+				}
+			}
+			formData, err := checkFormAccess(formID, accessToken, editAccessLevel, formatDate, true)
 			if err != nil {
 				return nil, err
 			}
-			updateData := bson.M{}
+			var categories []string
+			if params.Args["categories"] != nil {
+				categoriesInterface, ok := params.Args["categories"].([]interface{})
+				if !ok {
+					return nil, errors.New("problem casting categories to interface array")
+				}
+				categories, err = interfaceListToStringList(categoriesInterface)
+				if err != nil {
+					return nil, err
+				}
+			}
+			var tags []string
+			if params.Args["tags"] != nil {
+				tagsInterface, ok := params.Args["tags"].([]interface{})
+				if !ok {
+					return nil, errors.New("problem casting tags to interface array")
+				}
+				tags, err = interfaceListToStringList(tagsInterface)
+				if err != nil {
+					return nil, err
+				}
+			}
+			var updateData bson.M
+			var access []map[string]interface{}
+			if params.Args["access"] != nil {
+				accessInterface, ok := params.Args["access"].([]interface{})
+				if !ok {
+					return nil, errors.New("problem casting access to interface array")
+				}
+				access, err = interfaceListToMapList(accessInterface)
+				if err != nil {
+					return nil, err
+				}
+				for _, accessUser := range access {
+					if err := checkAccessObj(accessUser); err != nil {
+						return nil, err
+					}
+				}
+				_, err = interfaceListToMapList(accessInterface)
+				if err != nil {
+					return nil, err
+				}
+				updateData, err = changeUserAccessData(formID, formType, userIDString, categories, tags, access)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				updateData = bson.M{}
+			}
+			oldCategories, oldTags, newAccess := getFormattedGQLData(formData, access, userIDString)
+			formData["access"] = newAccess
+			if params.Args["categories"] == nil {
+				formData["categories"] = oldCategories
+			}
+			if params.Args["tags"] == nil {
+				formData["tags"] = oldTags
+			}
 			var updateProject = false
 			var newProject string
 			var oldProject string
@@ -434,28 +447,6 @@ var formMutationFields = graphql.Fields{
 				updateData["multiple"] = multiple
 				formData["multiple"] = multiple
 			}
-			if params.Args["categories"] != nil {
-				categoriesInterface, ok := params.Args["categories"].([]interface{})
-				if !ok {
-					return nil, errors.New("problem casting categories to interface array")
-				}
-				categories, err := interfaceListToStringList(categoriesInterface)
-				if err != nil {
-					return nil, err
-				}
-				updateData["categories"] = categories
-			}
-			if params.Args["tags"] != nil {
-				tagsInterface, ok := params.Args["tags"].([]interface{})
-				if !ok {
-					return nil, errors.New("problem casting tags to interface array")
-				}
-				tags, err := interfaceListToStringList(tagsInterface)
-				if err != nil {
-					return nil, err
-				}
-				updateData["tags"] = tags
-			}
 			if params.Args["items"] != nil {
 				itemsInterface, ok := params.Args["items"].([]interface{})
 				if !ok {
@@ -470,7 +461,7 @@ var formMutationFields = graphql.Fields{
 						return nil, err
 					}
 				}
-				updateData["items"] = items
+				updateData["$set"].(bson.M)["items"] = items
 				formData["items"] = items
 			}
 			if params.Args["public"] != nil {
@@ -481,7 +472,7 @@ var formMutationFields = graphql.Fields{
 				if !findInArray(public, validAccessTypes) {
 					return nil, errors.New("invalid public access level")
 				}
-				updateData["public"] = public
+				updateData["$set"].(bson.M)["public"] = public
 				formData["public"] = public
 			}
 			if params.Args["files"] != nil {
@@ -498,38 +489,24 @@ var formMutationFields = graphql.Fields{
 						return nil, err
 					}
 				}
-				updateData["files"] = files
-			}
-			var access []map[string]interface{}
-			if params.Args["access"] != nil {
-				accessInterface, ok := params.Args["access"].([]interface{})
-				if !ok {
-					return nil, errors.New("problem casting access to interface array")
-				}
-				access, err := interfaceListToMapList(accessInterface)
-				if err != nil {
-					return nil, err
-				}
-				for _, accessUser := range access {
-					if err := checkAccessObj(accessUser); err != nil {
-						return nil, err
-					}
-				}
-				_, err = interfaceListToMapList(accessInterface)
-				if err != nil {
-					return nil, err
-				}
-				if err = changeUserFormAccess(formID, access); err != nil {
-					return nil, err
-				}
-				updateData["access"] = access
+				updateData["$set"].(bson.M)["files"] = files
 			}
 			formData["access"] = access
+			script := elastic.NewScriptInline(addRemoveAccessScript).Lang("painless").Params(map[string]interface{}{
+				"access":     access,
+				"tags":       tags,
+				"categories": categories,
+			})
+			_, err = elasticClient.Update().
+				Index(formElasticIndex).
+				Type(formElasticType).
+				Id(formIDString).
+				Script(script).
+				Doc(updateData).
+				Do(ctxElastic)
 			_, err = formCollection.UpdateOne(ctxMongo, bson.M{
 				"_id": formID,
-			}, bson.M{
-				"$set": updateData,
-			})
+			}, updateData)
 			if err != nil {
 				return nil, err
 			}
@@ -549,9 +526,20 @@ var formMutationFields = graphql.Fields{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
+			"formatDate": &graphql.ArgumentConfig{
+				Type: graphql.Boolean,
+			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			accessToken := params.Context.Value(tokenKey).(string)
+			claims, err := validateLoggedIn(accessToken)
+			if err != nil {
+				return nil, err
+			}
+			userIDString, ok := claims["id"].(string)
+			if !ok {
+				return nil, errors.New("cannot cast user id to string")
+			}
 			if params.Args["id"] != nil {
 				return nil, errors.New("form id not provided")
 			}
@@ -563,15 +551,22 @@ var formMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			formData, access, err := checkFormAccess(formID, accessToken, editAccessLevel)
+			var formatDate = false
+			if params.Args["formatDate"] != nil {
+				var ok bool
+				formatDate, ok = params.Args["formatDate"].(bool)
+				if !ok {
+					return nil, errors.New("problem casting format date to boolean")
+				}
+			}
+			formData, err := checkFormAccess(formID, accessToken, editAccessLevel, formatDate, false)
 			if err != nil {
 				return nil, err
 			}
-			for _, user := range access {
-				accessUserIDString, ok := user["id"].(string)
-				if !ok {
-					return nil, errors.New("cannot cast user id in form to string")
-				}
+			categories, tags, access := getFormattedGQLData(formData, nil, userIDString)
+			formData["categories"] = categories
+			formData["tags"] = tags
+			for _, accessUserIDString := range access {
 				accessUserID, err := primitive.ObjectIDFromHex(accessUserIDString)
 				if err != nil {
 					return nil, err
@@ -594,59 +589,15 @@ var formMutationFields = graphql.Fields{
 			if err = changeFormProject(formIDString, oldProject, ""); err != nil {
 				return nil, err
 			}
-			_, err = formCollection.DeleteOne(ctxMongo, bson.M{
-				"_id": formID,
-			})
+			_, err = elasticClient.Delete().
+				Index(formElasticIndex).
+				Type(formElasticType).
+				Id(formIDString).
+				Do(ctxElastic)
 			if err != nil {
 				return nil, err
 			}
-			primativefiles, ok := formData["files"].(primitive.A)
-			if !ok {
-				return nil, errors.New("cannot convert files to primitive")
-			}
-			for _, primativefile := range primativefiles {
-				filedatadoc, ok := primativefile.(primitive.D)
-				if !ok {
-					return nil, errors.New("cannot convert file to primitive doc")
-				}
-				filedata := filedatadoc.Map()
-				fileid, ok := filedata["id"].(string)
-				if !ok {
-					return nil, errors.New("cannot convert file id to string")
-				}
-				filetype, ok := filedata["type"].(string)
-				if !ok {
-					return nil, errors.New("cannot convert file type to string")
-				}
-				fileobj := storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + originalPath)
-				if err := fileobj.Delete(ctxStorage); err != nil {
-					return nil, err
-				}
-				if filetype == "image/gif" {
-					fileobj = storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + placeholderPath + originalPath)
-					blurobj := storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + placeholderPath + blurPath)
-					if err := fileobj.Delete(ctxStorage); err != nil {
-						return nil, err
-					}
-					if err := blurobj.Delete(ctxStorage); err != nil {
-						return nil, err
-					}
-				} else {
-					var hasblur = false
-					for _, blurtype := range haveblur {
-						if blurtype == filetype {
-							hasblur = true
-							break
-						}
-					}
-					if hasblur {
-						fileobj = storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + blurPath)
-						if err := fileobj.Delete(ctxStorage); err != nil {
-							return nil, err
-						}
-					}
-				}
-			}
+			err = deleteForm(formID, formData, formatDate)
 			if err != nil {
 				return nil, err
 			}

@@ -155,11 +155,17 @@ func register(c *gin.Context) {
 		handleError("error sending email verification: got status code "+strconv.Itoa(emailres.StatusCode), http.StatusBadRequest, response)
 		return
 	}
+	now := time.Now()
 	res, err := userCollection.InsertOne(ctxMongo, bson.M{
 		"email":         email,
 		"password":      string(passwordhashed),
 		"emailverified": false,
 		"type":          "user",
+		"updated":       now.Unix(),
+		"forms":         bson.A{},
+		"projects":      bson.A{},
+		"categories":    bson.A{},
+		"tags":          bson.A{},
 	})
 	if err != nil {
 		handleError("error inserting user to database: "+err.Error(), http.StatusBadRequest, response)
@@ -375,11 +381,13 @@ func verifyEmail(c *gin.Context) {
 			return
 		}
 		id := userData["_id"].(primitive.ObjectID)
+		now := time.Now()
 		_, err := userCollection.UpdateOne(ctxMongo, bson.M{
 			"_id": id,
 		}, bson.M{
 			"$set": bson.M{
 				"emailverified": true,
+				"updated":       now.Unix(),
 			},
 		})
 		if err != nil {
@@ -517,11 +525,13 @@ func resetPassword(c *gin.Context) {
 			handleError("error hashing password: "+err.Error(), http.StatusBadRequest, response)
 			return
 		}
+		now := time.Now()
 		_, err = userCollection.UpdateOne(ctxMongo, bson.M{
 			"_id": id,
 		}, bson.M{
 			"$set": bson.M{
 				"password": string(passwordhashed),
+				"updated":  now.Unix(),
 			},
 		})
 		if err != nil {
@@ -572,7 +582,7 @@ func validateAdmin(t string) (jwt.MapClaims, error) {
 	if !accountdata["emailverified"].(bool) {
 		return nil, errors.New("email not verified")
 	}
-	if accountdata["type"] != "admin" {
+	if accountdata["type"] != adminType {
 		return nil, errors.New("user not admin")
 	}
 	return accountdata, nil

@@ -4,6 +4,19 @@ import (
 	"github.com/graphql-go/graphql"
 )
 
+// NameCountType type for a name and count of that object
+var NameCountType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
+	Name: "NameCount",
+	Fields: graphql.Fields{
+		"name": &graphql.Field{
+			Type: graphql.String,
+		},
+		"count": &graphql.Field{
+			Type: graphql.Int,
+		},
+	},
+})
+
 // AccountType account type object for user accounts graphql
 var AccountType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 	Name: "Account",
@@ -17,6 +30,12 @@ var AccountType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 		"password": &graphql.Field{
 			Type: graphql.String,
 		},
+		"created": &graphql.Field{
+			Type: graphql.String,
+		},
+		"updated": &graphql.Field{
+			Type: graphql.String,
+		},
 		"emailverified": &graphql.Field{
 			Type: graphql.Boolean,
 		},
@@ -24,10 +43,16 @@ var AccountType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 			Type: graphql.String,
 		},
 		"forms": &graphql.Field{
-			Type: graphql.NewList(AccessType),
+			Type: graphql.NewList(graphql.String),
 		},
 		"projects": &graphql.Field{
-			Type: graphql.NewList(AccessType),
+			Type: graphql.NewList(graphql.String),
+		},
+		"categories": &graphql.Field{
+			Type: graphql.NewList(NameCountType),
+		},
+		"tags": &graphql.Field{
+			Type: graphql.NewList(NameCountType),
 		},
 	},
 })

@@ -31,7 +31,11 @@ export const blogMappings = {
     views: {
       type: 'integer'
     },
-    date: {
+    created: {
+      type: 'date',
+      format: 'epoch_millis'
+    },
+    updated: {
       type: 'date',
       format: 'epoch_millis'
     },

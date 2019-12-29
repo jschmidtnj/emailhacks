@@ -28,6 +28,8 @@ var hexRegex = "(^#[0-9A-F]{6}$)|(^#[0-9A-F]{8}$)"
 
 var formType = "form"
 
+var projectType = "project"
+
 var blogType = "blog"
 
 var validTypes = []string{
@@ -128,3 +130,5 @@ var haveblur = []string{
 var progressiveImageSize = 30
 
 var progressiveImageBlurAmount = 20.0
+
+var adminType = "admin"

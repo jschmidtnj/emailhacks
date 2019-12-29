@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/graphql-go/graphql"
@@ -69,7 +70,10 @@ var FormType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 		"id": &graphql.Field{
 			Type: graphql.String,
 		},
-		"date": &graphql.Field{
+		"created": &graphql.Field{
+			Type: graphql.String,
+		},
+		"updated": &graphql.Field{
 			Type: graphql.String,
 		},
 		"project": &graphql.Field{
@@ -105,119 +109,137 @@ var FormType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-func checkFormAccess(formID primitive.ObjectID, accessToken string, necessaryAccess []string) (map[string]interface{}, []map[string]interface{}, error) {
+func processFormFromDB(formData bson.M, formatDate bool, updated bool) (bson.M, error) {
+	id := formData["_id"].(primitive.ObjectID)
+	if formatDate {
+		formData["created"] = objectidTimestamp(id).Format(dateFormat)
+	} else {
+		formData["created"] = objectidTimestamp(id).Unix()
+	}
+	var updatedTimestamp time.Time
+	if updated {
+		updatedTimestamp = time.Now()
+	} else {
+		updatedInt, ok := formData["updated"].(int32)
+		if !ok {
+			return nil, errors.New("cannot cast updated time to int")
+		}
+		updatedTimestamp = intTimestamp(int64(updatedInt))
+	}
+	if formatDate {
+		formData["updated"] = updatedTimestamp.Format(dateFormat)
+	} else {
+		formData["updated"] = updatedTimestamp.Unix()
+	}
+	formData["id"] = id.Hex()
+	delete(formData, "_id")
+	fileArray, ok := formData["files"].(primitive.A)
+	if !ok {
+		return nil, errors.New("cannot cast files to array")
+	}
+	for i, file := range fileArray {
+		primativeFile, ok := file.(primitive.D)
+		if !ok {
+			return nil, errors.New("cannot cast file to primitive D")
+		}
+		fileArray[i] = primativeFile.Map()
+	}
+	formData["files"] = fileArray
+	itemArray, ok := formData["items"].(primitive.A)
+	if !ok {
+		return nil, errors.New("cannot cast items to array")
+	}
+	for i, item := range itemArray {
+		primativeItem, ok := item.(primitive.D)
+		if !ok {
+			return nil, errors.New("cannot cast file to primitive D")
+		}
+		itemArray[i] = primativeItem.Map()
+	}
+	formData["items"] = itemArray
+	accessPrimitive, ok := formData["access"].(primitive.M)
+	if !ok {
+		return nil, errors.New("cannot cast access to map")
+	}
+	access := make(map[string]primitive.M, len(accessPrimitive))
+	for id, accessData := range accessPrimitive {
+		primativeAccessDoc, ok := accessData.(primitive.D)
+		if !ok {
+			return nil, errors.New("cannot cast access to primitive D")
+		}
+		access[id] = primativeAccessDoc.Map()
+	}
+	formData["access"] = access
+	return formData, nil
+}
+
+func getForm(formID primitive.ObjectID, formatDate bool, updated bool) (map[string]interface{}, error) {
 	formDataCursor, err := formCollection.Find(ctxMongo, bson.M{
 		"_id": formID,
 	})
 	defer formDataCursor.Close(ctxMongo)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	var formData map[string]interface{}
-	var access []map[string]interface{}
 	var foundForm = false
 	for formDataCursor.Next(ctxMongo) {
 		foundForm = true
 		formPrimitive := &bson.D{}
 		err = formDataCursor.Decode(formPrimitive)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		formData = formPrimitive.Map()
-		id := formData["_id"].(primitive.ObjectID)
-		formData["date"] = objectidtimestamp(id).Format(dateFormat)
-		formData["id"] = id.Hex()
-		delete(formData, "_id")
-		fileArray, ok := formData["files"].(primitive.A)
-		if !ok {
-			return nil, nil, errors.New("cannot cast files to array")
-		}
-		for i, file := range fileArray {
-			primativeFile, ok := file.(primitive.D)
-			if !ok {
-				return nil, nil, errors.New("cannot cast file to primitive D")
-			}
-			fileArray[i] = primativeFile.Map()
-		}
-		formData["files"] = fileArray
-		itemArray, ok := formData["items"].(primitive.A)
-		if !ok {
-			return nil, nil, errors.New("cannot cast items to array")
-		}
-		for i, item := range itemArray {
-			primativeItem, ok := item.(primitive.D)
-			if !ok {
-				return nil, nil, errors.New("cannot cast file to primitive D")
-			}
-			itemArray[i] = primativeItem.Map()
-		}
-		formData["items"] = itemArray
-		accessPrimitive, ok := formData["access"].(primitive.A)
-		if !ok {
-			return nil, nil, errors.New("cannot cast access to array")
-		}
-		access = make([]map[string]interface{}, len(accessPrimitive))
-		for i, accessData := range accessPrimitive {
-			primativeAccessDoc, ok := accessData.(primitive.D)
-			if !ok {
-				return nil, nil, errors.New("cannot cast access to primitive D")
-			}
-			access[i] = primativeAccessDoc.Map()
-		}
-		formData["access"] = access
-		// if public just break
-		publicAccess, ok := formData["public"].(string)
-		if findInArray(publicAccess, viewAccessLevel) {
-			break
-		}
-		// next check if logged in
-		claims, err := validateLoggedIn(accessToken)
-		// admin can do anything
-		_, err = validateAdmin(accessToken)
-		if err == nil {
-			break
-		}
-		userIDString, ok := claims["id"].(string)
-		var foundUser = false
-		for _, user := range access {
-			accessUserIDString, ok := user["id"].(string)
-			if !ok {
-				return nil, nil, errors.New("cannot cast user id in form to string")
-			}
-			if accessUserIDString == userIDString {
-				foundUser = true
-				accessType, ok := user["access"].(string)
-				if !ok {
-					return nil, nil, errors.New("cannot cast access type to string")
-				}
-				if !findInArray(accessType, necessaryAccess) {
-					return nil, nil, errors.New("user not authorized to access form")
-				}
-				break
-			}
-		}
-		if !foundUser {
-			// check if user has access to project directly
-			projectIDString, ok := formData["project"].(string)
-			if !ok {
-				return nil, nil, errors.New("cannot cast project id to string")
-			}
-			projectID, err := primitive.ObjectIDFromHex(projectIDString)
-			if err != nil {
-				return nil, nil, err
-			}
-			_, _, err = checkProjectAccess(projectID, accessToken, necessaryAccess)
-			if err == nil {
-				break
-			}
-			return nil, nil, errors.New("user not authorized to access form")
+		formData, err = processFormFromDB(formPrimitive.Map(), formatDate, updated)
+		if err != nil {
+			return nil, err
 		}
 		break
 	}
 	if !foundForm {
-		return nil, nil, errors.New("form not found with given id")
+		return nil, errors.New("form not found with given id")
 	}
-	return formData, access, nil
+	return formData, nil
+}
+
+func checkFormAccess(formID primitive.ObjectID, accessToken string, necessaryAccess []string, formatDate bool, updated bool) (map[string]interface{}, error) {
+	formData, err := getForm(formID, formatDate, updated)
+	if err != nil {
+		return nil, err
+	}
+	// if public just break
+	var publicAccess = formData["public"].(string)
+	if findInArray(publicAccess, viewAccessLevel) {
+		return formData, nil
+	}
+	// next check if logged in
+	claims, err := validateLoggedIn(accessToken)
+	// admin can do anything
+	_, err = validateAdmin(accessToken)
+	if err == nil {
+		return formData, nil
+	}
+	var userIDString = claims["id"].(string)
+	access := formData["access"].(map[string]primitive.M)
+	for currentUserID, _ := range access {
+		if currentUserID == userIDString {
+			return formData, nil
+		}
+	}
+	// check if user has access to project directly
+	projectIDString, ok := formData["project"].(string)
+	if !ok {
+		return nil, errors.New("cannot cast project id to string")
+	}
+	projectID, err := primitive.ObjectIDFromHex(projectIDString)
+	if err != nil {
+		return nil, err
+	}
+	_, err = checkProjectAccess(projectID, accessToken, necessaryAccess, false, false)
+	if err == nil {
+		return formData, nil
+	}
+	return nil, errors.New("user not authorized to access form")
 }
 
 /**
