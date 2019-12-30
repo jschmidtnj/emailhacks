@@ -1,5 +1,5 @@
 <template>
-  <b-container>
+  <b-container class="mt-4">
     <b-card>
       <b-list-group>
         <b-list-group-item>Analytics</b-list-group-item>

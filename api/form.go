@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -79,7 +80,7 @@ var FormType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 		"project": &graphql.Field{
 			Type: graphql.String,
 		},
-		"title": &graphql.Field{
+		"name": &graphql.Field{
 			Type: graphql.String,
 		},
 		"items": &graphql.Field{
@@ -120,11 +121,11 @@ func processFormFromDB(formData bson.M, formatDate bool, updated bool) (bson.M, 
 	if updated {
 		updatedTimestamp = time.Now()
 	} else {
-		updatedInt, ok := formData["updated"].(int32)
+		updatedInt, ok := formData["updated"].(int64)
 		if !ok {
 			return nil, errors.New("cannot cast updated time to int")
 		}
-		updatedTimestamp = intTimestamp(int64(updatedInt))
+		updatedTimestamp = intTimestamp(updatedInt)
 	}
 	if formatDate {
 		formData["updated"] = updatedTimestamp.Format(dateFormat)
@@ -157,10 +158,11 @@ func processFormFromDB(formData bson.M, formatDate bool, updated bool) (bson.M, 
 		itemArray[i] = primativeItem.Map()
 	}
 	formData["items"] = itemArray
-	accessPrimitive, ok := formData["access"].(primitive.M)
+	accessPrimitiveDoc, ok := formData["access"].(primitive.D)
 	if !ok {
 		return nil, errors.New("cannot cast access to map")
 	}
+	accessPrimitive := accessPrimitiveDoc.Map()
 	access := make(map[string]primitive.M, len(accessPrimitive))
 	for id, accessData := range accessPrimitive {
 		primativeAccessDoc, ok := accessData.(primitive.D)
@@ -256,12 +258,26 @@ func countForms(c *gin.Context) {
 		handleError("register http method not Get", http.StatusBadRequest, response)
 		return
 	}
+	claims, err := validateLoggedIn(getAuthToken(request))
+	if err != nil {
+		handleError("user not logged in", http.StatusBadRequest, response)
+		return
+	}
+	userIDString, ok := claims["id"].(string)
+	if !ok {
+		handleError("cannot cast user id to string", http.StatusBadRequest, response)
+		return
+	}
 	searchterm := request.URL.Query().Get("searchterm")
 	project := request.URL.Query().Get("project")
-	_, err := primitive.ObjectIDFromHex(project)
-	if err != nil {
-		handleError("error getting project id value", http.StatusBadRequest, response)
-		return
+	var foundProject = false
+	if len(project) > 0 {
+		foundProject = true
+		_, err := primitive.ObjectIDFromHex(project)
+		if err != nil {
+			handleError("error getting project id value", http.StatusBadRequest, response)
+			return
+		}
 	}
 	request.ParseForm()
 	categories := request.Form["categories"]
@@ -278,12 +294,17 @@ func countForms(c *gin.Context) {
 	tags = removeEmptyStrings(tags)
 	var numtags = len(tags)
 	mustQueries := make([]elastic.Query, numtags+len(categories)+1)
-	mustQueries[0] = elastic.NewTermQuery("project", project)
+	if foundProject {
+		mustQueries[0] = elastic.NewTermQuery("project", project)
+	} else {
+		// get all shared directly forms (not in a project)
+		mustQueries[0] = elastic.NewTermsQuery(fmt.Sprintf("access.%s.type", userIDString), stringListToInterfaceList(viewAccessLevel)...)
+	}
 	for i, tag := range tags {
-		mustQueries[i+1] = elastic.NewTermQuery("tags", tag)
+		mustQueries[i+1] = elastic.NewTermQuery(fmt.Sprintf("access.%s.tags", userIDString), tag)
 	}
 	for i, category := range categories {
-		mustQueries[i+numtags] = elastic.NewTermQuery("categories", category)
+		mustQueries[i+numtags+1] = elastic.NewTermQuery(fmt.Sprintf("access.%s.categories", userIDString), category)
 	}
 	query := elastic.NewBoolQuery()
 	if len(mustQueries) > 0 {

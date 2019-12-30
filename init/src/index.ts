@@ -1,14 +1,16 @@
 import express = require('express')
 import bodyParser = require('body-parser')
 import { codes, adminconfig, mongoconfig } from './config'
-import { initializeposts, blogMappings, formMappings } from './elastic'
+import { initializeElasticMappings, blogMappings, formMappings, projectMappings } from './elastic'
 import * as mongodb from 'mongodb'
 
 // indexname must match mongodb name
 const blogIndexName = 'blogs'
 const blogDocType = 'blog'
-const formIndexName = 'projects'
-const formDocType = 'project'
+const formIndexName = 'forms'
+const formDocType = 'form'
+const projectIndexName = 'projects'
+const projectDocType = 'project'
 
 const MongoClient = mongodb.MongoClient
 const ObjectID = mongodb.ObjectID
@@ -84,22 +86,29 @@ adminApp.post('/addAdmin', (req, res) => {
   }
 })
 
-adminApp.post('/initializePosts', (req, res) => {
+adminApp.post('/initializeElastic', (req, res) => {
   if (req.body.token === adminconfig.token) {
-    initializeposts(blogIndexName, blogDocType, blogMappings).then(res1 => {
-      initializeposts(formIndexName, formDocType, formMappings).then(res2 => {
-        res.json({
-          message: `res1: ${res1}, res2: ${res2}`
-        }).status(codes.success)
+    initializeElasticMappings(blogIndexName, blogDocType, blogMappings).then(res1 => {
+      initializeElasticMappings(formIndexName, formDocType, formMappings).then(res2 => {
+        initializeElasticMappings(projectIndexName, projectDocType, projectMappings).then(res3 => {
+          res.json({
+            message: `res1: ${res1}, res2: ${res2}, res3: ${res3}`
+          }).status(codes.success)
+        }).catch(err => {
+          res.json({
+            message: `project init failed: ${err}`
+          })
+            .status(codes.error)
+        })
       }).catch(err => {
         res.json({
-          message: `post init failed: ${err}`
+          message: `form init failed: ${err}`
         })
           .status(codes.error)
       })
     }).catch(err => {
       res.json({
-        message: `post init failed: ${err}`
+        message: `blog init failed: ${err}`
       })
         .status(codes.error)
     })

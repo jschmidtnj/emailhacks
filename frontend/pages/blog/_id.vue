@@ -32,7 +32,7 @@
           <h1>{{ blog.title }}</h1>
           <p>{{ blog.author }}</p>
           <p v-if="blog.id">
-            {{ formatDate(mongoidToDate(blog.id), 'M/D/YYYY') }}
+            {{ formatDate(mongoidToDate(blog.id), 'M/d/yyyy') }}
           </p>
           <p>{{ blog.views }}</p>
           <a :href="`${shortlinkurl}/${blog.shortlink}`">

@@ -35,14 +35,14 @@ func deleteAccount(idstring string, formatDate bool) (interface{}, error) {
 		} else {
 			userData["created"] = objectidTimestamp(id).Unix()
 		}
-		updatedInt, ok := userData["updated"].(int32)
+		updatedInt, ok := userData["updated"].(int64)
 		if !ok {
 			return nil, errors.New("cannot cast updated time to int")
 		}
 		if formatDate {
-			userData["updated"] = intTimestamp(int64(updatedInt)).Format(dateFormat)
+			userData["updated"] = intTimestamp(updatedInt).Format(dateFormat)
 		} else {
-			userData["updated"] = intTimestamp(int64(updatedInt)).Unix()
+			userData["updated"] = intTimestamp(updatedInt).Unix()
 		}
 		userData["id"] = id.Hex()
 		delete(userData, "_id")

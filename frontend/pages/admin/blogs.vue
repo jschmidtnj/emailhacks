@@ -519,20 +519,23 @@
                 show-empty
                 stacked="md"
               >
-                <template slot="name" slot-scope="row">{{
-                  row.value
+                <template v-slot:cell(name)="data">{{ data.value }}</template>
+                <template v-slot:cell(date)="data">{{
+                  formatDate(data.value, 'M/d/yyyy')
                 }}</template>
-                <template slot="date" slot-scope="row">{{
-                  formatDate(row.value, 'M/D/YYYY')
-                }}</template>
-                <template slot="id" slot-scope="row">
-                  <a :href="`/${type}/${row.value}`">{{ row.value }}</a>
+                <template v-slot:cell(id)="data">
+                  <nuxt-link
+                    :to="`/blog/${data.value}`"
+                    class="btn btn-primary btn-sm no-underline"
+                  >
+                    {{ row.value }}
+                  </nuxt-link>
                 </template>
-                <template slot="actions" slot-scope="row">
-                  <b-button @click="editBlog(row.item)" size="sm" class="mr-1"
+                <template v-slot:cell(actions)="data">
+                  <b-button @click="editBlog(data.item)" size="sm" class="mr-1"
                     >Edit</b-button
                   >
-                  <b-button @click="deleteBlog(row.item)" size="sm"
+                  <b-button @click="deleteBlog(data.item)" size="sm"
                     >Del</b-button
                   >
                 </template>
@@ -1166,7 +1169,7 @@ export default Vue.extend({
       this.$axios
         .delete('/graphql', {
           params: {
-            query: `mutation{deleteBlog(",id:"${encodeURIComponent(id)}"){id}}`
+            query: `mutation{deleteBlog(id:"${encodeURIComponent(id)}"){id}}`
           }
         })
         .then(res => {

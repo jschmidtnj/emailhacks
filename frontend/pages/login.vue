@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <b-container class="mt-4">
     <b-card title="Login" footer-tag="footer">
       <b-form @submit="loginlocal">
         <b-form-group
@@ -66,7 +66,7 @@
         <a href="https://policies.google.com/terms">Terms of Service</a> apply.
       </p>
     </b-card>
-  </div>
+  </b-container>
 </template>
 
 <script lang="js">

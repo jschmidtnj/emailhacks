@@ -60,18 +60,20 @@ var formQueryFields = graphql.Fields{
 			var foundProject = false
 			var project string
 			if params.Args["project"] != nil {
-				foundProject = true
 				project, ok = params.Args["project"].(string)
 				if !ok {
 					return nil, errors.New("project could not be cast to string")
 				}
-				projectID, err := primitive.ObjectIDFromHex(project)
-				if err != nil {
-					return nil, err
-				}
-				_, err = checkProjectAccess(projectID, accessToken, viewAccessLevel, false, false)
-				if err != nil {
-					return nil, err
+				if len(project) > 0 {
+					foundProject = true
+					projectID, err := primitive.ObjectIDFromHex(project)
+					if err != nil {
+						return nil, err
+					}
+					_, err = checkProjectAccess(projectID, accessToken, viewAccessLevel, false, false)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 			var formatDate = false
@@ -81,10 +83,6 @@ var formQueryFields = graphql.Fields{
 				if !ok {
 					return nil, errors.New("problem casting format date to boolean")
 				}
-			}
-			_, err = primitive.ObjectIDFromHex(project)
-			if err != nil {
-				return nil, err
 			}
 			if params.Args["perpage"] == nil {
 				return nil, errors.New("no perpage argument found")
@@ -198,9 +196,9 @@ var formQueryFields = graphql.Fields{
 					} else {
 						formData["created"] = createdTimestamp.Unix()
 					}
-					updatedInt, ok := formData["updated"].(int32)
+					updatedInt, ok := formData["updated"].(float64)
 					if !ok {
-						return nil, errors.New("cannot cast updated time to int")
+						return nil, errors.New("cannot cast updated time to float")
 					}
 					updatedTimestamp := intTimestamp(int64(updatedInt))
 					if formatDate {
@@ -210,7 +208,10 @@ var formQueryFields = graphql.Fields{
 					}
 					formData["id"] = id.Hex()
 					delete(formData, "_id")
-					access, categories, tags := getFormattedGQLData(formData, nil, userIDString)
+					access, tags, categories, err := getFormattedGQLData(formData, nil, userIDString)
+					if err != nil {
+						return nil, err
+					}
 					formData["access"] = access
 					formData["categories"] = categories
 					formData["tags"] = tags
@@ -266,7 +267,10 @@ var formQueryFields = graphql.Fields{
 				formData["categories"] = []string{}
 				formData["tags"] = []string{}
 			} else {
-				access, categories, tags := getFormattedGQLData(formData, nil, userIDString)
+				access, tags, categories, err := getFormattedGQLData(formData, nil, userIDString)
+				if err != nil {
+					return nil, err
+				}
 				formData["access"] = access
 				formData["categories"] = categories
 				formData["tags"] = tags

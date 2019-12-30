@@ -19,6 +19,11 @@
             <a class="nav-link">Saved Projects</a>
           </nuxt-link>
         </li>
+        <li v-if="$route.path.includes(projectPath)" class="nav-item">
+          <nuxt-link :to="`/project/${projectId}/form`" class="no-underline">
+            <a class="nav-link">New Form</a>
+          </nuxt-link>
+        </li>
       </ul>
     </nav>
   </div>
@@ -27,7 +32,25 @@
 <script lang="js">
 import Vue from 'vue'
 export default Vue.extend({
-  name: 'Sidebar'
+  name: 'Sidebar',
+  data() {
+    return {
+      projectPath: '/project/'
+    }
+  },
+  computed: {
+    projectId() {
+      const projectPathIndex = this.$route.path.indexOf(this.projectPath)
+      if (projectPathIndex > 0)
+        return null
+      const after = this.$route.path.substring(projectPathIndex + this.projectPath.length)
+      const extraIndex = this.$route.path.indexOf('/')
+      if (extraIndex > 0) {
+        return after.substring(0, extraIndex)
+      }
+      return after
+    }
+  }
 })
 </script>
 

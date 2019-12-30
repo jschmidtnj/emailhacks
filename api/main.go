@@ -113,6 +113,7 @@ func graphqlHandler(schema graphql.Schema) gin.HandlerFunc {
 }
 
 func main() {
+	initAddRemoveAccessScript()
 	// "./logs"
 	loggerconfig := []byte(`{
 		"level": "debug",

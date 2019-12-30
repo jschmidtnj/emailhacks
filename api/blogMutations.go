@@ -263,7 +263,7 @@ var blogMutationFields = graphql.Fields{
 			}
 			if formatDate {
 				blogData["created"] = created.Format(dateFormat)
-				blogData["updated"] = blogData["updated"]
+				blogData["updated"] = blogData["created"]
 			}
 			blogData["id"] = idstring
 			return blogData, nil
@@ -479,14 +479,14 @@ var blogMutationFields = graphql.Fields{
 				} else {
 					blogData["created"] = objectidTimestamp(id).Unix()
 				}
-				updatedInt, ok := blogData["updated"].(int32)
+				updatedInt, ok := blogData["updated"].(int64)
 				if !ok {
 					return nil, errors.New("cannot cast updated time to int")
 				}
 				if formatDate {
-					blogData["updated"] = intTimestamp(int64(updatedInt)).Format(dateFormat)
+					blogData["updated"] = intTimestamp(updatedInt).Format(dateFormat)
 				} else {
-					blogData["updated"] = intTimestamp(int64(updatedInt)).Unix()
+					blogData["updated"] = intTimestamp(updatedInt).Unix()
 				}
 				blogData["id"] = id.Hex()
 				delete(blogData, "_id")
@@ -568,14 +568,14 @@ var blogMutationFields = graphql.Fields{
 				} else {
 					blogData["created"] = objectidTimestamp(id).Unix()
 				}
-				updatedInt, ok := blogData["updated"].(int32)
+				updatedInt, ok := blogData["updated"].(int64)
 				if !ok {
 					return nil, errors.New("cannot cast updated time to int")
 				}
 				if formatDate {
-					blogData["updated"] = intTimestamp(int64(updatedInt)).Format(dateFormat)
+					blogData["updated"] = intTimestamp(updatedInt).Format(dateFormat)
 				} else {
-					blogData["updated"] = intTimestamp(int64(updatedInt)).Unix()
+					blogData["updated"] = intTimestamp(updatedInt).Unix()
 				}
 				blogData["id"] = idstr
 				delete(blogData, "_id")

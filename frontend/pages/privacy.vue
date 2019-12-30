@@ -5,7 +5,7 @@
     <p>
       It is Mail Pear's policy to respect your privacy regarding any information
       we may collect while operating our website. This Privacy Policy applies to
-      <a :href="url">{{ url }}</a>
+      <nuxt-link :to="url">{{ url }}</nuxt-link>
       (hereinafter, "us", "we", or "{{ url }}"). We respect your privacy and are
       committed to protecting personally identifiable information you may
       provide us through the Website. We have adopted this privacy policy

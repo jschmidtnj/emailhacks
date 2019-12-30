@@ -1,17 +1,17 @@
 <template>
   <b-container class="mt-4">
-    <view-project v-if="projectId" :project-id="projectId" />
+    <view-project-data v-if="projectId" :project-id="projectId" />
   </b-container>
 </template>
 
 <script lang="js">
 import Vue from 'vue'
-import ViewProject from '~/components/secure/project/View.vue'
+import ViewProjectData from '~/components/secure/project/View.vue'
 export default Vue.extend({
   name: 'ViewProject',
   layout: 'secure',
   components: {
-    ViewProject
+    ViewProjectData
   },
   data() {
     return {

@@ -1,6 +1,6 @@
 <template>
   <b-navbar toggleable="lg" type="dark" variant="info">
-    <nuxt-link to="/" class="no-underline">
+    <nuxt-link v-if="!loggedIn" to="/" class="no-underline">
       <b-navbar-brand href="/">Mail Pear</b-navbar-brand>
     </nuxt-link>
     <b-navbar-toggle target="nav-collapse"></b-navbar-toggle>
@@ -20,9 +20,6 @@
         </nuxt-link>
         <nuxt-link v-if="loggedIn" to="/dashboard" class="no-underline">
           <b-nav-item href="/dashboard">Dashboard</b-nav-item>
-        </nuxt-link>
-        <nuxt-link v-if="loggedIn" to="/form" class="no-underline">
-          <b-nav-item href="/form">Form</b-nav-item>
         </nuxt-link>
       </b-navbar-nav>
       <b-navbar-nav v-if="loggedIn" class="ml-auto">

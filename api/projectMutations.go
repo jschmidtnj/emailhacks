@@ -87,6 +87,7 @@ var projectMutationFields = graphql.Fields{
 				"updated": now.Unix(),
 				"name":    name,
 				"forms":   bson.A{},
+				"views":   0,
 				"access": bson.M{
 					userIDString: bson.M{
 						"type":       userAccess[0]["type"].(string),
@@ -120,8 +121,8 @@ var projectMutationFields = graphql.Fields{
 				projectData["updated"] = now.Format(dateFormat)
 			}
 			projectData["id"] = projectIDString
-			delete(projectData["access"].(map[string]interface{}), userIDString)
-			projectData["access"] = userAccess[0]
+			delete(projectData["access"].(bson.M), userIDString)
+			projectData["access"] = userAccess
 			projectData["tags"] = tags
 			projectData["categories"] = categories
 			return projectData, nil
@@ -208,7 +209,7 @@ var projectMutationFields = graphql.Fields{
 					return nil, err
 				}
 			}
-			var updateData bson.M
+			var updateDataDB bson.M
 			var access []map[string]interface{}
 			if params.Args["access"] != nil {
 				accessInterface, ok := params.Args["access"].([]interface{})
@@ -228,14 +229,20 @@ var projectMutationFields = graphql.Fields{
 				if err != nil {
 					return nil, err
 				}
-				updateData, err = changeUserAccessData(projectID, projectType, userIDString, categories, tags, access)
+				updateDataDB, err = changeUserAccessData(projectID, projectType, userIDString, categories, tags, access)
 				if err != nil {
 					return nil, err
 				}
 			} else {
-				updateData = bson.M{}
+				updateDataDB = bson.M{}
 			}
-			oldCategories, oldTags, newAccess := getFormattedGQLData(projectData, access, userIDString)
+			if updateDataDB["$set"] == nil {
+				updateDataDB["$set"] = bson.M{}
+			}
+			newAccess, oldTags, oldCategories, err := getFormattedGQLData(projectData, access, userIDString)
+			if err != nil {
+				return nil, err
+			}
 			projectData["access"] = newAccess
 			if params.Args["categories"] == nil {
 				projectData["categories"] = oldCategories
@@ -243,21 +250,24 @@ var projectMutationFields = graphql.Fields{
 			if params.Args["tags"] == nil {
 				projectData["tags"] = oldTags
 			}
-			if params.Args["title"] != nil {
-				title, ok := params.Args["title"].(string)
+			updateDataElastic := bson.M{}
+			if params.Args["name"] != nil {
+				name, ok := params.Args["name"].(string)
 				if !ok {
-					return nil, errors.New("problem casting title to string")
+					return nil, errors.New("problem casting name to string")
 				}
-				updateData["$set"].(bson.M)["title"] = title
-				projectData["title"] = title
+				updateDataDB["$set"].(bson.M)["name"] = name
+				projectData["name"] = name
+				updateDataElastic["name"] = name
 			}
 			if params.Args["multiple"] != nil {
 				multiple, ok := params.Args["multiple"].(bool)
 				if !ok {
 					return nil, errors.New("problem casting multple to bool")
 				}
-				updateData["$set"].(bson.M)["multiple"] = multiple
+				updateDataDB["$set"].(bson.M)["multiple"] = multiple
 				projectData["multiple"] = multiple
+				updateDataElastic["multiple"] = multiple
 			}
 			if params.Args["categories"] != nil {
 				categoriesInterface, ok := params.Args["categories"].([]interface{})
@@ -268,7 +278,8 @@ var projectMutationFields = graphql.Fields{
 				if err != nil {
 					return nil, err
 				}
-				updateData["$set"].(bson.M)["categories"] = categories
+				updateDataDB["$set"].(bson.M)["categories"] = categories
+				updateDataElastic["categories"] = categories
 			}
 			if params.Args["tags"] != nil {
 				tagsInterface, ok := params.Args["tags"].([]interface{})
@@ -279,7 +290,8 @@ var projectMutationFields = graphql.Fields{
 				if err != nil {
 					return nil, err
 				}
-				updateData["$set"].(bson.M)["tags"] = tags
+				updateDataDB["$set"].(bson.M)["tags"] = tags
+				updateDataElastic["tags"] = tags
 			}
 			if params.Args["public"] != nil {
 				public, ok := params.Args["public"].(string)
@@ -289,25 +301,39 @@ var projectMutationFields = graphql.Fields{
 				if !findInArray(public, validAccessTypes) {
 					return nil, errors.New("invalid public access level")
 				}
-				updateData["$set"].(bson.M)["public"] = public
+				updateDataDB["$set"].(bson.M)["public"] = public
 				projectData["public"] = public
+				updateDataElastic["public"] = public
 			}
 			projectData["access"] = access
-			script := elastic.NewScript(addRemoveAccessScript).Lang("painless").Params(map[string]interface{}{
-				"access":     access,
-				"tags":       tags,
-				"categories": categories,
-			})
+			if len(access) > 0 {
+				script := elastic.NewScript(addRemoveAccessScript).Lang("painless").Params(map[string]interface{}{
+					"access":     access,
+					"tags":       tags,
+					"categories": categories,
+				})
+				_, err = elasticClient.Update().
+					Index(projectElasticIndex).
+					Type(projectElasticType).
+					Id(projectIDString).
+					Script(script).
+					Do(ctxElastic)
+				if err != nil {
+					return nil, err
+				}
+			}
 			_, err = elasticClient.Update().
 				Index(projectElasticIndex).
 				Type(projectElasticType).
 				Id(projectIDString).
-				Script(script).
-				Doc(updateData).
+				Doc(updateDataElastic).
 				Do(ctxElastic)
+			if err != nil {
+				return nil, err
+			}
 			_, err = projectCollection.UpdateOne(ctxMongo, bson.M{
 				"_id": projectID,
-			}, updateData)
+			}, updateDataDB)
 			if err != nil {
 				return nil, err
 			}
@@ -332,7 +358,7 @@ var projectMutationFields = graphql.Fields{
 			if !ok {
 				return nil, errors.New("cannot cast user id to string")
 			}
-			if params.Args["id"] != nil {
+			if params.Args["id"] == nil {
 				return nil, errors.New("project id not provided")
 			}
 			projectIDString, ok := params.Args["id"].(string)
@@ -354,11 +380,14 @@ var projectMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			categories, tags, access := getFormattedGQLData(projectData, nil, userIDString)
+			access, tags, categories, err := getFormattedGQLData(projectData, nil, userIDString)
+			if err != nil {
+				return nil, err
+			}
 			projectData["categories"] = categories
 			projectData["tags"] = tags
-			for _, accessUserIDString := range access {
-				accessUserID, err := primitive.ObjectIDFromHex(accessUserIDString)
+			for _, accessUserData := range access {
+				accessUserID, err := primitive.ObjectIDFromHex(accessUserData["id"].(string))
 				if err != nil {
 					return nil, err
 				}
@@ -366,7 +395,9 @@ var projectMutationFields = graphql.Fields{
 					"_id": accessUserID,
 				}, bson.M{
 					"$pull": bson.M{
-						"projects.id": projectIDString,
+						"projects": bson.M{
+							"id": projectIDString,
+						},
 					},
 				})
 				if err != nil {
@@ -386,7 +417,7 @@ var projectMutationFields = graphql.Fields{
 				if err != nil {
 					return nil, err
 				}
-				err = deleteForm(formID, nil, formatDate)
+				_, err = deleteForm(formID, nil, formatDate, userIDString)
 				if err != nil {
 					return nil, err
 				}

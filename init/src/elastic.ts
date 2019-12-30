@@ -55,31 +55,101 @@ export const blogMappings = {
 }
 
 export const formMappings = {
-  subject: {
-    type: 'keyword'
-  },
-  recipient: {
-    type: 'keyword'
-  },
-  items: {
-    type: 'nested'
-  },
-  multiple: {
-    type: 'boolean'
-  },
-  access: {
-    type: 'nested'
-  },
-  views: {
-    type: 'integer'
-  },
-  tags: {
-    type: 'keyword'
-  },
-  categories: {
-    type: 'keyword'
+  properties: {
+    name: {
+      type: 'keyword'
+    },
+    items: {
+      type: 'nested'
+    },
+    multiple: {
+      type: 'boolean'
+    },
+    access: {
+      type: 'object'
+    },
+    views: {
+      type: 'integer'
+    },
+    public: {
+      type: 'keyword'
+    },
+    files: {
+      type: 'nested'
+    },
+    created: {
+      type: 'date',
+      format: 'epoch_millis'
+    },
+    updated: {
+      type: 'date',
+      format: 'epoch_millis'
+    },
+    project: {
+      type: 'keyword'
+    }
   }
 }
+
+export const projectMappings = {
+  properties: {
+    name: {
+      type: 'keyword'
+    },
+    forms: {
+      type: 'keyword'
+    },
+    access: {
+      type: 'object'
+    },
+    views: {
+      type: 'integer'
+    },
+    public: {
+      type: 'keyword'
+    },
+    created: {
+      type: 'date',
+      format: 'epoch_millis'
+    },
+    updated: {
+      type: 'date',
+      format: 'epoch_millis'
+    }
+  }
+}
+
+const addRemoveAccessScript = `
+for (int i = 0; i < access.length; i++) {
+  bool cont = true;
+  if (access[i].type != null) {
+    if (access[i].type == 'none') {
+      if (ctx._source.access[access[i].id] != null) {
+        ctx._source.access[access[i].id].remove(access[i].id);
+      }
+      cont = false;
+    } else {
+      if (ctx._source.access[access[i].id] != null) {
+        ctx._source.access[access[i].id].type = access[i].type;
+      } else {
+        ctx._source.access[access[i].id] = {
+          'type': access[i].type
+        }
+      }
+    }
+  }
+  if (cont) {
+    if (access[userIDString].categories != null) {
+      ctx._source.access[userIDString].categories = categories
+    }
+    if (access[userIDString].tags != null) {
+      ctx._source.access[userIDString].tags = tags
+    }
+  }
+}
+`.replace('\n', '')
+
+const addRemoveAccessScriptName = 'addRemoveAccess'
 
 const indexsettings = {
   number_of_shards: 1,
@@ -90,7 +160,29 @@ const writeclient = new elasticsearch.Client({
   host: elasticuri
 })
 
-export const initializeposts = (indexname, doctype, mappings) => {
+export const initializeElasticScripts = () => {
+  return new Promise((resolve, reject) => {
+    writeclient
+      .deleteScript({
+        id: addRemoveAccessScriptName
+      }).then(res1 => {
+        console.log(`deleted script res: ${res1}`)
+      }).catch(err => {
+        console.log(`got error: ${err}`)
+      }).then(() => {
+        writeclient.putScript({
+          id: addRemoveAccessScriptName,
+          body: addRemoveAccessScript
+        }).then(res => {
+          resolve(res)
+        }).catch(err => {
+          reject(err)
+        })
+      })
+  })
+}
+
+export const initializeElasticMappings = (indexname, doctype, mappings) => {
   return new Promise((resolve, reject) => {
     writeclient
       .ping({

@@ -15,7 +15,7 @@ func initAddRemoveAccessScript() {
 	for (int i = 0; i < access.length; i++) {
 		bool cont = true;
 		if (access[i].type != null) {
-			if (access[i].type == %s) {
+			if (access[i].type == '%s') {
 				if (ctx._source.access[access[i].id] != null) {
 					ctx._source.access[access[i].id].remove(access[i].id);
 				}

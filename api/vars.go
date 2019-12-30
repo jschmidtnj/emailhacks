@@ -92,7 +92,7 @@ var blogSearchFields = []string{
 }
 
 var formSearchFields = []string{
-	"title",
+	"name",
 }
 
 var projectSearchFields = []string{

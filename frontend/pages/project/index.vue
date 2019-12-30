@@ -1,6 +1,10 @@
 <template>
   <b-container class="mt-4">
-    <view-project v-if="projectId" :project-id="projectId" />
+    <view-project
+      v-if="projectId"
+      :project-id="projectId"
+      :getInitialData="false"
+    />
   </b-container>
 </template>
 
@@ -20,7 +24,7 @@ export default Vue.extend({
   },
   mounted() {
     this.$axios.post('/graphql', {
-      query: 'mutation{addProject(name:"",tags:[],categories:[]){id}}'
+      query: 'mutation{addProject(name:"Untitled",tags:[],categories:[]){id}}'
     })
     .then(res => {
       if (res.status === 200) {

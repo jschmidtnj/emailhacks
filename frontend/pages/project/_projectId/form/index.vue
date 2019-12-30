@@ -28,7 +28,9 @@ export default Vue.extend({
     if (this.$route.params && this.$route.params.projectId) {
       this.projectId = this.$route.params.projectId
       this.$axios.post('/graphql', {
-        query: `mutation{addForm(title:"",items:[],multiple:false,tags:[],categories:[],files:[]){id}}`
+        query: `mutation{addForm(project:"${
+          encodeURIComponent(this.projectId)
+        }"name:"Untitled",items:[],multiple:false,tags:[],categories:[],files:[]){id}}`
       })
       .then(res => {
         if (res.status === 200) {

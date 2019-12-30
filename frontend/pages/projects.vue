@@ -1,138 +1,153 @@
 <template>
-  <b-container fluid>
-    <b-row>
-      <b-col md="6" class="my-1">
-        <b-form-group label-cols-sm="3" label="search" class="mb-0">
-          <b-input-group>
-            <b-form-input
-              v-model="search"
-              @keyup.enter.native="
-                (evt) => {
-                  evt.preventDefault()
-                  currentPage = 1
-                  searchProjects()
-                }
-              "
-              placeholder="Type to Search"
-            ></b-form-input>
-            <b-input-group-append>
-              <b-button
-                :disabled="!search"
-                @click="
-                  search = ''
+  <b-container class="mt-4">
+    <b-container fluid>
+      <b-row>
+        <b-col md="6" class="my-1">
+          <b-form-group label-cols-sm="3" label="search" class="mb-0">
+            <b-input-group>
+              <b-form-input
+                v-model="search"
+                @keyup.enter.native="
+                  (evt) => {
+                    evt.preventDefault()
+                    currentPage = 1
+                    searchProjects()
+                  }
+                "
+                placeholder="Type to Search"
+              ></b-form-input>
+              <b-input-group-append>
+                <b-button
+                  :disabled="!search"
+                  @click="
+                    search = ''
+                    currentPage = 1
+                    searchProjects()
+                  "
+                  >Clear</b-button
+                >
+              </b-input-group-append>
+            </b-input-group>
+          </b-form-group>
+        </b-col>
+        <b-col md="6" class="my-1">
+          <b-form-group label-cols-sm="3" label="Sort" class="mb-0">
+            <b-input-group>
+              <b-form-select
+                v-model="sortBy"
+                :options="sortOptions"
+                @change="
                   currentPage = 1
                   searchProjects()
                 "
-                >Clear</b-button
               >
-            </b-input-group-append>
-          </b-input-group>
-        </b-form-group>
-      </b-col>
-      <b-col md="6" class="my-1">
-        <b-form-group label-cols-sm="3" label="Sort" class="mb-0">
-          <b-input-group>
+                <option slot="first" :value="null">-- none --</option>
+              </b-form-select>
+              <b-form-select
+                slot="prepend"
+                v-model="sortDesc"
+                :disabled="!sortBy"
+                @change="
+                  currentPage = 1
+                  searchProjects()
+                "
+              >
+                <option :value="false">Asc</option>
+                <option :value="true">Desc</option>
+              </b-form-select>
+            </b-input-group>
+          </b-form-group>
+        </b-col>
+        <b-col md="6" class="my-1">
+          <b-form-group label-cols-sm="3" label="Per page" class="mb-0">
             <b-form-select
-              v-model="sortBy"
-              :options="sortOptions"
+              v-model="perPage"
+              :options="pageOptions"
               @change="
                 currentPage = 1
                 searchProjects()
               "
-            >
-              <option slot="first" :value="null">-- none --</option>
-            </b-form-select>
-            <b-form-select
-              slot="prepend"
-              v-model="sortDesc"
-              :disabled="!sortBy"
-              @change="
-                currentPage = 1
-                searchProjects()
-              "
-            >
-              <option :value="false">Asc</option>
-              <option :value="true">Desc</option>
-            </b-form-select>
-          </b-input-group>
-        </b-form-group>
-      </b-col>
-      <b-col md="6" class="my-1">
-        <b-form-group label-cols-sm="3" label="Per page" class="mb-0">
-          <b-form-select
-            v-model="perPage"
-            :options="pageOptions"
+            ></b-form-select>
+          </b-form-group>
+        </b-col>
+      </b-row>
+      <b-table
+        :items="items"
+        :fields="fields"
+        :no-local-sorting="true"
+        @sort-changed="sort"
+        show-empty
+        stacked="md"
+      >
+        <template v-slot:cell(name)="data">{{ data.value }}</template>
+        <template v-slot:cell(updated)="data">{{
+          formatDate(data.value)
+        }}</template>
+        <template v-slot:cell(views)="data">{{ data.value }}</template>
+        <template v-slot:cell(actions)="data">
+          <nuxt-link
+            :to="`/project/${data.item.id}`"
+            class="btn btn-primary btn-sm no-underline"
+          >
+            View
+          </nuxt-link>
+          <b-button @click="deleteProject(data.item)" size="sm"
+            >Delete</b-button
+          >
+        </template>
+      </b-table>
+      <b-row>
+        <b-col md="6" class="my-1">
+          <b-pagination
+            v-model="currentPage"
+            :total-rows="totalRows"
+            :per-page="perPage"
             @change="
-              currentPage = 1
-              searchProjects()
+              (newpage) => {
+                currentPage = newpage
+                searchProjects()
+              }
             "
-          ></b-form-select>
-        </b-form-group>
-      </b-col>
-    </b-row>
-    <b-table
-      :items="items"
-      :fields="fields"
-      :no-local-sorting="true"
-      @sort-changed="sort"
-      show-empty
-      stacked="md"
-    >
-      <template slot="title" slot-scope="row">{{ row.value }}</template>
-      <template slot="date" slot-scope="row">{{
-        formatDate(row.value, 'M/D/YYYY')
-      }}</template>
-      <template slot="view" slot-scope="row">
-        <a :href="`/project/${row.item.id}/view`" class="btn btn-primary btn-sm"
-          >View</a
-        >
-      </template>
-    </b-table>
-    <b-row>
-      <b-col md="6" class="my-1">
-        <b-pagination
-          v-model="currentPage"
-          :total-rows="totalRows"
-          :per-page="perPage"
-          @change="
-            (newpage) => {
-              currentPage = newpage
-              searchProjects()
-            }
-          "
-          class="my-0"
-        ></b-pagination>
-      </b-col>
-    </b-row>
+            class="my-0"
+          ></b-pagination>
+        </b-col>
+      </b-row>
+    </b-container>
   </b-container>
 </template>
 
 <script lang="js">
 import Vue from 'vue'
-import { format } from 'date-fns'
+import { formatRelative } from 'date-fns'
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({
   name: 'Projects',
+  layout: 'secure',
   data() {
     return {
       items: [],
       fields: [
         {
-          key: 'title',
-          label: 'Title',
-          sortable: true,
-          sortDirection: 'desc'
+          key: 'name',
+          label: 'Name',
+          sortable: false
         },
         {
-          key: 'date',
-          label: 'Date',
+          key: 'updated',
+          label: 'Updated',
           sortable: true,
           class: 'text-center'
         },
         {
-          key: 'view',
-          label: 'View',
+          key: 'views',
+          label: 'Views',
+          sortable: true,
+          sortDirection: 'desc'
+        },
+        {
+          key: 'actions',
+          label: 'Actions',
           sortable: false
         }
       ],
@@ -206,6 +221,47 @@ export default Vue.extend({
       this.currentPage = 1
       this.searchProjects(this.currentPage)
     },
+    deleteProject(project) {
+      this.$axios
+        .delete('/graphql', {
+          params: {
+            query: `mutation{deleteProject(id:"${encodeURIComponent(project.id)}"){id}}`
+          }
+        })
+        .then(res => {
+          if (res.status === 200) {
+            if (res.data) {
+              if (res.data.data && res.data.data.deleteProject) {
+                this.items.splice(this.items.indexOf(project), 1)
+                this.$toasted.global.success({
+                  message: 'project deleted'
+                })
+              } else if (res.data.errors) {
+                this.$toasted.global.error({
+                  message: `found errors: ${JSON.stringify(res.data.errors)}`
+                })
+              } else {
+                this.$toasted.global.error({
+                  message: 'could not find data or errors'
+                })
+              }
+            } else {
+              this.$toasted.global.error({
+                message: 'could not get data'
+              })
+            }
+          } else {
+            this.$toasted.global.error({
+              message: `status code of ${res.status}`
+            })
+          }
+        })
+        .catch(err => {
+          this.$toasted.global.error({
+            message: err
+          })
+        })
+    },
     updateCount() {
       this.$axios
         .get('/countProjects', {
@@ -259,7 +315,7 @@ export default Vue.extend({
             )}",sort:"${encodeURIComponent(sort)}",ascending:${!this
               .sortDesc},tags:${JSON.stringify([])},categories:${JSON.stringify(
               []
-            )}){title views id author date}}`
+            )}){name views id updated}}`
           }
         })
         .then(res => {
@@ -272,6 +328,12 @@ export default Vue.extend({
                     if (typeof project[key] === 'string')
                       project[key] = decodeURIComponent(project[key])
                   })
+                  if (project.updated) {
+                    project.updated = Number(project.updated) * 1000
+                  }
+                  if (project.created) {
+                    project.created = Number(project.created) * 1000
+                  }
                 })
                 this.items = projects
               } else if (res.data.errors) {
@@ -304,8 +366,8 @@ export default Vue.extend({
           })
         })
     },
-    formatDate(dateUTC, formatStr) {
-      return format(dateUTC, formatStr)
+    formatDate(dateUTC) {
+      return formatRelative(dateUTC, new Date())
     }
   }
 })

@@ -169,9 +169,9 @@ var projectQueryFields = graphql.Fields{
 					} else {
 						projectData["created"] = createdTimestamp.Unix()
 					}
-					updatedInt, ok := projectData["updated"].(int32)
+					updatedInt, ok := projectData["updated"].(float64)
 					if !ok {
-						return nil, errors.New("cannot cast updated time to int")
+						return nil, errors.New("cannot cast updated time to float")
 					}
 					updatedTimestamp := intTimestamp(int64(updatedInt))
 					if formatDate {
@@ -181,7 +181,10 @@ var projectQueryFields = graphql.Fields{
 					}
 					projectData["id"] = id.Hex()
 					delete(projectData, "_id")
-					access, categories, tags := getFormattedGQLData(projectData, nil, userIDString)
+					access, tags, categories, err := getFormattedGQLData(projectData, nil, userIDString)
+					if err != nil {
+						return nil, err
+					}
 					projectData["access"] = access
 					projectData["categories"] = categories
 					projectData["tags"] = tags
@@ -226,7 +229,10 @@ var projectQueryFields = graphql.Fields{
 				}
 			}
 			projectData, err := checkProjectAccess(projectID, accessToken, editAccessLevel, formatDate, false)
-			access, categories, tags := getFormattedGQLData(projectData, nil, userIDString)
+			access, tags, categories, err := getFormattedGQLData(projectData, nil, userIDString)
+			if err != nil {
+				return nil, err
+			}
 			projectData["access"] = access
 			projectData["categories"] = categories
 			projectData["tags"] = tags

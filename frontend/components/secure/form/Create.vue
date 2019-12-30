@@ -8,8 +8,8 @@
               <b-row class="mb-2">
                 <b-col sm>
                   <b-form-input
-                    id="title"
-                    v-model="title"
+                    id="name"
+                    v-model="name"
                     size="lg"
                     type="text"
                     placeholder="Title"
@@ -398,7 +398,7 @@ export default Vue.extend({
       itemTypes,
       focusIndex: 0,
       editorContent: {},
-      title: '',
+      name: '',
       items: [],
       multiple: false,
       files: []
@@ -408,14 +408,14 @@ export default Vue.extend({
     if (this.getInitialData) {
       this.$axios.get('/graphql', {
         params: {
-          query: `{form(id:"${this.formId}"){title,items{question,type,options,text,required,file},multiple,files{id,name,width,height,type}}}`
+          query: `{form(id:"${this.formId}"){name,items{question,type,options,text,required,file},multiple,files{id,name,width,height,type}}}`
         }
       })
       .then(res => {
         if (res.status === 200) {
           if (res.data) {
             if (res.data.data && res.data.data.form) {
-              this.title = decodeURIComponent(res.data.data.form.title)
+              this.name = decodeURIComponent(res.data.data.form.name)
               const newEditorContent = {}
               for (let i = 0; i < res.data.data.form.items.length; i++) {
                 res.data.data.form.items[i].question = decodeURIComponent(res.data.data.form.items[i].question)
@@ -464,6 +464,7 @@ export default Vue.extend({
         })
       })
     } else {
+      this.name = 'Undefined'
       this.loading = false
     }
   },
@@ -482,9 +483,9 @@ export default Vue.extend({
       this.$axios
         .post('/graphql', {
           query: `mutation{updateForm(id:"${encodeURIComponent(
-            this.projectId
-          )}",title:"${encodeURIComponent(
-            this.title
+            this.formId
+          )}",name:"${encodeURIComponent(
+            this.name
           )}",items:[${
             this.items.map(item =>
               `{question:"${

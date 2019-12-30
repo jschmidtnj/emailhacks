@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -44,6 +45,9 @@ var ProjectType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 		"categories": &graphql.Field{
 			Type: graphql.NewList(graphql.String),
 		},
+		"views": &graphql.Field{
+			Type: graphql.Int,
+		},
 	},
 })
 
@@ -58,11 +62,11 @@ func processProjectFromDB(projectData bson.M, formatDate bool, updated bool) (bs
 	if updated {
 		updatedTimestamp = time.Now()
 	} else {
-		updatedInt, ok := projectData["updated"].(int32)
+		updatedInt, ok := projectData["updated"].(int64)
 		if !ok {
 			return nil, errors.New("cannot cast updated time to int")
 		}
-		updatedTimestamp = intTimestamp(int64(updatedInt))
+		updatedTimestamp = intTimestamp(updatedInt)
 	}
 	if formatDate {
 		projectData["updated"] = updatedTimestamp.Format(dateFormat)
@@ -71,17 +75,18 @@ func processProjectFromDB(projectData bson.M, formatDate bool, updated bool) (bs
 	}
 	projectData["id"] = id.Hex()
 	delete(projectData, "_id")
-	accessPrimitive, ok := projectData["access"].(primitive.A)
+	accessPrimitiveDoc, ok := projectData["access"].(primitive.D)
 	if !ok {
-		return nil, errors.New("cannot cast access to array")
+		return nil, errors.New("cannot cast access to map")
 	}
-	access := make([]map[string]interface{}, len(accessPrimitive))
-	for i, accessData := range accessPrimitive {
+	accessPrimitive := accessPrimitiveDoc.Map()
+	access := make(map[string]primitive.M, len(accessPrimitive))
+	for id, accessData := range accessPrimitive {
 		primativeAccessDoc, ok := accessData.(primitive.D)
 		if !ok {
 			return nil, errors.New("cannot cast access to primitive D")
 		}
-		access[i] = primativeAccessDoc.Map()
+		access[id] = primativeAccessDoc.Map()
 	}
 	projectData["access"] = access
 	return projectData, nil
@@ -142,7 +147,7 @@ func checkProjectAccess(projectID primitive.ObjectID, accessToken string, necess
 }
 
 /**
- * @api {get} /countForms Count projects for search term
+ * @api {get} /countProjects Count projects for search term
  * @apiVersion 0.0.1
  * @apiParam {String} searchterm Search term to count results
  * @apiSuccess {String} count Result count
@@ -153,6 +158,16 @@ func countProjects(c *gin.Context) {
 	request := c.Request
 	if request.Method != http.MethodGet {
 		handleError("register http method not Get", http.StatusBadRequest, response)
+		return
+	}
+	claims, err := validateLoggedIn(getAuthToken(request))
+	if err != nil {
+		handleError("user not logged in", http.StatusBadRequest, response)
+		return
+	}
+	userIDString, ok := claims["id"].(string)
+	if !ok {
+		handleError("cannot cast user id to string", http.StatusBadRequest, response)
 		return
 	}
 	searchterm := request.URL.Query().Get("searchterm")
@@ -170,12 +185,13 @@ func countProjects(c *gin.Context) {
 	}
 	tags = removeEmptyStrings(tags)
 	var numtags = len(tags)
-	mustQueries := make([]elastic.Query, numtags+len(categories))
+	mustQueries := make([]elastic.Query, numtags+len(categories)+1)
+	mustQueries[0] = elastic.NewTermsQuery(fmt.Sprintf("access.%s.type", userIDString), stringListToInterfaceList(viewAccessLevel)...)
 	for i, tag := range tags {
-		mustQueries[i] = elastic.NewTermQuery("tags", tag)
+		mustQueries[i+1] = elastic.NewTermQuery(fmt.Sprintf("access.%s.tags", userIDString), tag)
 	}
 	for i, category := range categories {
-		mustQueries[i+numtags] = elastic.NewTermQuery("categories", category)
+		mustQueries[i+numtags+1] = elastic.NewTermQuery(fmt.Sprintf("access.%s.categories", userIDString), category)
 	}
 	query := elastic.NewBoolQuery()
 	if len(mustQueries) > 0 {

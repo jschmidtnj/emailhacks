@@ -40,7 +40,7 @@ ampApp.get('/blog/:id', (req, res) => {
     let date
     try {
       const timestamp = id.toString().substring(0, 8)
-      date = format(parseInt(timestamp, 16) * 1000, 'M/D/YYYY')
+      date = format(parseInt(timestamp, 16) * 1000, 'M/d/yyyy')
     } catch (err) {
       res.json({
         code: codes.error,

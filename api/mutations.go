@@ -10,11 +10,20 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func getFormattedGQLData(itemData map[string]interface{}, changedAccess []map[string]interface{}, userIDString string) ([]map[string]interface{}, []string, []string) {
-	userData := itemData["access"].(map[string]interface{})[userIDString].(map[string]interface{})
-	tags, _ := interfaceListToStringList(userData["tags"].([]interface{}))
-	categories, _ := interfaceListToStringList(userData["categories"].([]interface{}))
-	newAccessMap := itemData["access"].(map[string]interface{})
+func getFormattedGQLData(itemData map[string]interface{}, changedAccess []map[string]interface{}, userIDString string) ([]map[string]interface{}, []string, []string, error) {
+	if itemData["access"] == nil {
+		return []map[string]interface{}{}, []string{}, []string{}, nil
+	}
+	userData := itemData["access"].(map[string]bson.M)[userIDString]
+	tags, err := interfaceListToStringList(userData["tags"].(bson.A))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	categories, err := interfaceListToStringList(userData["categories"].(bson.A))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	newAccessMap := itemData["access"].(map[string]bson.M)
 	if changedAccess != nil {
 		for _, accessUser := range changedAccess {
 			currentUserId := accessUser["id"].(string)
@@ -27,21 +36,20 @@ func getFormattedGQLData(itemData map[string]interface{}, changedAccess []map[st
 					"type": accessUser["type"].(string),
 				}
 			}
-			delete(newAccessMap[currentUserId].(map[string]interface{}), "categories")
-			delete(newAccessMap[currentUserId].(map[string]interface{}), "tags")
+			delete(newAccessMap[currentUserId], "categories")
+			delete(newAccessMap[currentUserId], "tags")
 		}
 	}
 	newAccess := make([]map[string]interface{}, len(newAccessMap))
 	var i = 0
 	for id, accessElem := range newAccessMap {
-		accessElemMap := accessElem.(map[string]interface{})
 		newAccess[i] = bson.M{
 			"id":   id,
-			"type": accessElemMap["type"],
+			"type": accessElem["type"],
 		}
 		i++
 	}
-	return newAccess, tags, categories
+	return newAccess, tags, categories, nil
 }
 
 func checkAccessObj(accessObj map[string]interface{}) error {
@@ -88,51 +96,84 @@ func checkAccessObj(accessObj map[string]interface{}) error {
 	return nil
 }
 
-func deleteForm(formID primitive.ObjectID, formData bson.M, formatDate bool) error {
+func deleteForm(formID primitive.ObjectID, formData bson.M, formatDate bool, userIDString string) (map[string]interface{}, error) {
 	if formData == nil {
 		var err error
 		formData, err = getForm(formID, formatDate, false)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
-	_, err := formCollection.DeleteOne(ctxMongo, bson.M{
+	formIDString := formID.Hex()
+	access, tags, categories, err := getFormattedGQLData(formData, nil, userIDString)
+	if err != nil {
+		return nil, err
+	}
+	formData["access"] = access
+	formData["categories"] = categories
+	formData["tags"] = tags
+	for _, accessUserData := range access {
+		accessUserID, err := primitive.ObjectIDFromHex(accessUserData["id"].(string))
+		if err != nil {
+			return nil, err
+		}
+		_, err = userCollection.UpdateOne(ctxMongo, bson.M{
+			"_id": accessUserID,
+		}, bson.M{
+			"$pull": bson.M{
+				"forms": bson.M{
+					"id": formIDString,
+				},
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	_, err = elasticClient.Delete().
+		Index(formElasticIndex).
+		Type(formElasticType).
+		Id(formIDString).
+		Do(ctxElastic)
+	if err != nil {
+		return nil, err
+	}
+	_, err = formCollection.DeleteOne(ctxMongo, bson.M{
 		"_id": formID,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	primativefiles, ok := formData["files"].(primitive.A)
 	if !ok {
-		return errors.New("cannot convert files to primitive")
+		return nil, errors.New("cannot convert files to primitive")
 	}
-	formIDString := formID.Hex()
 	for _, primativefile := range primativefiles {
 		filedatadoc, ok := primativefile.(primitive.D)
 		if !ok {
-			return errors.New("cannot convert file to primitive doc")
+			return nil, errors.New("cannot convert file to primitive doc")
 		}
 		filedata := filedatadoc.Map()
 		fileid, ok := filedata["id"].(string)
 		if !ok {
-			return errors.New("cannot convert file id to string")
+			return nil, errors.New("cannot convert file id to string")
 		}
 		filetype, ok := filedata["type"].(string)
 		if !ok {
-			return errors.New("cannot convert file type to string")
+			return nil, errors.New("cannot convert file type to string")
 		}
 		fileobj := storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + originalPath)
 		if err := fileobj.Delete(ctxStorage); err != nil {
-			return err
+			return nil, err
 		}
 		if filetype == "image/gif" {
 			fileobj = storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + placeholderPath + originalPath)
 			blurobj := storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + placeholderPath + blurPath)
 			if err := fileobj.Delete(ctxStorage); err != nil {
-				return err
+				return nil, err
 			}
 			if err := blurobj.Delete(ctxStorage); err != nil {
-				return err
+				return nil, err
 			}
 		} else {
 			var hasblur = false
@@ -145,12 +186,12 @@ func deleteForm(formID primitive.ObjectID, formData bson.M, formatDate bool) err
 			if hasblur {
 				fileobj = storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + blurPath)
 				if err := fileobj.Delete(ctxStorage); err != nil {
-					return err
+					return nil, err
 				}
 			}
 		}
 	}
-	return nil
+	return formData, nil
 }
 
 func changeUserAccessData(itemID primitive.ObjectID, itemType string, userIDString string, categories []string, tags []string, access []map[string]interface{}) (primitive.M, error) {

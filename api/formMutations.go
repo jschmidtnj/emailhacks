@@ -119,7 +119,7 @@ var formMutationFields = graphql.Fields{
 			"project": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
-			"title": &graphql.ArgumentConfig{
+			"name": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
 			"items": &graphql.ArgumentConfig{
@@ -154,8 +154,8 @@ var formMutationFields = graphql.Fields{
 			if params.Args["project"] == nil {
 				return nil, errors.New("project not provided")
 			}
-			if params.Args["title"] == nil {
-				return nil, errors.New("title not provided")
+			if params.Args["name"] == nil {
+				return nil, errors.New("name not provided")
 			}
 			if params.Args["items"] == nil {
 				return nil, errors.New("items not provided")
@@ -181,9 +181,9 @@ var formMutationFields = graphql.Fields{
 			if !ok {
 				return nil, errors.New("problem casting project id to string")
 			}
-			title, ok := params.Args["title"].(string)
+			name, ok := params.Args["name"].(string)
 			if !ok {
-				return nil, errors.New("problem casting title to string")
+				return nil, errors.New("problem casting name to string")
 			}
 			itemsInterface, ok := params.Args["items"].([]interface{})
 			if !ok {
@@ -239,7 +239,7 @@ var formMutationFields = graphql.Fields{
 			formData := bson.M{
 				"updated":  now.Unix(),
 				"project":  project,
-				"title":    title,
+				"name":     name,
 				"items":    items,
 				"multiple": multiple,
 				"views":    0,
@@ -267,8 +267,8 @@ var formMutationFields = graphql.Fields{
 			}
 			formData["created"] = now.Unix()
 			_, err = elasticClient.Index().
-				Index(blogElasticIndex).
-				Type(blogElasticType).
+				Index(formElasticIndex).
+				Type(formElasticType).
 				Id(formIDString).
 				BodyJson(formData).
 				Do(ctxElastic)
@@ -280,7 +280,7 @@ var formMutationFields = graphql.Fields{
 				formData["updated"] = now.Format(dateFormat)
 			}
 			formData["id"] = formIDString
-			delete(formData["access"].(map[string]interface{}), userIDString)
+			delete(formData["access"].(bson.M), userIDString)
 			formData["access"] = userAccess[0]
 			formData["tags"] = tags
 			formData["categories"] = categories
@@ -300,7 +300,7 @@ var formMutationFields = graphql.Fields{
 			"project": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
-			"title": &graphql.ArgumentConfig{
+			"name": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
 			"items": &graphql.ArgumentConfig{
@@ -380,7 +380,7 @@ var formMutationFields = graphql.Fields{
 					return nil, err
 				}
 			}
-			var updateData bson.M
+			var updateDataDB bson.M
 			var access []map[string]interface{}
 			if params.Args["access"] != nil {
 				accessInterface, ok := params.Args["access"].([]interface{})
@@ -400,14 +400,20 @@ var formMutationFields = graphql.Fields{
 				if err != nil {
 					return nil, err
 				}
-				updateData, err = changeUserAccessData(formID, formType, userIDString, categories, tags, access)
+				updateDataDB, err = changeUserAccessData(formID, formType, userIDString, categories, tags, access)
 				if err != nil {
 					return nil, err
 				}
 			} else {
-				updateData = bson.M{}
+				updateDataDB = bson.M{}
 			}
-			oldCategories, oldTags, newAccess := getFormattedGQLData(formData, access, userIDString)
+			if updateDataDB["$set"] == nil {
+				updateDataDB["$set"] = bson.M{}
+			}
+			newAccess, oldTags, oldCategories, err := getFormattedGQLData(formData, access, userIDString)
+			if err != nil {
+				return nil, err
+			}
 			formData["access"] = newAccess
 			if params.Args["categories"] == nil {
 				formData["categories"] = oldCategories
@@ -415,6 +421,7 @@ var formMutationFields = graphql.Fields{
 			if params.Args["tags"] == nil {
 				formData["tags"] = oldTags
 			}
+			updateDataElastic := bson.M{}
 			var updateProject = false
 			var newProject string
 			var oldProject string
@@ -428,24 +435,27 @@ var formMutationFields = graphql.Fields{
 				if !ok {
 					return nil, errors.New("problem casting old project to string")
 				}
-				updateData["project"] = newProject
+				updateDataDB["$set"].(bson.M)["project"] = newProject
 				formData["project"] = newProject
+				updateDataElastic["project"] = newProject
 			}
-			if params.Args["title"] != nil {
-				title, ok := params.Args["title"].(string)
+			if params.Args["name"] != nil {
+				name, ok := params.Args["name"].(string)
 				if !ok {
-					return nil, errors.New("problem casting title to string")
+					return nil, errors.New("problem casting name to string")
 				}
-				updateData["title"] = title
-				formData["title"] = title
+				updateDataDB["$set"].(bson.M)["name"] = name
+				formData["name"] = name
+				updateDataElastic["name"] = name
 			}
 			if params.Args["multiple"] != nil {
 				multiple, ok := params.Args["multiple"].(bool)
 				if !ok {
 					return nil, errors.New("problem casting multple to bool")
 				}
-				updateData["multiple"] = multiple
+				updateDataDB["$set"].(bson.M)["multiple"] = multiple
 				formData["multiple"] = multiple
+				updateDataElastic["multiple"] = multiple
 			}
 			if params.Args["items"] != nil {
 				itemsInterface, ok := params.Args["items"].([]interface{})
@@ -461,8 +471,9 @@ var formMutationFields = graphql.Fields{
 						return nil, err
 					}
 				}
-				updateData["$set"].(bson.M)["items"] = items
+				updateDataDB["$set"].(bson.M)["items"] = items
 				formData["items"] = items
+				updateDataElastic["items"] = items
 			}
 			if params.Args["public"] != nil {
 				public, ok := params.Args["public"].(string)
@@ -472,8 +483,9 @@ var formMutationFields = graphql.Fields{
 				if !findInArray(public, validAccessTypes) {
 					return nil, errors.New("invalid public access level")
 				}
-				updateData["$set"].(bson.M)["public"] = public
+				updateDataDB["$set"].(bson.M)["public"] = public
 				formData["public"] = public
+				updateDataElastic["public"] = public
 			}
 			if params.Args["files"] != nil {
 				filesinterface, ok := params.Args["files"].([]interface{})
@@ -489,24 +501,38 @@ var formMutationFields = graphql.Fields{
 						return nil, err
 					}
 				}
-				updateData["$set"].(bson.M)["files"] = files
+				updateDataDB["$set"].(bson.M)["files"] = files
+				updateDataElastic["files"] = files
 			}
 			formData["access"] = access
-			script := elastic.NewScriptInline(addRemoveAccessScript).Lang("painless").Params(map[string]interface{}{
-				"access":     access,
-				"tags":       tags,
-				"categories": categories,
-			})
+			if len(access) > 0 {
+				script := elastic.NewScriptInline(addRemoveAccessScript).Lang("painless").Params(map[string]interface{}{
+					"access":     access,
+					"tags":       tags,
+					"categories": categories,
+				})
+				_, err = elasticClient.Update().
+					Index(formElasticIndex).
+					Type(formElasticType).
+					Id(formIDString).
+					Script(script).
+					Do(ctxElastic)
+				if err != nil {
+					return nil, err
+				}
+			}
 			_, err = elasticClient.Update().
 				Index(formElasticIndex).
 				Type(formElasticType).
 				Id(formIDString).
-				Script(script).
-				Doc(updateData).
+				Doc(updateDataElastic).
 				Do(ctxElastic)
+			if err != nil {
+				return nil, err
+			}
 			_, err = formCollection.UpdateOne(ctxMongo, bson.M{
 				"_id": formID,
-			}, updateData)
+			}, updateDataDB)
 			if err != nil {
 				return nil, err
 			}
@@ -540,7 +566,7 @@ var formMutationFields = graphql.Fields{
 			if !ok {
 				return nil, errors.New("cannot cast user id to string")
 			}
-			if params.Args["id"] != nil {
+			if params.Args["id"] == nil {
 				return nil, errors.New("form id not provided")
 			}
 			formIDString, ok := params.Args["id"].(string)
@@ -563,25 +589,6 @@ var formMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			categories, tags, access := getFormattedGQLData(formData, nil, userIDString)
-			formData["categories"] = categories
-			formData["tags"] = tags
-			for _, accessUserIDString := range access {
-				accessUserID, err := primitive.ObjectIDFromHex(accessUserIDString)
-				if err != nil {
-					return nil, err
-				}
-				_, err = userCollection.UpdateOne(ctxMongo, bson.M{
-					"_id": accessUserID,
-				}, bson.M{
-					"$pull": bson.M{
-						"forms.id": formIDString,
-					},
-				})
-				if err != nil {
-					return nil, err
-				}
-			}
 			oldProject, ok := formData["project"].(string)
 			if !ok {
 				return nil, errors.New("problem casting old project to string")
@@ -589,15 +596,7 @@ var formMutationFields = graphql.Fields{
 			if err = changeFormProject(formIDString, oldProject, ""); err != nil {
 				return nil, err
 			}
-			_, err = elasticClient.Delete().
-				Index(formElasticIndex).
-				Type(formElasticType).
-				Id(formIDString).
-				Do(ctxElastic)
-			if err != nil {
-				return nil, err
-			}
-			err = deleteForm(formID, formData, formatDate)
+			formData, err = deleteForm(formID, formData, formatDate, userIDString)
 			if err != nil {
 				return nil, err
 			}

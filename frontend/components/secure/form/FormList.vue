@@ -10,7 +10,7 @@
                 (evt) => {
                   evt.preventDefault()
                   currentPage = 1
-                  searchBlogs()
+                  searchForms()
                 }
               "
               placeholder="Type to Search"
@@ -21,7 +21,7 @@
                 @click="
                   search = ''
                   currentPage = 1
-                  searchBlogs()
+                  searchForms()
                 "
                 >Clear</b-button
               >
@@ -37,7 +37,7 @@
               :options="sortOptions"
               @change="
                 currentPage = 1
-                searchBlogs()
+                searchForms()
               "
             >
               <option slot="first" :value="null">-- none --</option>
@@ -48,7 +48,7 @@
               :disabled="!sortBy"
               @change="
                 currentPage = 1
-                searchBlogs()
+                searchForms()
               "
             >
               <option :value="false">Asc</option>
@@ -64,7 +64,7 @@
             :options="pageOptions"
             @change="
               currentPage = 1
-              searchBlogs()
+              searchForms()
             "
           ></b-form-select>
         </b-form-group>
@@ -78,19 +78,33 @@
       show-empty
       stacked="md"
     >
-      <template v-slot:cell(title)="data">{{ data.value }}</template>
-      <template v-slot:cell(author)="data">{{ data.value }}</template>
-      <template v-slot:cell(date)="data">{{
-        formatDate(data.value, 'M/d/yyyy')
+      <template v-slot:cell(name)="data">{{ data.value }}</template>
+      <template v-slot:cell(updated)="data">{{
+        formatDate(data.value)
       }}</template>
       <template v-slot:cell(views)="data">{{ data.value }}</template>
-      <template v-slot:cell(read)="data">
+      <template v-slot:cell(actions)="data">
         <nuxt-link
-          :to="`/blog/${data.item.id}`"
+          :to="
+            `/project/${projectId ? projectId : data.item.project}/form/${
+              data.item.id
+            }/view`
+          "
           class="btn btn-primary btn-sm no-underline"
         >
-          Read
+          View
         </nuxt-link>
+        <nuxt-link
+          :to="
+            `/project/${projectId ? projectId : data.item.project}/form/${
+              data.item.id
+            }/edit`
+          "
+          class="btn btn-primary btn-sm no-underline"
+        >
+          Edit
+        </nuxt-link>
+        <b-button @click="deleteForm(data.item)" size="sm">Delete</b-button>
       </template>
     </b-table>
     <b-row>
@@ -102,7 +116,7 @@
           @change="
             (newpage) => {
               currentPage = newpage
-              searchBlogs()
+              searchForms()
             }
           "
           class="my-0"
@@ -114,30 +128,27 @@
 
 <script lang="js">
 import Vue from 'vue'
-import { format } from 'date-fns'
-// @ts-ignore
-const seo = JSON.parse(process.env.seoconfig)
+import { formatRelative } from 'date-fns'
 export default Vue.extend({
-  name: 'Blogs',
+  name: 'Forms',
+  props: {
+    projectId: {
+      type: String,
+      default: null
+    }
+  },
   data() {
     return {
-      type: 'blog',
       items: [],
       fields: [
         {
-          key: 'title',
-          label: 'Title',
-          sortable: true,
-          sortDirection: 'desc'
+          key: 'name',
+          label: 'Name',
+          sortable: false
         },
         {
-          key: 'author',
-          label: 'Author',
-          sortable: true
-        },
-        {
-          key: 'date',
-          label: 'Date',
+          key: 'updated',
+          label: 'Updated',
           sortable: true,
           class: 'text-center'
         },
@@ -145,11 +156,11 @@ export default Vue.extend({
           key: 'views',
           label: 'Views',
           sortable: true,
-          class: 'text-center'
+          sortDirection: 'desc'
         },
         {
-          key: 'read',
-          label: 'Read',
+          key: 'actions',
+          label: 'Actions',
           sortable: false
         }
       ],
@@ -172,33 +183,6 @@ export default Vue.extend({
         })
     }
   },
-  // @ts-ignore
-  head() {
-    const title = 'Search Blogs'
-    const description = 'search for blogs, by name, views, etc'
-    const image = `${seo.url}/icon.png`
-    return {
-      title,
-      meta: [
-        { property: 'og:title', content: title },
-        { property: 'og:description', content: description },
-        {
-          property: 'og:image',
-          content: image
-        },
-        { name: 'twitter:title', content: title },
-        {
-          name: 'twitter:description',
-          content: description
-        },
-        {
-          name: 'twitter:image',
-          content: image
-        },
-        { hid: 'description', name: 'description', content: description }
-      ]
-    }
-  },
   mounted() {
     if (this.$route.query) {
       if (this.$route.query.phrase) this.search = this.$route.query.phrase
@@ -214,18 +198,59 @@ export default Vue.extend({
       )
         this.sortBy = this.$route.query.sortby
     }
-    this.searchBlogs(this.currentPage)
+    this.searchForms(this.currentPage)
   },
   methods: {
+    deleteForm(form) {
+      this.$axios
+        .delete('/graphql', {
+          params: {
+            query: `mutation{deleteForm(id:"${encodeURIComponent(form.id)}"){id}}`
+          }
+        })
+        .then(res => {
+          if (res.status === 200) {
+            if (res.data) {
+              if (res.data.data && res.data.data.deleteForm) {
+                this.items.splice(this.items.indexOf(form), 1)
+                this.$toasted.global.success({
+                  message: 'form deleted'
+                })
+              } else if (res.data.errors) {
+                this.$toasted.global.error({
+                  message: `found errors: ${JSON.stringify(res.data.errors)}`
+                })
+              } else {
+                this.$toasted.global.error({
+                  message: 'could not find data or errors'
+                })
+              }
+            } else {
+              this.$toasted.global.error({
+                message: 'could not get data'
+              })
+            }
+          } else {
+            this.$toasted.global.error({
+              message: `status code of ${res.status}`
+            })
+          }
+        })
+        .catch(err => {
+          this.$toasted.global.error({
+            message: err
+          })
+        })
+    },
     sort(ctx) {
       this.sortBy = ctx.sortBy //   ==> Field key for sorting by (or null for no sorting)
       this.sortDesc = ctx.sortDesc // ==> true if sorting descending, false otherwise
       this.currentPage = 1
-      this.searchBlogs(this.currentPage)
+      this.searchForms(this.currentPage)
     },
     updateCount() {
       this.$axios
-        .get('/countBlogs', {
+        .get('/countForms', {
           params: {
             searchterm: this.search,
             tags: [].join(',tags='),
@@ -263,37 +288,42 @@ export default Vue.extend({
           })
         })
     },
-    searchBlogs() {
+    searchForms() {
       this.updateCount()
       const sort = this.sortBy ? this.sortBy : this.sortOptions[0].value
       this.$axios
         .get('/graphql', {
           params: {
-            query: `{blogs(perpage:${
+            query: `{forms(${
+              this.projectId ? `project:"${encodeURIComponent(this.projectId)}",` : ''
+            }perpage:${
               this.perPage
             },page:${this.currentPage - 1},searchterm:"${encodeURIComponent(
               this.search
             )}",sort:"${encodeURIComponent(sort)}",ascending:${!this
               .sortDesc},tags:${JSON.stringify([])},categories:${JSON.stringify(
               []
-            )},cache:${(!(
-              this.$store.state.auth.user &&
-              this.$store.state.auth.user.type === 'admin'
-            )).toString()}){title views id author date}}`
+            )}){name views${ this.projectId ? '' : ' project' } id updated}}`
           }
         })
         .then(res => {
           if (res.status === 200) {
             if (res.data) {
-              if (res.data.data && res.data.data.blogs) {
-                const blogs = res.data.data.blogs
-                blogs.forEach(blog => {
-                  Object.keys(blog).forEach(key => {
-                    if (typeof blog[key] === 'string')
-                      blog[key] = decodeURIComponent(blog[key])
+              if (res.data.data && res.data.data.forms) {
+                const forms = res.data.data.forms
+                forms.forEach(form => {
+                  Object.keys(form).forEach(key => {
+                    if (typeof form[key] === 'string')
+                      form[key] = decodeURIComponent(form[key])
                   })
+                  if (form.updated) {
+                    form.updated = Number(form.updated) * 1000
+                  }
+                  if (form.created) {
+                    form.created = Number(form.created) * 1000
+                  }
                 })
-                this.items = blogs
+                this.items = forms
               } else if (res.data.errors) {
                 this.$toasted.global.error({
                   message: `found errors: ${JSON.stringify(res.data.errors)}`
@@ -324,8 +354,8 @@ export default Vue.extend({
           })
         })
     },
-    formatDate(dateUTC, formatStr) {
-      return format(dateUTC, formatStr)
+    formatDate(dateUTC) {
+      return formatRelative(dateUTC, new Date())
     }
   }
 })
