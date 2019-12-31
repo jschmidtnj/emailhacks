@@ -87,6 +87,14 @@ module.exports = {
    */
   loading: { color: '#fff' },
   /*
+   ** Customize loading icon
+   */
+  loadingIndicator: {
+    name: 'pulse',
+    color: '#3B8070',
+    background: 'white'
+  },
+  /*
    ** Global CSS
    */
   css: [],

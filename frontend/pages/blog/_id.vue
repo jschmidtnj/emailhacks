@@ -56,7 +56,7 @@
         </b-container>
       </div>
     </div>
-    <loading v-else />
+    <page-loading v-else :loading="true" />
   </div>
 </template>
 
@@ -66,7 +66,7 @@ import { format } from 'date-fns'
 import VueMarkdown from 'vue-markdown'
 import Prism from 'prismjs'
 import LazyLoad from 'vanilla-lazyload'
-import Loading from '~/components/PageLoading.vue'
+import PageLoading from '~/components/PageLoading.vue'
 import {
   cloudStorageURLs,
   staticstorageindexes,
@@ -85,7 +85,7 @@ export default Vue.extend({
   name: 'Blog',
   components: {
     VueMarkdown,
-    Loading
+    PageLoading
   },
   data() {
     return {

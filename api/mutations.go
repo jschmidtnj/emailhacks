@@ -15,13 +15,19 @@ func getFormattedGQLData(itemData map[string]interface{}, changedAccess []map[st
 		return []map[string]interface{}{}, []string{}, []string{}, nil
 	}
 	userData := itemData["access"].(map[string]bson.M)[userIDString]
-	tags, err := interfaceListToStringList(userData["tags"].(bson.A))
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	categories, err := interfaceListToStringList(userData["categories"].(bson.A))
-	if err != nil {
-		return nil, nil, nil, err
+	tags := []string{}
+	categories := []string{}
+	if userData != nil {
+		// you're not an admin
+		var err error
+		tags, err = interfaceListToStringList(userData["tags"].(bson.A))
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		categories, err = interfaceListToStringList(userData["categories"].(bson.A))
+		if err != nil {
+			return nil, nil, nil, err
+		}
 	}
 	newAccessMap := itemData["access"].(map[string]bson.M)
 	if changedAccess != nil {

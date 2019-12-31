@@ -160,7 +160,7 @@ func register(c *gin.Context) {
 		"email":         email,
 		"password":      string(passwordhashed),
 		"emailverified": false,
-		"type":          "user",
+		"type":          userType,
 		"updated":       now.Unix(),
 		"forms":         bson.A{},
 		"projects":      bson.A{},

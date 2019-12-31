@@ -124,15 +124,21 @@ var projectQueryFields = graphql.Fields{
 			if len(fields) > 0 {
 				sourceContext := elastic.NewFetchSourceContext(true).Include(fields...)
 				var numtags = len(tags)
-				mustQueries := make([]elastic.Query, numtags+len(categories)+1)
-				mustQueries[0] = elastic.NewTermsQuery(fmt.Sprintf("access.%s.type", userIDString), stringListToInterfaceList(viewAccessLevel)...)
+				var showEverything = claims["type"] == superAdminType
+				var startIndex = 0
+				if !showEverything {
+					startIndex = 1
+				}
+				mustQueries := make([]elastic.Query, numtags+len(categories)+startIndex)
+				if !showEverything {
+					mustQueries[0] = elastic.NewTermsQuery(fmt.Sprintf("access.%s.type", userIDString), stringListToInterfaceList(viewAccessLevel)...)
+				}
 				for i, tag := range tags {
-					mustQueries[i+1] = elastic.NewTermQuery(fmt.Sprintf("access.%s.tags", userIDString), tag)
+					mustQueries[i+startIndex] = elastic.NewTermQuery(fmt.Sprintf("access.%s.tags", userIDString), tag)
 				}
 				for i, category := range categories {
-					mustQueries[i+numtags+1] = elastic.NewTermQuery(fmt.Sprintf("access.%s.categories", userIDString), category)
+					mustQueries[i+numtags+startIndex] = elastic.NewTermQuery(fmt.Sprintf("access.%s.categories", userIDString), category)
 				}
-				// add search for access here
 				query := elastic.NewBoolQuery().Must(mustQueries...)
 				if len(searchterm) > 0 {
 					mainquery := elastic.NewMultiMatchQuery(searchterm, projectSearchFields...)

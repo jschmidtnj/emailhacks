@@ -216,9 +216,11 @@ func checkFormAccess(formID primitive.ObjectID, accessToken string, necessaryAcc
 	}
 	// next check if logged in
 	claims, err := validateLoggedIn(accessToken)
+	if err != nil {
+		return nil, err
+	}
 	// admin can do anything
-	_, err = validateAdmin(accessToken)
-	if err == nil {
+	if claims["type"] == adminType {
 		return formData, nil
 	}
 	var userIDString = claims["id"].(string)

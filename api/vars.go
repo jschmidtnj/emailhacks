@@ -42,6 +42,12 @@ var validOrganization = []string{
 	"tag",
 }
 
+var superAdminType = "super"
+
+var adminType = "admin"
+
+var userType = "user"
+
 var validAccessTypes = []string{
 	"admin",
 	"edit",
@@ -130,5 +136,3 @@ var haveblur = []string{
 var progressiveImageSize = 30
 
 var progressiveImageBlurAmount = 20.0
-
-var adminType = "admin"

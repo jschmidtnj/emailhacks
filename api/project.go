@@ -120,9 +120,11 @@ func checkProjectAccess(projectID primitive.ObjectID, accessToken string, necess
 		}
 		// next check if logged in
 		claims, err := validateLoggedIn(accessToken)
+		if err != nil {
+			return nil, err
+		}
 		// admin can do anything
-		_, err = validateAdmin(accessToken)
-		if err == nil {
+		if claims["type"] == adminType {
 			break
 		}
 		userIDString := claims["id"].(string)

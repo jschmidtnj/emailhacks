@@ -1,6 +1,6 @@
 <template>
   <div>
-    <loading v-if="loading" />
+    <page-loading v-if="loading" :loading="true" />
     <b-card v-else title="Reset" footer-tag="footer">
       <b-form v-if="sendEmailMode" @submit="sendResetEmail">
         <b-form-group
@@ -87,14 +87,14 @@ import Vue from 'vue'
 import { validationMixin } from 'vuelidate'
 import { required, email } from 'vuelidate/lib/validators'
 import { regex } from '~/assets/config'
-import Loading from '~/components/PageLoading.vue'
+import PageLoading from '~/components/PageLoading.vue'
 const validPassword = (val) => regex.password.test(val)
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({
   name: 'SignUp',
   components: {
-    Loading
+    PageLoading
   },
   mixins: [validationMixin],
   data() {
