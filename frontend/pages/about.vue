@@ -7,7 +7,7 @@
   </b-container>
 </template>
 
-<script lang="ts">
+<script lang="js">
 import Vue from 'vue'
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)
@@ -19,7 +19,7 @@ export default Vue.extend({
     const description = 'description of this website'
     const image = `${seo.url}/icon.png`
     return {
-      title: title,
+      title,
       meta: [
         { property: 'og:title', content: title },
         { property: 'og:description', content: description },

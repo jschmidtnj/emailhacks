@@ -1,10 +1,10 @@
 <template>
   <b-container>
-    <b-jumbotron header="Email hacks" class="mt-4" />
+    <b-jumbotron header="Mail Pear" class="mt-4" />
   </b-container>
 </template>
 
-<script lang="ts">
+<script lang="js">
 import Vue from 'vue'
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)
@@ -18,7 +18,7 @@ export default Vue.extend({
     const description = 'email 2.0'
     const image = `${seo.url}/icon.png`
     return {
-      title: title,
+      title,
       meta: [
         { property: 'og:title', content: title },
         { property: 'og:description', content: description },
@@ -44,7 +44,7 @@ export default Vue.extend({
             '@context': 'http://schema.org',
             '@type': 'WebPage',
             name: title,
-            description: description
+            description
           }),
           type: 'application/ld+json'
         }

@@ -8,6 +8,10 @@ cd docs
 yarn upgrade
 cd ../frontend
 yarn upgrade
+cd ../init
+yarn upgrade
+cd ../amp
+yarn upgrade
 cd ../api
-go get -u -m
+go get -u
 cd ..

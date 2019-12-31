@@ -3,10 +3,9 @@
     <h1>Welcome to our Privacy Policy</h1>
     <h3>Your privacy is critically important to us.</h3>
     <p>
-      It is Email Hacks's policy to respect your privacy regarding any
-      information we may collect while operating our website. This Privacy
-      Policy applies to
-      <a :href="url">{{ url }}</a>
+      It is Mail Pear's policy to respect your privacy regarding any information
+      we may collect while operating our website. This Privacy Policy applies to
+      <nuxt-link :to="url">{{ url }}</nuxt-link>
       (hereinafter, "us", "we", or "{{ url }}"). We respect your privacy and are
       committed to protecting personally identifiable information you may
       provide us through the Website. We have adopted this privacy policy
@@ -25,30 +24,28 @@
 
     <h2>Website Visitors</h2>
     <p>
-      Like most website operators, Email Hacks collects
-      non-personally-identifying information of the sort that web browsers and
-      servers typically make available, such as the browser type, language
-      preference, referring site, and the date and time of each visitor request.
-      Email Hacks's purpose in collecting non-personally identifying information
-      is to better understand how Email Hacks's visitors use its website. From
-      time to time, Email Hacks may release non-personally-identifying
-      information in the aggregate, e.g., by publishing a report on trends in
-      the usage of its website.
+      Like most website operators, Mail Pear collects non-personally-identifying
+      information of the sort that web browsers and servers typically make
+      available, such as the browser type, language preference, referring site,
+      and the date and time of each visitor request. Mail Pear's purpose in
+      collecting non-personally identifying information is to better understand
+      how Mail Pear's visitors use its website. From time to time, Mail Pear may
+      release non-personally-identifying information in the aggregate, e.g., by
+      publishing a report on trends in the usage of its website.
     </p>
     <p>
-      Email Hacks also collects potentially personally-identifying information
+      Mail Pear also collects potentially personally-identifying information
       like Internet Protocol (IP) addresses for logged in users and for users
-      leaving comments on {{ url }} blog posts. Email Hacks only discloses
-      logged in user and commenter IP addresses under the same circumstances
-      that it uses and discloses personally-identifying information as described
-      below.
+      leaving comments on {{ url }} blog posts. Mail Pear only discloses logged
+      in user and commenter IP addresses under the same circumstances that it
+      uses and discloses personally-identifying information as described below.
     </p>
 
     <h2>Gathering of Personally-Identifying Information</h2>
     <p>
-      Certain visitors to Email Hacks's websites choose to interact with Email
-      Hacks in ways that require Email Hacks to gather personally-identifying
-      information. The amount and type of information that Email Hacks gathers
+      Certain visitors to Mail Pear's websites choose to interact with Email
+      Hacks in ways that require Mail Pear to gather personally-identifying
+      information. The amount and type of information that Mail Pear gathers
       depends on the nature of the interaction. For example, we ask visitors who
       sign up for a blog at
       {{ url }} to provide a username and email address.
@@ -71,7 +68,7 @@
       compile information about you or others who use your computer. This
       information allows ad networks to, among other things, deliver targeted
       advertisements that they believe will be of most interest to you. This
-      Privacy Policy covers the use of cookies by Email Hacks and does not cover
+      Privacy Policy covers the use of cookies by Mail Pear and does not cover
       the use of cookies by any advertisers.
     </p>
 
@@ -109,33 +106,33 @@
 
     <h2>Protection of Certain Personally-Identifying Information</h2>
     <p>
-      Email Hacks discloses potentially personally-identifying and
+      Mail Pear discloses potentially personally-identifying and
       personally-identifying information only to those of its employees,
       contractors and affiliated organizations that (i) need to know that
-      information in order to process it on Email Hacks's behalf or to provide
-      services available at Email Hacks's website, and (ii) that have agreed not
+      information in order to process it on Mail Pear's behalf or to provide
+      services available at Mail Pear's website, and (ii) that have agreed not
       to disclose it to others. Some of those employees, contractors and
       affiliated organizations may be located outside of your home country; by
-      using Email Hacks's website, you consent to the transfer of such
-      information to them. Email Hacks will not rent or sell potentially
+      using Mail Pear's website, you consent to the transfer of such information
+      to them. Mail Pear will not rent or sell potentially
       personally-identifying and personally-identifying information to anyone.
       Other than to its employees, contractors and affiliated organizations, as
-      described above, Email Hacks discloses potentially personally-identifying
+      described above, Mail Pear discloses potentially personally-identifying
       and personally-identifying information only in response to a subpoena,
-      court order or other governmental request, or when Email Hacks believes in
+      court order or other governmental request, or when Mail Pear believes in
       good faith that disclosure is reasonably necessary to protect the property
-      or rights of Email Hacks, third parties or the public at large.
+      or rights of Mail Pear, third parties or the public at large.
     </p>
     <p>
       If you are a registered user of {{ url }} and have supplied your email
-      address, Email Hacks may occasionally send you an email to tell you about
+      address, Mail Pear may occasionally send you an email to tell you about
       new features, solicit your feedback, or just keep you up to date with
-      what's going on with Email Hacks and our products. We primarily use our
-      blog to communicate this type of information, so we expect to keep this
-      type of email to a minimum. If you send us a request (for example via a
-      support email or via one of our feedback mechanisms), we reserve the right
-      to publish it in order to help us clarify or respond to your request or to
-      help us support other users. Email Hacks takes all measures reasonably
+      what's going on with Mail Pear and our products. We primarily use our blog
+      to communicate this type of information, so we expect to keep this type of
+      email to a minimum. If you send us a request (for example via a support
+      email or via one of our feedback mechanisms), we reserve the right to
+      publish it in order to help us clarify or respond to your request or to
+      help us support other users. Mail Pear takes all measures reasonably
       necessary to protect against the unauthorized access, use, alteration or
       destruction of potentially personally-identifying and
       personally-identifying information.
@@ -143,15 +140,15 @@
 
     <h2>Aggregated Statistics</h2>
     <p>
-      Email Hacks may collect statistics about the behavior of visitors to its
-      website. Email Hacks may display this information publicly or provide it
-      to others. However, Email Hacks does not disclose your
-      personally-identifying information.
+      Mail Pear may collect statistics about the behavior of visitors to its
+      website. Mail Pear may display this information publicly or provide it to
+      others. However, Mail Pear does not disclose your personally-identifying
+      information.
     </p>
 
     <h2>Cookies</h2>
     <p>
-      To enrich and perfect your online experience, Email Hacks uses "Cookies",
+      To enrich and perfect your online experience, Mail Pear uses "Cookies",
       similar technologies and services provided by others to display
       personalized content, appropriate advertising and store your preferences
       on your computer.
@@ -159,28 +156,25 @@
     <p>
       A cookie is a string of information that a website stores on a visitor's
       computer, and that the visitor's browser provides to the website each time
-      the visitor returns. Email Hacks uses cookies to help Email Hacks identify
-      and track visitors, their usage of {{ url }}, and their website access
-      preferences. Email Hacks visitors who do not wish to have cookies placed
-      on their computers should set their browsers to refuse cookies before
-      using Email Hacks's websites, with the drawback that certain features of
-      Email Hacks's websites may not function properly without the aid of
-      cookies.
+      the visitor returns. Mail Pear uses cookies to help Mail Pear identify and
+      track visitors, their usage of {{ url }}, and their website access
+      preferences. Mail Pear visitors who do not wish to have cookies placed on
+      their computers should set their browsers to refuse cookies before using
+      Mail Pear's websites, with the drawback that certain features of Mail
+      Pear's websites may not function properly without the aid of cookies.
     </p>
     <p>
       By continuing to navigate our website without changing your cookie
-      settings, you hereby acknowledge and agree to Email Hacks's use of
-      cookies.
+      settings, you hereby acknowledge and agree to Mail Pear's use of cookies.
     </p>
 
     <h2>Privacy Policy Changes</h2>
     <p>
-      Although most changes are likely to be minor, Email Hacks may change its
-      Privacy Policy from time to time, and in Email Hacks's sole discretion.
-      Email Hacks encourages visitors to frequently check this page for any
-      changes to its Privacy Policy. Your continued use of this site after any
-      change in this Privacy Policy will constitute your acceptance of such
-      change.
+      Although most changes are likely to be minor, Mail Pear may change its
+      Privacy Policy from time to time, and in Mail Pear's sole discretion. Mail
+      Pear encourages visitors to frequently check this page for any changes to
+      its Privacy Policy. Your continued use of this site after any change in
+      this Privacy Policy will constitute your acceptance of such change.
     </p>
 
     <h2></h2>
@@ -194,7 +188,7 @@
   </b-card>
 </template>
 
-<script lang="ts">
+<script lang="js">
 import Vue from 'vue'
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)
@@ -212,7 +206,7 @@ export default Vue.extend({
     const description = 'privacy policy and terms of service'
     const image = `${seo.url}/icon.png`
     return {
-      title: title,
+      title,
       meta: [
         { property: 'og:title', content: title },
         { property: 'og:description', content: description },

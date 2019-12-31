@@ -1,5 +1,5 @@
 <template>
-  <b-card title="Account Page">
+  <b-card title="Profile">
     <p>user: {{ this.$store.state.auth.user }}</p>
     <p>token: {{ this.$store.state.auth.token }}</p>
     <b-btn @click="logout">Logout</b-btn>
@@ -7,7 +7,7 @@
   </b-card>
 </template>
 
-<script lang="ts">
+<script lang="js">
 import Vue from 'vue'
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)
@@ -24,7 +24,7 @@ export default Vue.extend({
     }`
     const image = `${seo.url}/icon.png`
     return {
-      title: title,
+      title,
       meta: [
         { property: 'og:title', content: title },
         { property: 'og:description', content: description },
@@ -61,7 +61,7 @@ export default Vue.extend({
             query: `mutation{deleteAccount(){id}}`
           }
         })
-        .then(res => {
+        .then((res) => {
           if (res.status === 200) {
             if (res.data) {
               if (res.data.data && res.data.data.deleteAccount) {
@@ -91,13 +91,13 @@ export default Vue.extend({
             })
           }
         })
-        .catch(err => {
+        .catch((err) => {
           let message = `got error: ${err}`
           if (err.response && err.response.data) {
             message = err.response.data.message
           }
           this.$toasted.global.error({
-            message: message
+            message
           })
         })
     }

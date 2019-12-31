@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/graphql-go/graphql"
 
@@ -9,579 +10,347 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func interfaceListToStringList(interfaceList []interface{}) ([]string, error) {
-	result := make([]string, len(interfaceList))
-	for i, item := range interfaceList {
-		itemStr, ok := item.(string)
-		if !ok {
-			return nil, errors.New("item in list cannot be cast to string")
-		}
-		result[i] = itemStr
+func getFormattedGQLData(itemData map[string]interface{}, changedAccess []map[string]interface{}, userIDString string) ([]map[string]interface{}, []string, []string, error) {
+	if itemData["access"] == nil {
+		return []map[string]interface{}{}, []string{}, []string{}, nil
 	}
-	return result, nil
-}
-
-func interfaceListToMapList(interfaceList []interface{}) ([]map[string]interface{}, error) {
-	result := make([]map[string]interface{}, len(interfaceList))
-	for i, item := range interfaceList {
-		itemObj, ok := item.(map[string]interface{})
-		if !ok {
-			return nil, errors.New("item in list cannot be converted to map")
-		}
-		result[i] = itemObj
+	userData := itemData["access"].(map[string]bson.M)[userIDString]
+	tags, err := interfaceListToStringList(userData["tags"].(bson.A))
+	if err != nil {
+		return nil, nil, nil, err
 	}
-	return result, nil
+	categories, err := interfaceListToStringList(userData["categories"].(bson.A))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	newAccessMap := itemData["access"].(map[string]bson.M)
+	if changedAccess != nil {
+		for _, accessUser := range changedAccess {
+			currentUserId := accessUser["id"].(string)
+			if newAccessMap[currentUserId] != nil {
+				if accessUser["type"].(string) == noAccessLevel {
+					delete(newAccessMap, currentUserId)
+				}
+			} else {
+				newAccessMap[currentUserId] = bson.M{
+					"type": accessUser["type"].(string),
+				}
+			}
+			delete(newAccessMap[currentUserId], "categories")
+			delete(newAccessMap[currentUserId], "tags")
+		}
+	}
+	newAccess := make([]map[string]interface{}, len(newAccessMap))
+	var i = 0
+	for id, accessElem := range newAccessMap {
+		newAccess[i] = bson.M{
+			"id":   id,
+			"type": accessElem["type"],
+		}
+		i++
+	}
+	return newAccess, tags, categories, nil
 }
 
 func checkAccessObj(accessObj map[string]interface{}) error {
 	if accessObj["id"] == nil {
 		return errors.New("no id field given")
 	}
-	if accessObj["type"] == nil {
-		return errors.New("no type field given")
+	userIDString, ok := accessObj["id"].(string)
+	if !ok {
+		return errors.New("cannot cast user id to string")
 	}
-	return nil
-}
-
-func checkQuestionObjCreate(questionObj map[string]interface{}) error {
-	if questionObj["name"] == nil {
-		return errors.New("no name field given")
-	}
-	if questionObj["type"] == nil {
-		return errors.New("no type field given")
-	}
-	if questionObj["options"] == nil {
-		return errors.New("no options field given")
-	}
-	if questionObj["required"] == nil {
-		return errors.New("no required field given")
-	}
-	return checkQuestionObjUpdate(questionObj)
-}
-
-func checkQuestionObjUpdate(questionObj map[string]interface{}) error {
-	if questionObj["name"] != nil {
-		if _, ok := questionObj["name"].(string); !ok {
-			return errors.New("problem casting id to string")
-		}
-	}
-	if questionObj["type"] != nil {
-		if _, ok := questionObj["type"].(string); !ok {
-			return errors.New("problem casting name to string")
-		}
-	}
-	if questionObj["options"] != nil {
-		optionsArray, ok := questionObj["options"].([]interface{})
-		if !ok {
-			return errors.New("problem casting options to interface array")
-		}
-		if _, err := interfaceListToStringList(optionsArray); err != nil {
-			return errors.New("problem casting options to string array")
-		}
-	}
-	if questionObj["required"] != nil {
-		if _, ok := questionObj["required"].(bool); !ok {
-			return errors.New("problem casting required to boolean")
-		}
-	}
-	return nil
-}
-
-func addUserFormAccess(userID primitive.ObjectID, accessType string, formIDString string) error {
-	_, err := userCollection.UpdateOne(ctxMongo, bson.M{
-		"_id": userID,
-	}, bson.M{
-		"$addToSet": bson.M{
-			"forms": bson.M{
-				"id":   formIDString,
-				"type": accessType,
-			},
-		},
-	})
+	_, err := primitive.ObjectIDFromHex(userIDString)
 	if err != nil {
 		return err
 	}
+	if accessObj["type"] != nil {
+		accessType, ok := accessObj["type"].(string)
+		if !ok {
+			return errors.New("cannot cast type to string")
+		}
+		if !findInArray(accessType, validAccessTypes) {
+			return errors.New("invalid access type given")
+		}
+	}
+	if accessObj["categories"] != nil {
+		categoriesInterface, ok := accessObj["categories"].([]interface{})
+		if !ok {
+			return errors.New("problem casting categories to interface array")
+		}
+		_, err = interfaceListToStringList(categoriesInterface)
+		if err != nil {
+			return err
+		}
+	}
+	if accessObj["tags"] != nil {
+		tagsInterface, ok := accessObj["tags"].([]interface{})
+		if !ok {
+			return errors.New("problem casting categories to interface array")
+		}
+		_, err = interfaceListToStringList(tagsInterface)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
-func deleteAccount(idstring string) (interface{}, error) {
-	id, err := primitive.ObjectIDFromHex(idstring)
-	if err != nil {
-		return nil, err
-	}
-	cursor, err := userCollection.Find(ctxMongo, bson.M{
-		"_id": id,
-	})
-	defer cursor.Close(ctxMongo)
-	if err != nil {
-		return nil, err
-	}
-	var userData map[string]interface{}
-	var foundstuff = false
-	for cursor.Next(ctxMongo) {
-		userPrimitive := &bson.D{}
-		err = cursor.Decode(userPrimitive)
+func deleteForm(formID primitive.ObjectID, formData bson.M, formatDate bool, userIDString string) (map[string]interface{}, error) {
+	if formData == nil {
+		var err error
+		formData, err = getForm(formID, formatDate, false)
 		if err != nil {
 			return nil, err
 		}
-		userData = userPrimitive.Map()
-		id := userData["_id"].(primitive.ObjectID)
-		userData["date"] = objectidtimestamp(id).Format(dateFormat)
-		userData["id"] = id.Hex()
-		delete(userData, "_id")
-		foundstuff = true
-		break
 	}
-	if !foundstuff {
-		return nil, errors.New("user not found with given id")
+	formIDString := formID.Hex()
+	access, tags, categories, err := getFormattedGQLData(formData, nil, userIDString)
+	if err != nil {
+		return nil, err
 	}
-	_, err = userCollection.DeleteOne(ctxMongo, bson.M{
-		"_id": id,
+	formData["access"] = access
+	formData["categories"] = categories
+	formData["tags"] = tags
+	for _, accessUserData := range access {
+		accessUserID, err := primitive.ObjectIDFromHex(accessUserData["id"].(string))
+		if err != nil {
+			return nil, err
+		}
+		_, err = userCollection.UpdateOne(ctxMongo, bson.M{
+			"_id": accessUserID,
+		}, bson.M{
+			"$pull": bson.M{
+				"forms": bson.M{
+					"id": formIDString,
+				},
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	_, err = elasticClient.Delete().
+		Index(formElasticIndex).
+		Type(formElasticType).
+		Id(formIDString).
+		Do(ctxElastic)
+	if err != nil {
+		return nil, err
+	}
+	_, err = formCollection.DeleteOne(ctxMongo, bson.M{
+		"_id": formID,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return userData, nil
+	primativefiles, ok := formData["files"].(primitive.A)
+	if !ok {
+		return nil, errors.New("cannot convert files to primitive")
+	}
+	for _, primativefile := range primativefiles {
+		filedatadoc, ok := primativefile.(primitive.D)
+		if !ok {
+			return nil, errors.New("cannot convert file to primitive doc")
+		}
+		filedata := filedatadoc.Map()
+		fileid, ok := filedata["id"].(string)
+		if !ok {
+			return nil, errors.New("cannot convert file id to string")
+		}
+		filetype, ok := filedata["type"].(string)
+		if !ok {
+			return nil, errors.New("cannot convert file type to string")
+		}
+		fileobj := storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + originalPath)
+		if err := fileobj.Delete(ctxStorage); err != nil {
+			return nil, err
+		}
+		if filetype == "image/gif" {
+			fileobj = storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + placeholderPath + originalPath)
+			blurobj := storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + placeholderPath + blurPath)
+			if err := fileobj.Delete(ctxStorage); err != nil {
+				return nil, err
+			}
+			if err := blurobj.Delete(ctxStorage); err != nil {
+				return nil, err
+			}
+		} else {
+			var hasblur = false
+			for _, blurtype := range haveblur {
+				if blurtype == filetype {
+					hasblur = true
+					break
+				}
+			}
+			if hasblur {
+				fileobj = storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + blurPath)
+				if err := fileobj.Delete(ctxStorage); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+	return formData, nil
+}
+
+func changeUserAccessData(itemID primitive.ObjectID, itemType string, userIDString string, categories []string, tags []string, access []map[string]interface{}) (primitive.M, error) {
+	for _, accessUser := range access {
+		if err := checkAccessObj(accessUser); err != nil {
+			return nil, err
+		}
+	}
+	itemIDString := itemID.Hex()
+	itemUpdateData := bson.M{
+		"$set": bson.M{
+			"access": bson.M{},
+		},
+		"$setOnInsert": bson.M{
+			"access": bson.M{},
+		},
+		"$unset": bson.M{
+			"access": bson.M{},
+		},
+		"$upsert": true,
+	}
+	var userItemsIndex string
+	if itemType == formType {
+		userItemsIndex = "forms"
+	} else {
+		userItemsIndex = "projects"
+	}
+	for _, accessUser := range access {
+		var changedCurrentUser = false
+		currentUserIDString := accessUser["id"].(string)
+		accountUpdateData := bson.M{}
+		if accessUser["type"] != nil || currentUserIDString == userIDString {
+			changedCurrentUser = true
+			if accessUser["type"] != nil && accessUser["type"].(string) != noAccessLevel {
+				itemUpdateData["$set"].(bson.M)["access"].(bson.M)[currentUserIDString] = bson.M{
+					"type": accessUser["type"].(string),
+				}
+				if currentUserIDString != userIDString {
+					itemUpdateData["$setOnInsert"].(bson.M)["access"].(bson.M)[currentUserIDString] = bson.M{
+						"categories": bson.A{},
+						"tags":       bson.A{},
+					}
+				}
+				accountUpdateData["$addToSet"] = bson.M{
+					userItemsIndex: bson.M{
+						"id":   itemIDString,
+						"type": accessUser["type"],
+					},
+				}
+			} else if currentUserIDString != userIDString {
+				itemUpdateData["$unset"].(bson.M)["access"] = bson.M{
+					currentUserIDString: 1,
+				}
+				accountUpdateData["$pull"] = bson.M{
+					fmt.Sprintf("%s.id", userItemsIndex): itemIDString,
+				}
+			}
+			if currentUserIDString == userIDString {
+				itemUpdateData["$set"].(bson.M)["access"].(bson.M)[currentUserIDString] = bson.M{
+					"categories": categories,
+					"tags":       tags,
+				}
+			}
+		}
+		if changedCurrentUser {
+			currentUserID, err := primitive.ObjectIDFromHex(currentUserIDString)
+			if err != nil {
+				return nil, err
+			}
+			_, err = userCollection.UpdateOne(ctxMongo, bson.M{
+				"_id": currentUserID,
+			}, accountUpdateData)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	if categories != nil {
+		itemUpdateData["$set"].(bson.M)["access"].(bson.M)[userIDString].(bson.M)["categories"] = categories
+	}
+	if tags != nil {
+		itemUpdateData["$set"].(bson.M)["access"].(bson.M)[userIDString].(bson.M)["tags"] = tags
+	}
+	return itemUpdateData, nil
+}
+
+func changeUserProjectAccess(projectID primitive.ObjectID, access []map[string]interface{}) error {
+	for _, accessUser := range access {
+		if err := checkAccessObj(accessUser); err != nil {
+			return err
+		}
+	}
+	projectIDString := projectID.Hex()
+	for _, accessUser := range access {
+		projectUpdateData := bson.M{}
+		if accessUser["type"] != noAccessLevel {
+			projectUpdateData["$addToSet"] = bson.M{
+				"access": bson.M{
+					"id":   accessUser["id"],
+					"type": accessUser["type"],
+				},
+			}
+		} else {
+			projectUpdateData["$pull"] = bson.M{
+				"access.id": accessUser["id"],
+			}
+		}
+		_, err := formCollection.UpdateOne(ctxMongo, bson.M{
+			"_id": projectID,
+		}, projectUpdateData)
+		if err != nil {
+			return err
+		}
+		userIDString, ok := accessUser["id"].(string)
+		if !ok {
+			return errors.New("cannot cast user id to string")
+		}
+		userID, err := primitive.ObjectIDFromHex(userIDString)
+		if err != nil {
+			return err
+		}
+		accountUpdateData := bson.M{}
+		if accessUser["type"] != noAccessLevel {
+			accountUpdateData["$addToSet"] = bson.M{
+				"projects": bson.M{
+					"id":   projectIDString,
+					"type": accessUser["type"],
+				},
+			}
+		} else {
+			accountUpdateData["$pull"] = bson.M{
+				"forms.id": projectIDString,
+			}
+		}
+		_, err = userCollection.UpdateOne(ctxMongo, bson.M{
+			"_id": userID,
+		}, accountUpdateData)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func rootMutation() *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: "Mutation",
 		Fields: graphql.Fields{
-			"addForm": &graphql.Field{
-				Type:        FormType,
-				Description: "Create a Form",
-				Args: graphql.FieldConfigArgument{
-					"name": &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
-					"description": &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
-					"questions": &graphql.ArgumentConfig{
-						Type: graphql.NewList(QuestionInputType),
-					},
-				},
-				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-					claims, err := validateLoggedIn(params.Context.Value(tokenKey).(string))
-					if err != nil {
-						return nil, err
-					}
-					userIDString, ok := claims["id"].(string)
-					if !ok {
-						return nil, errors.New("cannot cast user id to string")
-					}
-					userID, err := primitive.ObjectIDFromHex(userIDString)
-					if err != nil {
-						return nil, err
-					}
-					if params.Args["name"] == nil {
-						return nil, errors.New("name not provided")
-					}
-					if params.Args["description"] == nil {
-						return nil, errors.New("description not provided")
-					}
-					if params.Args["questions"] == nil {
-						return nil, errors.New("questions not provided")
-					}
-					name, ok := params.Args["name"].(string)
-					if !ok {
-						return nil, errors.New("problem casting name to string")
-					}
-					description, ok := params.Args["description"].(string)
-					if !ok {
-						return nil, errors.New("problem casting description to string")
-					}
-					questionsInterface, ok := params.Args["questions"].([]interface{})
-					if !ok {
-						return nil, errors.New("problem casting questions to interface array")
-					}
-					questions, err := interfaceListToMapList(questionsInterface)
-					if err != nil {
-						return nil, err
-					}
-					for _, question := range questions {
-						if err := checkQuestionObjCreate(question); err != nil {
-							return nil, err
-						}
-					}
-					formData := bson.M{
-						"name":        name,
-						"description": description,
-						"questions":   questions,
-						"access": bson.A{
-							bson.M{
-								"id":     userIDString,
-								"access": "owner",
-							},
-						},
-					}
-					formCreateRes, err := formCollection.InsertOne(ctxMongo, formData)
-					if err != nil {
-						return nil, err
-					}
-					formID := formCreateRes.InsertedID.(primitive.ObjectID)
-					formIDString := formID.Hex()
-					if err = addUserFormAccess(userID, "owner", formIDString); err != nil {
-						return nil, err
-					}
-					timestamp := objectidtimestamp(formID)
-					formData["date"] = timestamp.Format(dateFormat)
-					formData["id"] = formIDString
-					return formData, nil
-				},
-			},
-			"updateForm": &graphql.Field{
-				Type:        FormType,
-				Description: "Update a Form",
-				Args: graphql.FieldConfigArgument{
-					"id": &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
-					"name": &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
-					"description": &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
-					"questions": &graphql.ArgumentConfig{
-						Type: graphql.NewList(QuestionInputType),
-					},
-					"access": &graphql.ArgumentConfig{
-						Type: graphql.NewList(AccessInputType),
-					},
-				},
-				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-					claims, err := validateLoggedIn(params.Context.Value(tokenKey).(string))
-					if err != nil {
-						return nil, err
-					}
-					userIDString, ok := claims["id"].(string)
-					if !ok {
-						return nil, errors.New("cannot cast user id to string")
-					}
-					if params.Args["id"] != nil {
-						return nil, errors.New("form id not provided")
-					}
-					formIDString, ok := params.Args["id"].(string)
-					if !ok {
-						return nil, errors.New("cannot cast form id to string")
-					}
-					formID, err := primitive.ObjectIDFromHex(formIDString)
-					if err != nil {
-						return nil, err
-					}
-					formDataCursor, err := formCollection.Find(ctxMongo, bson.M{
-						"_id": formID,
-					})
-					defer formDataCursor.Close(ctxMongo)
-					if err != nil {
-						return nil, err
-					}
-					var allFormData map[string]interface{}
-					var allAccess []map[string]interface{}
-					var foundForm = false
-					for formDataCursor.Next(ctxMongo) {
-						foundForm = true
-						formPrimitive := &bson.D{}
-						err = formDataCursor.Decode(formPrimitive)
-						if err != nil {
-							return nil, err
-						}
-						allFormData = formPrimitive.Map()
-						id := allFormData["_id"].(primitive.ObjectID)
-						allFormData["date"] = objectidtimestamp(id).Format(dateFormat)
-						allFormData["id"] = id.Hex()
-						delete(allFormData, "_id")
-						usersInterface, ok := allFormData["access"].([]interface{})
-						if !ok {
-							return nil, errors.New("problem casting user access to interface array")
-						}
-						users, err := interfaceListToMapList(usersInterface)
-						if err != nil {
-							return nil, err
-						}
-						allAccess = users
-						allFormData["access"] = allAccess
-						var foundUser = false
-						for _, user := range users {
-							accessUserIDString, ok := user["id"].(string)
-							if !ok {
-								return nil, errors.New("cannot cast user id in form to string")
-							}
-							if accessUserIDString == userIDString {
-								foundUser = true
-								accessType, ok := user["type"].(string)
-								if !ok {
-									return nil, errors.New("cannot cast access type to string")
-								}
-								if !(accessType == "owner" || accessType == "edit") {
-									return nil, errors.New("user not authorized to edit form")
-								}
-								break
-							}
-						}
-						if !foundUser {
-							return nil, errors.New("user not authorized to edit form")
-						}
-						break
-					}
-					if !foundForm {
-						return nil, errors.New("form not found with given id")
-					}
-					updateData := bson.M{}
-					updateSet := bson.M{}
-					updateAdd := bson.M{}
-					if params.Args["name"] != nil {
-						name, ok := params.Args["name"].(string)
-						if !ok {
-							return nil, errors.New("problem casting name to string")
-						}
-						updateSet["name"] = name
-						allFormData["name"] = name
-					}
-					if params.Args["description"] != nil {
-						description, ok := params.Args["description"].(string)
-						if !ok {
-							return nil, errors.New("problem casting description to string")
-						}
-						updateSet["description"] = description
-						allFormData["description"] = description
-					}
-					if params.Args["questions"] != nil {
-						questionsInterface, ok := params.Args["questions"].([]interface{})
-						if !ok {
-							return nil, errors.New("problem casting questions to interface array")
-						}
-						questions, err := interfaceListToMapList(questionsInterface)
-						if err != nil {
-							return nil, err
-						}
-						for _, question := range questions {
-							if err := checkQuestionObjUpdate(question); err != nil {
-								return nil, err
-							}
-						}
-						updateSet["questions"] = questions
-						allFormData["questions"] = questions
-					}
-					var access []map[string]interface{}
-					if params.Args["access"] != nil {
-						accessInterface, ok := params.Args["access"].([]interface{})
-						if !ok {
-							return nil, errors.New("problem casting access to interface array")
-						}
-						access, err = interfaceListToMapList(accessInterface)
-						if err != nil {
-							return nil, err
-						}
-						for _, accessUser := range access {
-							if err := checkAccessObj(accessUser); err != nil {
-								return nil, err
-							}
-						}
-						updateAdd["access"] = access
-					}
-					for _, accessUser := range access {
-						newAccessUserIDString, ok := accessUser["id"].(string)
-						if !ok {
-							return nil, errors.New("cannot convert access user id to string")
-						}
-						newAccessUserID, err := primitive.ObjectIDFromHex(newAccessUserIDString)
-						if err != nil {
-							return nil, err
-						}
-						newAccessType, ok := accessUser["type"].(string)
-						if !ok {
-							return nil, errors.New("cannot convert access user id to string")
-						}
-						if err = addUserFormAccess(newAccessUserID, newAccessType, formIDString); err != nil {
-							return nil, err
-						}
-						var foundUser = false
-						for i, currentAccess := range allAccess {
-							currentAccessID, ok := currentAccess["id"].(string)
-							if !ok {
-								return nil, errors.New("cannot convert current access user id to string")
-							}
-							if currentAccessID == newAccessUserIDString {
-								foundUser = true
-								allAccess[i] = accessUser
-								break
-							}
-						}
-						if !foundUser {
-							allAccess = append(allAccess, accessUser)
-						}
-					}
-					allFormData["access"] = allAccess
-					updateData["$set"] = updateSet
-					updateData["$addToSet"] = updateAdd
-					_, err = formCollection.UpdateOne(ctxMongo, bson.M{
-						"_id": formID,
-					}, updateData)
-					if err != nil {
-						return nil, err
-					}
-					return allFormData, nil
-				},
-			},
-			"deleteForm": &graphql.Field{
-				Type:        FormType,
-				Description: "Delete a Form",
-				Args: graphql.FieldConfigArgument{
-					"id": &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
-				},
-				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-					claims, err := validateLoggedIn(params.Context.Value(tokenKey).(string))
-					if err != nil {
-						return nil, err
-					}
-					userIDString, ok := claims["id"].(string)
-					if !ok {
-						return nil, errors.New("cannot cast user id to string")
-					}
-					if params.Args["id"] != nil {
-						return nil, errors.New("form id not provided")
-					}
-					formIDString, ok := params.Args["id"].(string)
-					if !ok {
-						return nil, errors.New("cannot cast form id to string")
-					}
-					formID, err := primitive.ObjectIDFromHex(formIDString)
-					if err != nil {
-						return nil, err
-					}
-					formDataCursor, err := formCollection.Find(ctxMongo, bson.M{
-						"_id": formID,
-					})
-					defer formDataCursor.Close(ctxMongo)
-					if err != nil {
-						return nil, err
-					}
-					var formData map[string]interface{}
-					var access []map[string]interface{}
-					var foundForm = false
-					for formDataCursor.Next(ctxMongo) {
-						foundForm = true
-						formPrimitive := &bson.D{}
-						err = formDataCursor.Decode(formPrimitive)
-						if err != nil {
-							return nil, err
-						}
-						formData = formPrimitive.Map()
-						id := formData["_id"].(primitive.ObjectID)
-						formData["date"] = objectidtimestamp(id).Format(dateFormat)
-						formData["id"] = id.Hex()
-						delete(formData, "_id")
-						usersInterface, ok := formData["access"].([]interface{})
-						if !ok {
-							return nil, errors.New("problem casting user access to interface array")
-						}
-						users, err := interfaceListToMapList(usersInterface)
-						if err != nil {
-							return nil, err
-						}
-						access = users
-						formData["access"] = access
-						var foundUser = false
-						for _, user := range users {
-							accessUserIDString, ok := user["id"].(string)
-							if !ok {
-								return nil, errors.New("cannot cast user id in form to string")
-							}
-							if accessUserIDString == userIDString {
-								foundUser = true
-								accessType, ok := user["type"].(string)
-								if !ok {
-									return nil, errors.New("cannot cast access type to string")
-								}
-								if !(accessType == "owner" || accessType == "edit") {
-									return nil, errors.New("user not authorized to edit form")
-								}
-								break
-							}
-						}
-						if !foundUser {
-							return nil, errors.New("user not authorized to edit form")
-						}
-						break
-					}
-					if !foundForm {
-						return nil, errors.New("form not found with given id")
-					}
-					for _, user := range access {
-						accessUserIDString, ok := user["id"].(string)
-						if !ok {
-							return nil, errors.New("cannot cast user id in form to string")
-						}
-						accessUserID, err := primitive.ObjectIDFromHex(accessUserIDString)
-						if err != nil {
-							return nil, err
-						}
-						_, err = userCollection.UpdateOne(ctxMongo, bson.M{
-							"_id": accessUserID,
-						}, bson.M{
-							"$pull": bson.M{
-								"forms": bson.M{
-									"id": formIDString,
-								},
-							},
-						})
-						if err != nil {
-							return nil, err
-						}
-					}
-					_, err = formCollection.DeleteOne(ctxMongo, bson.M{
-						"_id": formID,
-					})
-					if err != nil {
-						return nil, err
-					}
-					return formData, nil
-				},
-			},
-			"deleteUser": &graphql.Field{
-				Type:        AccountType,
-				Description: "Delete a User",
-				Args: graphql.FieldConfigArgument{
-					"id": &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
-				},
-				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-					_, err := validateAdmin(params.Context.Value(tokenKey).(string))
-					if err != nil {
-						return nil, err
-					}
-					if params.Args["id"] == nil {
-						return nil, errors.New("user id not provided")
-					}
-					idstring, ok := params.Args["id"].(string)
-					if !ok {
-						return nil, errors.New("cannot cast id to string")
-					}
-					return deleteAccount(idstring)
-				},
-			},
-			"deleteAccount": &graphql.Field{
-				Type:        AccountType,
-				Description: "Delete a User",
-				Args:        graphql.FieldConfigArgument{},
-				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-					claims, err := validateLoggedIn(params.Context.Value(tokenKey).(string))
-					if err != nil {
-						return nil, err
-					}
-					idstring, ok := claims["id"].(string)
-					if !ok {
-						return nil, errors.New("cannot cast id to string")
-					}
-					return deleteAccount(idstring)
-				},
-			},
+			"addForm":       formMutationFields["addForm"],
+			"updateForm":    formMutationFields["updateForm"],
+			"deleteForm":    formMutationFields["deleteForm"],
+			"deleteUser":    userMutationFields["deleteUser"],
+			"deleteAccount": userMutationFields["deleteAccount"],
+			"addProject":    projectMutationFields["addProject"],
+			"updateProject": projectMutationFields["updateProject"],
+			"deleteProject": projectMutationFields["deleteProject"],
+			"addBlog":       blogMutationFields["addBlog"],
+			"updateBlog":    blogMutationFields["updateBlog"],
+			"deleteBlog":    blogMutationFields["deleteBlog"],
 		},
 	})
 }

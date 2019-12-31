@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"net/http"
@@ -10,6 +9,8 @@ import (
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/gin-gonic/gin"
+	json "github.com/json-iterator/go"
 	"github.com/mitchellh/mapstructure"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -82,7 +83,9 @@ func verifyRecaptcha(recaptchaToken string, recaptchaSecret string) error {
  * @apiSuccess {String} message Response message
  * @apiGroup authentication
  */
-func register(response http.ResponseWriter, request *http.Request) {
+func register(c *gin.Context) {
+	response := c.Writer
+	request := c.Request
 	if request.Method != http.MethodPost {
 		handleError("register http method not POST", http.StatusBadRequest, response)
 		return
@@ -98,18 +101,26 @@ func register(response http.ResponseWriter, request *http.Request) {
 		handleError("error parsing request body: "+err.Error(), http.StatusBadRequest, response)
 		return
 	}
-	if !(registerdata["password"] != nil && registerdata["email"] != nil && registerdata["recaptcha"] != nil) {
-		handleError("no email or password or recaptcha token provided", http.StatusBadRequest, response)
+	if registerdata["email"] == nil {
+		handleError("no email provided", http.StatusBadRequest, response)
 		return
 	}
-	password, ok := registerdata["password"].(string)
-	if !ok {
-		handleError("password cannot be cast to string", http.StatusBadRequest, response)
+	if registerdata["password"] == nil {
+		handleError("no password provided", http.StatusBadRequest, response)
+		return
+	}
+	if registerdata["recaptcha"] == nil {
+		handleError("no recaptcha token provided", http.StatusBadRequest, response)
 		return
 	}
 	email, ok := registerdata["email"].(string)
 	if !ok {
 		handleError("email cannot be cast to string", http.StatusBadRequest, response)
+		return
+	}
+	password, ok := registerdata["password"].(string)
+	if !ok {
+		handleError("password cannot be cast to string", http.StatusBadRequest, response)
 		return
 	}
 	recaptchatoken, ok := registerdata["recaptcha"].(string)
@@ -144,11 +155,17 @@ func register(response http.ResponseWriter, request *http.Request) {
 		handleError("error sending email verification: got status code "+strconv.Itoa(emailres.StatusCode), http.StatusBadRequest, response)
 		return
 	}
+	now := time.Now()
 	res, err := userCollection.InsertOne(ctxMongo, bson.M{
 		"email":         email,
 		"password":      string(passwordhashed),
 		"emailverified": false,
 		"type":          "user",
+		"updated":       now.Unix(),
+		"forms":         bson.A{},
+		"projects":      bson.A{},
+		"categories":    bson.A{},
+		"tags":          bson.A{},
 	})
 	if err != nil {
 		handleError("error inserting user to database: "+err.Error(), http.StatusBadRequest, response)
@@ -171,7 +188,9 @@ func register(response http.ResponseWriter, request *http.Request) {
  * @apiSuccess {String} token User token for authenticated requests
  * @apiGroup authentication
  */
-func loginEmailPassword(response http.ResponseWriter, request *http.Request) {
+func loginEmailPassword(c *gin.Context) {
+	response := c.Writer
+	request := c.Request
 	if request.Method != http.MethodPut {
 		handleError("login http method not PUT", http.StatusBadRequest, response)
 		return
@@ -187,8 +206,16 @@ func loginEmailPassword(response http.ResponseWriter, request *http.Request) {
 		handleError("error parsing request body: "+err.Error(), http.StatusBadRequest, response)
 		return
 	}
-	if logindata["email"] == nil || logindata["password"] == nil || logindata["recaptcha"] == nil {
-		handleError("no email or password or recaptcha token provided", http.StatusBadRequest, response)
+	if logindata["email"] == nil {
+		handleError("no email provided", http.StatusBadRequest, response)
+		return
+	}
+	if logindata["password"] == nil {
+		handleError("no password provided", http.StatusBadRequest, response)
+		return
+	}
+	if logindata["recaptcha"] == nil {
+		handleError("no recaptcha token provided", http.StatusBadRequest, response)
 		return
 	}
 	email, ok := logindata["email"].(string)
@@ -264,7 +291,9 @@ func loginEmailPassword(response http.ResponseWriter, request *http.Request) {
 	}
 }
 
-func verifyEmail(response http.ResponseWriter, request *http.Request) {
+func verifyEmail(c *gin.Context) {
+	response := c.Writer
+	request := c.Request
 	if request.Method != http.MethodPost {
 		handleError("verify http method not POST", http.StatusBadRequest, response)
 		return
@@ -306,8 +335,12 @@ func verifyEmail(response http.ResponseWriter, request *http.Request) {
 		handleError("invalid token", http.StatusBadRequest, response)
 		return
 	}
-	if !(decodedToken["email"] != nil && decodedToken["verify"] != nil) {
-		handleError("token does not contian email or verify", http.StatusBadRequest, response)
+	if decodedToken["email"] == nil {
+		handleError("token does not contain email", http.StatusBadRequest, response)
+		return
+	}
+	if decodedToken["verify"] == nil {
+		handleError("token does not contain verify", http.StatusBadRequest, response)
 		return
 	}
 	email, ok := decodedToken["email"].(string)
@@ -339,16 +372,22 @@ func verifyEmail(response http.ResponseWriter, request *http.Request) {
 			return
 		}
 		userData := userDataPrimitive.Map()
-		if userData["emailverified"] != nil && userData["emailverified"].(bool) {
+		if userData["emailverified"] == nil {
+			handleError("email verified not found", http.StatusBadRequest, response)
+			return
+		}
+		if userData["emailverified"].(bool) {
 			handleError("email already verified", http.StatusBadRequest, response)
 			return
 		}
 		id := userData["_id"].(primitive.ObjectID)
+		now := time.Now()
 		_, err := userCollection.UpdateOne(ctxMongo, bson.M{
 			"_id": id,
 		}, bson.M{
 			"$set": bson.M{
 				"emailverified": true,
+				"updated":       now.Unix(),
 			},
 		})
 		if err != nil {
@@ -378,7 +417,9 @@ func verifyEmail(response http.ResponseWriter, request *http.Request) {
  * @apiSuccess {String} message Response message
  * @apiGroup authentication
  */
-func resetPassword(response http.ResponseWriter, request *http.Request) {
+func resetPassword(c *gin.Context) {
+	response := c.Writer
+	request := c.Request
 	if request.Method != http.MethodPost {
 		handleError("reset http method not POST", http.StatusBadRequest, response)
 		return
@@ -394,8 +435,12 @@ func resetPassword(response http.ResponseWriter, request *http.Request) {
 		handleError("error parsing request body: "+err.Error(), http.StatusBadRequest, response)
 		return
 	}
-	if resetdata["token"] == nil || resetdata["password"] == nil {
-		handleError("no token or new password provided", http.StatusBadRequest, response)
+	if resetdata["token"] == nil {
+		handleError("no token provided", http.StatusBadRequest, response)
+		return
+	}
+	if resetdata["password"] == nil {
+		handleError("no new password provided", http.StatusBadRequest, response)
 		return
 	}
 	giventoken, ok := resetdata["token"].(string)
@@ -425,8 +470,12 @@ func resetPassword(response http.ResponseWriter, request *http.Request) {
 		handleError("invalid token", http.StatusBadRequest, response)
 		return
 	}
-	if !(decodedToken["email"] != nil && decodedToken["reset"] != nil) {
-		handleError("token does not contian email or reset", http.StatusBadRequest, response)
+	if decodedToken["email"] == nil {
+		handleError("token does not contian email", http.StatusBadRequest, response)
+		return
+	}
+	if decodedToken["reset"] == nil {
+		handleError("token does not contian reset", http.StatusBadRequest, response)
 		return
 	}
 	email, ok := decodedToken["email"].(string)
@@ -458,8 +507,16 @@ func resetPassword(response http.ResponseWriter, request *http.Request) {
 			return
 		}
 		userData := userDataPrimitive.Map()
-		if !(userData["_id"] != nil && userData["emailverified"] != nil && userData["emailverified"].(bool)) {
-			handleError("user id invalid or email not verified", http.StatusBadRequest, response)
+		if userData["_id"] == nil {
+			handleError("user id invalid", http.StatusBadRequest, response)
+			return
+		}
+		if userData["emailverified"] == nil {
+			handleError("email verified not found", http.StatusBadRequest, response)
+			return
+		}
+		if !userData["emailverified"].(bool) {
+			handleError("email not verified", http.StatusBadRequest, response)
 			return
 		}
 		id := userData["_id"].(primitive.ObjectID)
@@ -468,11 +525,13 @@ func resetPassword(response http.ResponseWriter, request *http.Request) {
 			handleError("error hashing password: "+err.Error(), http.StatusBadRequest, response)
 			return
 		}
+		now := time.Now()
 		_, err = userCollection.UpdateOne(ctxMongo, bson.M{
 			"_id": id,
 		}, bson.M{
 			"$set": bson.M{
 				"password": string(passwordhashed),
+				"updated":  now.Unix(),
 			},
 		})
 		if err != nil {
@@ -517,10 +576,13 @@ func validateAdmin(t string) (jwt.MapClaims, error) {
 	if err != nil {
 		return nil, err
 	}
-	if accountdata["emailverified"] != nil && accountdata["emailverified"].(bool) {
-		return nil, errors.New("email not found or verified")
+	if accountdata["emailverified"] == nil {
+		return nil, errors.New("email verified not found")
 	}
-	if accountdata["type"] != "admin" {
+	if !accountdata["emailverified"].(bool) {
+		return nil, errors.New("email not verified")
+	}
+	if accountdata["type"] != adminType {
 		return nil, errors.New("user not admin")
 	}
 	return accountdata, nil

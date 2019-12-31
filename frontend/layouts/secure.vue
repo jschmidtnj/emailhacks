@@ -1,22 +1,33 @@
 <template>
-  <div class="main-wrapper">
-    <secure-navbar />
-    <nuxt class="content" />
-    <main-footer />
+  <div>
+    <sidebar />
+    <div class="main-wrapper main-wrapper-sidebar">
+      <navbar />
+      <nuxt class="content" />
+      <main-footer />
+    </div>
   </div>
 </template>
 
-<script lang="ts">
+<script lang="js">
 import Vue from 'vue'
-import SecureNavbar from '~/components/secure/Navbar.vue'
+import Navbar from '~/components/Navbar.vue'
+import Sidebar from '~/components/Sidebar.vue'
 import MainFooter from '~/components/Footer.vue'
+import { checkLoggedInInterval } from '~/assets/config'
 export default Vue.extend({
   name: 'Secure',
   // @ts-ignore
   middleware: 'auth',
   components: {
-    SecureNavbar,
+    Navbar,
+    Sidebar,
     MainFooter
+  },
+  data() {
+    return {
+      interval: null
+    }
   },
   computed: {
     admin() {
@@ -31,8 +42,8 @@ export default Vue.extend({
   head() {
     // @ts-ignore
     const seo = JSON.parse(process.env.seoconfig)
-    const links: any = []
-    const meta: any = []
+    const links = []
+    const meta = []
     if (seo) {
       const canonical = `${seo.url}/${this.$route.path}`
       links.push({
@@ -45,8 +56,33 @@ export default Vue.extend({
       })
     }
     return {
-      links: links,
-      meta: meta
+      links,
+      meta
+    }
+  },
+  mounted() {
+    this.interval = setInterval(() => {
+      this.$store
+        .dispatch('auth/checkLoggedIn')
+        .then((loggedIn) => {
+          if (!loggedIn) {
+            this.$store.commit('auth/logout')
+            this.$router.push({
+              path: '/login'
+            })
+          }
+        })
+        .catch((err) => {
+          this.$store.commit('auth/logout')
+          this.$router.push({
+            path: '/login'
+          })
+        })
+    }, checkLoggedInInterval)
+  },
+  beforeDestroy() {
+    if (this.interval) {
+      clearInterval(this.interval)
     }
   }
 })
