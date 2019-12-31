@@ -15,7 +15,7 @@
     "generate": "nuxt-ts generate",
     "lint": "eslint --ext .js,.vue --fix --ignore-path .gitignore .",
     "precommit": "yarn lint",
-    "predeploy": "yarn precommit && yarn email:build && yarn generate",
+    "predeploy": "yarn precommit && yarn email:build && yarn generate && cp -r dist/ ../dist/",
     "serve": "node staticserver.js",
     "now-build": "yarn predeploy",
     "deploy:gcp": "gcloud app deploy",
