@@ -12,6 +12,7 @@
 <script lang="js">
 import Vue from 'vue'
 import Create from '~/components/secure/form/Create.vue'
+import { defaultItemName } from '~/assets/config'
 export default Vue.extend({
   name: 'NewForm',
   layout: 'secure',
@@ -30,7 +31,7 @@ export default Vue.extend({
       this.$axios.post('/graphql', {
         query: `mutation{addForm(project:"${
           encodeURIComponent(this.projectId)
-        }"name:"Untitled",items:[],multiple:false,tags:[],categories:[],files:[]){id}}`
+        }"name:"${defaultItemName}",items:[],multiple:false,tags:[],categories:[],files:[]){id}}`
       })
       .then(res => {
         if (res.status === 200) {

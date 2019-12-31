@@ -1,17 +1,140 @@
 <template>
-  <div id="view">
-    <b-card no-body>
-      <b-card-body>
-        <b-card-title>{{ name }}</b-card-title>
-      </b-card-body>
-    </b-card>
+  <div id="create">
+    <div v-if="!loading">
+      <b-card no-body class="card-data shadow-lg pb-4">
+        <b-card-body>
+          <b-form v-on:submit.prevent>
+            <h3 class="mb-4">{{ name }}</h3>
+            <div
+              v-for="(item, index) in items"
+              :key="`item-${index}`"
+              :class="{ 'item-focus': focusIndex === index }"
+            >
+              <hr class="separate-items" />
+              <span
+                :id="`item-${index}-select-area`"
+                v-touch:start="(evt) => focusItem(evt, index)"
+              >
+                <b-container v-if="item.type !== itemTypes[3]">
+                  <h4>{{ item.question }}</h4>
+                </b-container>
+                <b-container v-else>
+                  <p v-html="item.text"></p>
+                </b-container>
+                <b-input-group
+                  v-if="
+                    item.type !== itemTypes[3] && item.type !== itemTypes[6]
+                  "
+                  :id="`item-${index}-question`"
+                >
+                  <b-container>
+                    <div
+                      v-if="
+                        item.type === itemTypes[0] || item.type === itemTypes[1]
+                      "
+                    >
+                      <b-row
+                        v-for="(option, optionIndex) in item.options"
+                        :key="`item-${index}-option-${optionIndex}`"
+                        class="mt-2 mb-2"
+                        style="max-width:30rem;"
+                      >
+                        <b-col>
+                          <b-form-radio v-if="item.type === itemTypes[0]">{{
+                            item.options[optionIndex]
+                          }}</b-form-radio>
+                          <b-form-checkbox
+                            v-else-if="item.type === itemTypes[1]"
+                            >{{ item.options[optionIndex] }}</b-form-checkbox
+                          >
+                        </b-col>
+                      </b-row>
+                    </div>
+                    <b-form-textarea
+                      v-else-if="item.type === itemTypes[2]"
+                      :id="`item-${index}-shortAnswer`"
+                      class="mt-2 mb-2"
+                      rows="3"
+                      max-rows="8"
+                      style="max-width:30rem;"
+                    ></b-form-textarea>
+                    <div
+                      v-else-if="item.type === itemTypes[4]"
+                      class="mt-2 mb-2"
+                    >
+                      <b-form-checkbox
+                        :id="`item-${index}-red-green`"
+                        style="display: inline-block;"
+                        name="red-green"
+                        switch
+                      />
+                    </div>
+                    <div
+                      v-else-if="item.type === itemTypes[5]"
+                      class="mt-2 mb-2"
+                    >
+                      <b-form-file
+                        placeholder="Choose a file or drop it here..."
+                        drop-placeholder="Drop file here..."
+                        style="max-width:30rem;"
+                      ></b-form-file>
+                    </div>
+                    <div
+                      v-else-if="item.type === itemTypes[6]"
+                      class="mt-2 mb-2"
+                    >
+                      <b-container>
+                        <b-row>
+                          <b-col>
+                            <a
+                              v-if="items[index].file"
+                              :href="getFileURL(index)"
+                              :download="items[index].file.name"
+                              class="mt-2 mb-2"
+                              >Download</a
+                            >
+                          </b-col>
+                        </b-row>
+                      </b-container>
+                    </div>
+                  </b-container>
+                </b-input-group>
+              </span>
+            </div>
+          </b-form>
+        </b-card-body>
+      </b-card>
+      <b-container style="margin-top: 3rem; margin-bottom: 2rem;">
+        <b-row>
+          <b-col class="text-right">
+            <b-button
+              @click="submit"
+              pill
+              variant="primary"
+              class="submit-button shadow-lg"
+            >
+              <client-only>
+                <font-awesome-icon size="3x" icon="paper-plane" />
+              </client-only>
+            </b-button>
+          </b-col>
+        </b-row>
+      </b-container>
+    </div>
+    <page-loading v-else :loading="true" />
   </div>
 </template>
 
 <script lang="js">
 import Vue from 'vue'
+import PageLoading from '~/components/PageLoading.vue'
+const itemTypes = ['radio', 'checkbox', 'short', 'text',
+  'redgreen', 'fileupload', 'fileattachment']
 export default Vue.extend({
   name: 'ViewForm',
+  components: {
+    PageLoading
+  },
   props: {
     formId: {
       type: String,
@@ -27,14 +150,17 @@ export default Vue.extend({
       name: '',
       items: [],
       multiple: false,
-      files: []
+      files: [],
+      focusIndex: 0,
+      itemTypes,
+      loading: true
     }
   },
   mounted() {
     if (this.formId) {
       this.$axios.get('/graphql', {
         params: {
-          query: `{form(id:"${this.formId}"){name}}`
+          query: `{form(id:"${this.formId}"){name,items{question,type,options,text,required,file},multiple,files{id,name,width,height,type}}}`
         }
       })
       .then(res => {
@@ -42,6 +168,15 @@ export default Vue.extend({
           if (res.data) {
             if (res.data.data && res.data.data.form) {
               this.name = decodeURIComponent(res.data.data.form.name)
+              for (let i = 0; i < res.data.data.form.items.length; i++) {
+                res.data.data.form.items[i].question = decodeURIComponent(res.data.data.form.items[i].question)
+                res.data.data.form.items[i].options = res.data.data.form.items[i].options.map(option => decodeURIComponent(option))
+                res.data.data.form.items[i].text = decodeURIComponent(res.data.data.form.items[i].text)
+              }
+              this.items = res.data.data.form.items
+              this.multiple = res.data.data.form.multiple
+              this.files = res.data.data.form.files
+              this.loading = false
             } else if (res.data.errors) {
               console.error(res.data.errors[0])
               this.$toasted.global.error({
@@ -70,8 +205,36 @@ export default Vue.extend({
         })
       })
     }
+  },
+  methods: {
+    getFileURL(itemIndex) {
+      return ''
+    },
+    focusItem(evt, itemIndex) {
+      this.focusIndex = itemIndex
+    },
+    submit(evt) {
+      evt.preventDefault()
+      console.log('submitted!')
+    }
   }
 })
 </script>
 
-<style lang="scss"></style>
+<style lang="scss">
+.separate-items {
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+.submit-button {
+  height: 6rem;
+  width: 6rem;
+  text-align: center;
+  line-height: 50%;
+}
+.card-data {
+  @media (min-width: 600px) {
+    max-width: 50rem;
+  }
+}
+</style>

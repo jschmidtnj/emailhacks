@@ -12,6 +12,9 @@ export const cloudStorageURLs = {
 // periodically check if logged in
 export const checkLoggedInInterval = 5 * 60 * 1000
 
+// default item name when first created
+export const defaultItemName = 'Untitled'
+
 export const toasts = {
   position: 'top-right',
   duration: 2000,

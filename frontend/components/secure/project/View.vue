@@ -23,6 +23,7 @@
 import Vue from 'vue'
 import { format } from 'date-fns'
 import FormList from '~/components/secure/form/FormList.vue'
+import { defaultItemName } from '~/assets/config'
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({
@@ -76,7 +77,7 @@ export default Vue.extend({
     if (this.getInitialData) {
       this.getProject()
     } else {
-      this.name = 'Untitled'
+      this.name = defaultItemName
     }
   },
   methods: {

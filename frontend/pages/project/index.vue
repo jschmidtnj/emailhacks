@@ -11,6 +11,7 @@
 <script lang="js">
 import Vue from 'vue'
 import ViewProject from '~/components/secure/project/View.vue'
+import { defaultItemName } from '~/assets/config'
 export default Vue.extend({
   name: 'NewProject',
   layout: 'secure',
@@ -24,7 +25,7 @@ export default Vue.extend({
   },
   mounted() {
     this.$axios.post('/graphql', {
-      query: 'mutation{addProject(name:"Untitled",tags:[],categories:[]){id}}'
+      query: `mutation{addProject(name:"${defaultItemName}",tags:[],categories:[]){id}}`
     })
     .then(res => {
       if (res.status === 200) {
