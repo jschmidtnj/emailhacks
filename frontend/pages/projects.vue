@@ -113,6 +113,9 @@
         </b-col>
       </b-row>
     </b-container>
+    <nuxt-link to="/project" class="btn btn-primary btn-sm no-underline mt-4">
+      Create New Project
+    </nuxt-link>
   </b-container>
 </template>
 

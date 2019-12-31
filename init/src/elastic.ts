@@ -57,7 +57,7 @@ export const blogMappings = {
 export const formMappings = {
   properties: {
     name: {
-      type: 'keyword'
+      type: 'text'
     },
     items: {
       type: 'nested'
@@ -94,7 +94,7 @@ export const formMappings = {
 export const projectMappings = {
   properties: {
     name: {
-      type: 'keyword'
+      type: 'text'
     },
     forms: {
       type: 'keyword'

@@ -10,16 +10,21 @@
           </div>
         </li>
         <li class="nav-item">
-          <nuxt-link to="/project" class="no-underline">
-            <a class="nav-link">New Project</a>
+          <nuxt-link to="/projects" class="no-underline">
+            <a class="nav-link">All Projects</a>
+          </nuxt-link>
+        </li>
+        <li v-if="!inProject" class="nav-item">
+          <nuxt-link to="/forms" class="no-underline">
+            <a class="nav-link">All Forms</a>
           </nuxt-link>
         </li>
         <li class="nav-item">
-          <nuxt-link to="/projects" class="no-underline">
-            <a class="nav-link">Saved Projects</a>
+          <nuxt-link v-if="!inProject" to="/project" class="no-underline">
+            <a class="nav-link">New Project</a>
           </nuxt-link>
         </li>
-        <li v-if="$route.path.includes(projectPath)" class="nav-item">
+        <li v-if="inProject" class="nav-item">
           <nuxt-link :to="`/project/${projectId}/form`" class="no-underline">
             <a class="nav-link">New Form</a>
           </nuxt-link>
@@ -39,6 +44,9 @@ export default Vue.extend({
     }
   },
   computed: {
+    inProject() {
+      return this.$nuxt.$route.path.includes(this.projectPath)
+    },
     projectId() {
       const projectPathIndex = this.$route.path.indexOf(this.projectPath)
       if (projectPathIndex > 0)
