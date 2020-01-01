@@ -3,7 +3,7 @@
     <div v-if="!loading">
       <b-card no-body class="card-data shadow-lg">
         <b-card-body>
-          <b-form v-on:submit.prevent>
+          <b-form @submit.prevent>
             <b-input-group>
               <b-container>
                 <b-row class="mb-2">
@@ -14,7 +14,7 @@
                       size="lg"
                       type="text"
                       placeholder="Title"
-                    ></b-form-input>
+                    />
                   </b-col>
                 </b-row>
                 <b-row class="mt-2 mb-2">
@@ -24,8 +24,9 @@
                       class="pull-right"
                       name="allow-multiple"
                       switch
-                      >Allow Multiple Submissions</b-form-checkbox
                     >
+                      Allow Multiple Submissions
+                    </b-form-checkbox>
                   </b-col>
                 </b-row>
               </b-container>
@@ -65,8 +66,8 @@
                             size="md"
                             type="text"
                             placeholder="Question"
-                          ></b-form-input>
-                          <div v-else></div>
+                          />
+                          <div v-else />
                         </b-col>
                         <b-col sm>
                           <b-dropdown
@@ -123,17 +124,17 @@
                               size="sm"
                               type="text"
                               style="width:100%;"
-                            ></b-form-input>
+                            />
                           </b-col>
                           <b-col style="padding-left:0;max-width:30px;">
                             <button
                               :disabled="item.options.length <= 1"
-                              @click="
-                                (evt) => removeOption(evt, index, optionIndex)
-                              "
                               :class="{
                                 'disable-button': item.options.length <= 1
                               }"
+                              @click="
+                                (evt) => removeOption(evt, index, optionIndex)
+                              "
                               class="button-link"
                             >
                               <client-only>
@@ -162,13 +163,13 @@
                                   item.options[item.options.length - 1]
                                     .length === 0
                               "
-                              @click="(evt) => addOption(evt, index)"
                               :class="{
                                 'disable-button':
                                   item.options.length !== 0 &&
                                   item.options[item.options.length - 1]
                                     .length === 0
                               }"
+                              @click="(evt) => addOption(evt, index)"
                               class="button-link"
                             >
                               Add
@@ -191,7 +192,7 @@
                         placeholder="short answer"
                         class="mt-2 mb-2"
                         style="max-width:30rem;"
-                      ></b-form-input>
+                      />
                       <div
                         v-else-if="item.type === itemTypes[3].id"
                         class="editor mt-2 mb-2"
@@ -223,7 +224,7 @@
                           drop-placeholder="Drop file here..."
                           style="max-width:30rem;"
                           disabled
-                        ></b-form-file>
+                        />
                       </div>
                       <div
                         v-else-if="item.type === itemTypes[6].id"
@@ -233,24 +234,75 @@
                           <b-row>
                             <b-col style="padding-left:0;">
                               <b-form-file
-                                v-model="items[index].file"
                                 :id="`item-${index}-file-attachment`"
+                                v-model="item.files[0].file"
+                                :accept="validfiles.join(', ')"
+                                @input="updateFileSrc(index, 0)"
                                 placeholder="Choose a file or drop it here..."
                                 drop-placeholder="Drop file here..."
                                 style="max-width:30rem;"
                                 class="mb-2"
-                              ></b-form-file>
+                              />
                             </b-col>
                           </b-row>
                           <b-row>
                             <b-col>
                               <a
-                                v-if="items[index].file"
+                                v-if="item.files[0].file"
                                 :href="getFileURL(index)"
-                                :download="items[index].file.name"
+                                :download="items[index].files[0].name"
                                 class="mt-2 mb-2"
                                 >Download</a
                               >
+                            </b-col>
+                          </b-row>
+                        </b-container>
+                      </div>
+                      <div
+                        v-else-if="item.type === itemTypes[7].id"
+                        class="mt-2 mb-2"
+                      >
+                        <b-container>
+                          <b-row>
+                            <b-col style="padding-left:0;">
+                              <b-form-file
+                                :id="`item-${index}-image`"
+                                v-model="item.files[0].file"
+                                :accept="validDisplayFiles.join(', ')"
+                                @input="updateFileSrc(index, 0)"
+                                placeholder="Choose an image or drop it here..."
+                                drop-placeholder="Drop image here..."
+                                style="max-width:30rem;"
+                                class="mb-2"
+                              />
+                            </b-col>
+                          </b-row>
+                          <b-row>
+                            <b-col style="padding-left:0;">
+                              <b-img
+                                v-if="
+                                  item.files[0].file &&
+                                    item.files[0].src &&
+                                    checkImageType(item.files[0].type)
+                                "
+                                :src="item.files[0].src"
+                                class="mt-2 mb-2 sampleimage"
+                              />
+                              <video
+                                v-else-if="
+                                  item.files[0].src &&
+                                    item.files[0].id &&
+                                    item.files[0].type &&
+                                    checkVideoType(item.files[0].type)
+                                "
+                                :ref="`video-source-${index}-${0}`"
+                                :type="blog.files[index].type"
+                                :src="blog.files[index].src"
+                                controls
+                                autoplay
+                                class="mb-2 sampleimage"
+                                allowfullscreen
+                              />
                             </b-col>
                           </b-row>
                         </b-container>
@@ -279,8 +331,9 @@
                             style="display: inline-block;"
                             name="required"
                             switch
-                            >Required</b-form-checkbox
                           >
+                            Required
+                          </b-form-checkbox>
                         </b-col>
                       </b-row>
                     </b-container>
@@ -334,11 +387,12 @@
 <script lang="js">
 import Vue from 'vue'
 import clonedeep from 'lodash.clonedeep'
+import gql from 'graphql-tag'
 import TextEditor from '~/components/secure/form/TextEditor.vue'
 import PageLoading from '~/components/PageLoading.vue'
-import { defaultItemName } from '~/assets/config'
+import { defaultItemName, validfiles, validimages, validDisplayFiles } from '~/assets/config'
 
-// still need image picker
+// still need image picker and image viewer component
 
 const itemTypes = [
   {
@@ -368,15 +422,33 @@ const itemTypes = [
   {
     id: 'fileattachment',
     label: 'File Attachment'
-  }
+  },
+  {
+    id: 'image',
+    label: 'Image'
+  },
 ]
+const defaultFile = {
+  id: '',
+  name: '',
+  width: null,
+  height: null,
+  type: '',
+  file: null,
+  src: null
+}
+const clone = (obj) => {
+  const newObj = clonedeep(obj)
+  delete newObj.__typename
+  return newObj
+}
 const defaultItem = {
   question: '',
   type: itemTypes[0].id,
   options: [],
   text: [],
   required: false,
-  file: null
+  files: [clone(defaultFile)]
 }
 export default Vue.extend({
   name: 'Create',
@@ -400,75 +472,48 @@ export default Vue.extend({
   },
   data() {
     return {
+      validDisplayFiles,
+      validfiles,
+      validimages,
       loading: true,
       itemTypes,
       focusIndex: 0,
       editorContent: {},
       name: '',
       items: [],
-      multiple: false,
-      files: []
+      multiple: false
     }
   },
   mounted() {
     if (this.getInitialData) {
-      this.$axios.get('/graphql', {
-        params: {
-          query: `{form(id:"${this.formId}"){name,items{question,type,options,text,required,file},multiple,files{id,name,width,height,type}}}`
-        }
-      })
-      .then(res => {
-        if (res.status === 200) {
-          if (res.data) {
-            if (res.data.data && res.data.data.form) {
-              this.name = decodeURIComponent(res.data.data.form.name)
-              const newEditorContent = {}
-              for (let i = 0; i < res.data.data.form.items.length; i++) {
-                res.data.data.form.items[i].question = decodeURIComponent(res.data.data.form.items[i].question)
-                res.data.data.form.items[i].options = res.data.data.form.items[i].options.map(option => decodeURIComponent(option))
-                res.data.data.form.items[i].text = decodeURIComponent(res.data.data.form.items[i].text)
-                if (res.data.data.form.items[i].type === itemTypes[3].id) {
-                  newEditorContent[i] = res.data.data.form.items[i].text
-                }
-              }
-              this.editorContent = newEditorContent
-              this.items = res.data.data.form.items
-              this.multiple = res.data.data.form.multiple
-              this.files = res.data.data.form.files
-              this.loading = false
-              this.$nextTick(() => {
-                const newTextLocations = Object.keys(this.editorContent)
-                for (let i = 0; i < newTextLocations.length; i++) {
-                  this.$refs[`editor-${newTextLocations[i]}`][0]._data.editor.setContent(this.editorContent[newTextLocations[i]])
-                }
-              })
-            } else if (res.data.errors) {
-              console.error(res.data.errors[0])
-              this.$toasted.global.error({
-                message: `found errors: ${JSON.stringify(res.data.errors)}`
-              })
-            } else {
-              this.$toasted.global.error({
-                message: 'could not find data or errors'
-              })
+      this.$apollo.query({query: gql`
+        query form($id: String!){form(id: $id){name,items{question,type,options,text,required,files},multiple,files{id,name,width,height,type}} }
+        `, variables: {id: this.formId}})
+        .then(({ data }) => {
+          this.name = data.form.name
+          const newEditorContent = {}
+          for (let i = 0; i < data.form.items.length; i++) {
+            if (data.form.items[i].type === itemTypes[3].id) {
+              newEditorContent[i] = data.form.items[i].text
             }
-          } else {
-            this.$toasted.global.error({
-              message: 'could not get data'
-            })
+            data.form.items[i].files = [clone(defaultFile)]
           }
-        } else {
-          this.$toasted.global.error({
-            message: `status code of ${res.status}`
+          this.editorContent = newEditorContent
+          this.items = data.form.items
+          this.multiple = data.form.multiple
+          this.loading = false
+          this.$nextTick(() => {
+            const newTextLocations = Object.keys(this.editorContent)
+            for (let i = 0; i < newTextLocations.length; i++) {
+              this.$refs[`editor-${newTextLocations[i]}`][0]._data.editor.setContent(this.editorContent[newTextLocations[i]])
+            }
           })
-        }
-      })
-      .catch(err => {
-        console.error(err)
-        this.$toasted.global.error({
-          message: err
+        }).catch(err => {
+          console.log(err.message)
+          this.$toasted.global.error({
+            message: `found error: ${err.message}`
+          })
         })
-      })
     } else {
       this.name = defaultItemName
       this.loading = false
@@ -481,83 +526,92 @@ export default Vue.extend({
         if (this.items[i].type === itemTypes[3].id) {
           this.items[i].text = this.editorContent[i]
         }
-        this.items[i].file = ''
+        delete this.items[i].__typename
+        this.items[i].files = []
       }
       // send images first
       // then send json object
       // console.log(this.items)
-      this.$axios
-        .post('/graphql', {
-          query: `mutation{updateForm(id:"${encodeURIComponent(
-            this.formId
-          )}",name:"${encodeURIComponent(
-            this.name
-          )}",items:[${
-            this.items.map(item =>
-              `{question:"${
-                encodeURIComponent(item.question)
-              }",type:"${
-                encodeURIComponent(item.type)
-              }",options:${JSON.stringify(
-                item.options.map(option => encodeURIComponent(option))
-              )},text:"${
-                encodeURIComponent(item.text)
-              }",required:${item.required},file:"${
-                encodeURIComponent(item.file)
-              }"}`
-            )
-          }],multiple:${encodeURIComponent(
-            this.multiple
-          )},files:[${
-            this.files.map(file =>
-              `{id:"${
-                encodeURIComponent(file.id)
-                }",name:"${
-                  encodeURIComponent(file.name)
-                }",height:${
-                  file.height ? file.height : 0
-                },width:${
-                    file.width ? file.width : 0
-                },type:"${
-                  file.type
-                }"}`
-            )
-          }]){id}}`
-        })
-        .then(res => {
-          if (res.status === 200) {
-            if (res.data) {
-              if (res.data.data && res.data.data.updateForm) {
-                console.log('updated!')
-              } else if (res.data.errors) {
-                console.log(res.data.errors[0])
-                this.$toasted.global.error({
-                  message: `found errors: ${JSON.stringify(res.data.errors)}`
-                })
-              } else {
-                this.$toasted.global.error({
-                  message: 'could not find data or errors'
-                })
-              }
-            } else {
-              this.$toasted.global.error({
-                message: 'could not get data'
-              })
-            }
-          } else {
-            this.$toasted.global.error({
-              message: `status code of ${res.status}`
-            })
-          }
-        })
-        .catch(err => {
+      const files = []
+      this.$apollo.mutate({mutation: gql`
+        mutation updateForm($id: String!, $name: String!, $items: [ItemInput!]!, $multiple: Boolean!, $files: [FileInput!]!)
+        {updateForm(id: $id, name: $name, items: $items, multiple: $multiple, files: $files){id} }
+        `, variables: {id: this.formId, name: this.name, items: this.items, multiple: this.multiple, files}})
+        .then(({ data }) => {
+          console.log('updated!')
+        }).catch(err => {
+          console.error(err)
           this.$toasted.global.error({
-            message: err
+            message: `found error: ${err.message}`
           })
         })
     },
     getFileURL(itemIndex) {
-      return URL.createObjectURL(this.items[itemIndex].file)
+      return ''
+      /*
+      if (this.items[itemIndex].files[0].id.lenquerygth > 0) {
+        // it's uploaded. create link to get from cloud
+        return ''
+      }
+      return URL.createObjectURL(this.items[itemIndex].files[0].file)
+      */
+    },
+    checkImageType(type) {
+      return /^image\/.*$/.test(type)
+    },
+    checkVideoType(type) {
+      return /^video\/.*$/.test(type)
+    },
+    updateFileSrc(itemIndex, fileIndex) {
+      const fileObj = this.items[itemIndex].files[fileIndex]
+      if (fileObj.file && !fileObj.src) {
+        fileObj.type = fileObj.file.type
+        if (this.checkVideoType(fileObj.type))
+          this.updateVideoSrc(itemIndex, fileIndex)
+        else if (this.checkImageType(fileObj.type))
+          this.updateImageSrc(itemIndex, fileIndex)
+      }
+    },
+    updateImageSrc(itemIndex, fileIndex) {
+      const fileObj = this.items[itemIndex].files[fileIndex]
+      if (!fileObj.file) return
+      const img = new Image()
+      img.onload = () => {
+        console.log('image loaded')
+        fileObj.width = img.width
+        fileObj.height = img.height
+        console.log(`image width: ${fileObj.width}, height: ${fileObj.height}`)
+      }
+      const reader = new FileReader()
+      reader.onload = e => {
+        // @ts-ignore
+        fileObj.src = e.target.result
+        img.src = fileObj.src
+      }
+      reader.readAsDataURL(fileObj.file)
+      console.log('done')
+    },
+    updateVideoSrc(itemIndex, fileIndex) {
+      const fileObj = this.items[itemIndex].files[fileIndex]
+      if (!fileObj.file) return
+      const reader = new FileReader()
+      reader.onload = e => {
+        // @ts-ignore
+        fileObj.src = e.target.result
+        this.$forceUpdate()
+        this.$nextTick(() => {
+          const videotag = this.$refs[`video-source-${itemIndex}-${fileIndex}`][0]
+          videotag.load()
+          videotag.oncanplay = () => {
+            // @ts-ignore
+            fileObj.height = videotag.videoHeight
+            // @ts-ignore
+            fileObj.width = videotag.videoWidth
+          }
+        })
+      }
+      reader.readAsDataURL(fileObj.file)
+      console.log('done')
     },
     finishedDragging(evt) {
       if (evt.oldIndex === evt.newIndex) {
@@ -628,6 +682,13 @@ export default Vue.extend({
         this.items[itemIndex].text = ''
         this.items[itemIndex].options = ['']
         this.items[itemIndex].type = type.id
+        if (type.id === itemTypes[7].id) {
+          if (this.validDisplayFiles.includes(this.items[itemIndex].files[0].type)) {
+            this.updateFileSrc(itemIndex, 0)
+          } else {
+            this.items[itemIndex].files = [clone(defaultFile)]
+          }
+        }
       }
     },
     deleteEditorData(itemIndex) {
@@ -640,7 +701,7 @@ export default Vue.extend({
     },
     addItem(evt) {
       evt.preventDefault()
-      const newItem = clonedeep(defaultItem)
+      const newItem = clone(defaultItem)
       if (newItem.type !== itemTypes[3].id) {
         newItem.options.push('')
       }
@@ -674,6 +735,9 @@ export default Vue.extend({
 </script>
 
 <style lang="scss">
+.sampleimage {
+  max-width: 30rem;
+}
 .drag-area {
   padding: 5px;
   cursor: move;

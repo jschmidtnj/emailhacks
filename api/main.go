@@ -78,6 +78,9 @@ var jwtIssuer string
 
 var mode string
 
+// subscribers: https://github.com/graphql-go/graphql/issues/49
+// use normal websockets for sending update data between clients
+
 /**
  * @api {get} /hello Test rest request
  * @apiVersion 0.0.1

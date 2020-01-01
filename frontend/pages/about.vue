@@ -1,6 +1,6 @@
 <template>
   <b-container>
-    <b-jumbotron header="About" class="mt-4"></b-jumbotron>
+    <b-jumbotron header="About" class="mt-4" />
     <b-list-group>
       <b-list-group-item>Better email</b-list-group-item>
     </b-list-group>

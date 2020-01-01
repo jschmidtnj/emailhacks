@@ -5,7 +5,9 @@
         <p>&copy; Mail Pear 2020</p>
         <ul class="list-inline">
           <li class="list-inline-item">
-            <nuxt-link to="/privacy">Privacy</nuxt-link>
+            <nuxt-link to="/privacy">
+              Privacy
+            </nuxt-link>
           </li>
           <li class="list-inline-item">
             <a :href="githuburl">Github</a>

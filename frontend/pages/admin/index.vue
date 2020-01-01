@@ -1,7 +1,9 @@
 <template>
   <div>
     <p>Admin Page</p>
-    <b-btn @click="logout" block>Logout</b-btn>
+    <b-btn @click="logout" block>
+      Logout
+    </b-btn>
   </div>
 </template>
 
@@ -42,9 +44,14 @@ export default Vue.extend({
   methods: {
     logout(evt) {
       evt.preventDefault()
-      this.$store.commit('auth/logout')
-      this.$router.push({
-        path: '/login'
+      this.$store.dispatch('auth/logout').then(() => {
+        this.$router.push({
+          path: '/login'
+        })
+      }).catch(err => {
+        this.$toasted.global.error({
+          message: err
+        })
       })
     }
   }

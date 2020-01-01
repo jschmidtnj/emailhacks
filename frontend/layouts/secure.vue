@@ -14,7 +14,7 @@ import Vue from 'vue'
 import Navbar from '~/components/Navbar.vue'
 import Sidebar from '~/components/Sidebar.vue'
 import MainFooter from '~/components/Footer.vue'
-import { checkLoggedInInterval } from '~/assets/config'
+import { checkLoggedInInterval, adminTypes } from '~/assets/config'
 export default Vue.extend({
   name: 'Secure',
   // @ts-ignore
@@ -34,7 +34,7 @@ export default Vue.extend({
       return (
         this.$store.state.auth &&
         this.$store.state.auth.user &&
-        this.$store.state.auth.user.type === 'admin'
+        adminTypes.contains(this.store.state.auth.user.type)
       )
     }
   },
@@ -66,16 +66,26 @@ export default Vue.extend({
         .dispatch('auth/checkLoggedIn')
         .then((loggedIn) => {
           if (!loggedIn) {
-            this.$store.commit('auth/logout')
-            this.$router.push({
-              path: '/login'
+            this.$store.dispatch('auth/logout').then(() => {
+              this.$router.push({
+                path: '/login'
+              })
+            }).catch(err => {
+              this.$toasted.global.error({
+                message: err
+              })
             })
           }
         })
         .catch((err) => {
-          this.$store.commit('auth/logout')
-          this.$router.push({
-            path: '/login'
+          this.$store.dispatch('auth/logout').then(() => {
+            this.$router.push({
+              path: '/login'
+            })
+          }).catch(err => {
+            this.$toasted.global.error({
+              message: err
+            })
           })
         })
     }, checkLoggedInInterval)

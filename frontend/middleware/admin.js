@@ -1,3 +1,4 @@
+import { adminTypes } from '~/assets/config'
 const admin = ({ store, redirect }) => {
   return new Promise((resolve, reject) => {
     if (!store.state.auth) {
@@ -12,7 +13,7 @@ const admin = ({ store, redirect }) => {
             store
               .dispatch('auth/getUser')
               .then((res) => {
-                if (store.state.auth.user.type === 'admin') {
+                if (adminTypes.contains(store.state.auth.user.type)) {
                   resolve()
                 } else {
                   redirect('/login')
@@ -22,7 +23,7 @@ const admin = ({ store, redirect }) => {
                 console.error(err)
                 redirect('/login')
               })
-          } else if (store.state.auth.user.type === 'admin') {
+          } else if (adminTypes.contains(store.state.auth.user.type)) {
             resolve()
           } else {
             redirect('/login')

@@ -3,13 +3,14 @@
     <view-project
       v-if="projectId"
       :project-id="projectId"
-      :getInitialData="false"
+      :get-initial-data="false"
     />
   </b-container>
 </template>
 
 <script lang="js">
 import Vue from 'vue'
+import gql from 'graphql-tag'
 import ViewProject from '~/components/secure/project/View.vue'
 import { defaultItemName } from '~/assets/config'
 export default Vue.extend({
@@ -24,42 +25,19 @@ export default Vue.extend({
     }
   },
   mounted() {
-    this.$axios.post('/graphql', {
-      query: `mutation{addProject(name:"${defaultItemName}",tags:[],categories:[]){id}}`
-    })
-    .then(res => {
-      if (res.status === 200) {
-        if (res.data) {
-          if (res.data.data && res.data.data.addProject) {
-            this.projectId = res.data.data.addProject.id
-            history.replaceState({}, null, `/project/${this.projectId}`)
-          } else if (res.data.errors) {
-            console.error(res.data.errors)
-            this.$toasted.global.error({
-              message: `found errors: ${JSON.stringify(res.data.errors)}`
-            })
-          } else {
-            this.$toasted.global.error({
-              message: 'could not find data or errors'
-            })
-          }
-        } else {
-          this.$toasted.global.error({
-            message: 'could not get data'
-          })
-        }
-      } else {
+    this.$apollo.mutate({mutation: gql`
+      mutation addProject($name: String!, $tags: [String!]!, $categories: [String!]!)
+      {addProject(name: $name, tags: $tags, categories: $categories){id} }
+      `, variables: {name: defaultItemName, categories: [], tags: []}})
+      .then(({ data }) => {
+        this.projectId = data.addProject.id
+        history.replaceState({}, null, `/project/${this.projectId}`)
+      }).catch(err => {
+        console.error(err)
         this.$toasted.global.error({
-          message: `status code of ${res.status}`
+          message: `found error: ${err.message}`
         })
-      }
-    })
-    .catch(err => {
-      console.error(err)
-      this.$toasted.global.error({
-        message: err
       })
-    })
   }
 })
 </script>

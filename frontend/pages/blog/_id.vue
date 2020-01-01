@@ -19,7 +19,7 @@
                 "
                 :alt="blog.heroimage.name"
                 class="hero-img m-0"
-              ></b-img-lazy>
+              />
               <div class="main-overlay">
                 <div class="text-overlay">
                   <!-- add text overlay here -->
@@ -39,11 +39,7 @@
             {{ `${shortlinkurl}/${blog.shortlink}` }}
           </a>
           <p class="orange-text">
-            {{
-              blog.categories
-                .map((category) => decodeURIComponent(category))
-                .join(' | ')
-            }}
+            {{ blog.categories.join(' | ') }}
           </p>
           <hr />
         </b-container>
@@ -70,7 +66,8 @@ import PageLoading from '~/components/PageLoading.vue'
 import {
   cloudStorageURLs,
   staticstorageindexes,
-  paths
+  paths,
+  adminTypes
 } from '~/assets/config'
 const lazyLoadInstance = new LazyLoad({
   elements_selector: '.lazy'
@@ -102,55 +99,20 @@ export default Vue.extend({
   mounted() {
     if (this.$route.params && this.$route.params.id) {
       this.id = this.$route.params.id
-      this.$axios
-        .get('/graphql', {
-          params: {
-            query: `{blog(id:"${encodeURIComponent(this.id)}",cache:${(!(
-              this.$store.state.auth.user &&
-              this.$store.state.auth.user.type === 'admin'
-            )).toString()}){title caption content id author views shortlink heroimage{name id} tileimage{id} categories tags}}`
-          }
-        })
-        .then(res => {
-          if (res.status === 200) {
-            if (res.data) {
-              if (res.data.data && res.data.data.blog) {
-                const blog = res.data.data.blog
-                Object.keys(blog).forEach(key => {
-                  if (typeof blog[key] === 'string')
-                    blog[key] = decodeURIComponent(blog[key])
-                })
-                this.blog = blog
-                // update title for spa
-                document.title = this.blog.title
-              } else if (res.data.errors) {
-                this.$nuxt.error({
-                  statusCode: 404,
-                  message: `found errors: ${JSON.stringify(res.data.errors)}`
-                })
-              } else {
-                this.$nuxt.error({
-                  statusCode: 404,
-                  message: 'could not find data or errors'
-                })
-              }
-            } else {
-              this.$nuxt.error({
-                statusCode: 404,
-                message: 'could not get data'
-              })
-            }
-          } else {
-            this.$nuxt.error({
-              statusCode: 404,
-              message: `status code of ${res.status}`
-            })
-          }
-        })
-        .catch(err => {
-          this.$nuxt.error({
-            statusCode: 404,
-            message: `got error: ${err}`
+      const useCache = this.$store.state.auth.user && adminTypes.includes(this.$store.state.auth.user.type)
+      this.$apollo.query({query: gql`
+        query blog($id: String!, $cache: Boolean!){blog(id: $id, cache: $cache)
+        {title, caption, content, id, author, views, shortlink, heroimage{name, id}, tileimage{id}, categories, tags} }
+        `, variables: {id: this.id, cache: useCache}})
+        .then(({ data }) => {
+          const blog = data.blog
+          this.blog = blog
+          // update title for spa
+          document.title = this.blog.title
+        }).catch(err => {
+          console.error(err)
+          this.$toasted.global.error({
+            message: `found error: ${err.message}`
           })
         })
     } else {

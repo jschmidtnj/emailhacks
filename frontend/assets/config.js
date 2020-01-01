@@ -15,6 +15,8 @@ export const checkLoggedInInterval = 5 * 60 * 1000
 // default item name when first created
 export const defaultItemName = 'Untitled'
 
+export const adminTypes = ['admin', 'super']
+
 export const toasts = {
   position: 'top-right',
   duration: 2000,
@@ -73,3 +75,13 @@ export const validfiles = [
 ]
 
 export const validimages = [validfiles[0], validfiles[1], validfiles[3]]
+
+export const validDisplayFiles = [
+  ...validimages,
+  validfiles[2],
+  validfiles[4],
+  validfiles[5],
+  validfiles[6]
+]
+
+export const noneAccessType = 'none'

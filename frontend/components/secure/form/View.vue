@@ -3,8 +3,10 @@
     <div v-if="!loading">
       <b-card no-body class="card-data shadow-lg pb-4">
         <b-card-body>
-          <b-form v-on:submit.prevent>
-            <h3 class="mb-4">{{ name }}</h3>
+          <b-form @submit.prevent>
+            <h3 class="mb-4">
+              {{ name }}
+            </h3>
             <div
               v-for="(item, index) in items"
               :key="`item-${index}`"
@@ -19,7 +21,7 @@
                   <h4>{{ item.question }}</h4>
                 </b-container>
                 <b-container v-else>
-                  <p v-html="item.text"></p>
+                  <p v-html="item.text" />
                 </b-container>
                 <b-input-group
                   v-if="
@@ -57,7 +59,7 @@
                       rows="3"
                       max-rows="8"
                       style="max-width:30rem;"
-                    ></b-form-textarea>
+                    />
                     <div
                       v-else-if="item.type === itemTypes[4]"
                       class="mt-2 mb-2"
@@ -77,7 +79,7 @@
                         placeholder="Choose a file or drop it here..."
                         drop-placeholder="Drop file here..."
                         style="max-width:30rem;"
-                      ></b-form-file>
+                      />
                     </div>
                     <div
                       v-else-if="item.type === itemTypes[6]"
@@ -127,7 +129,9 @@
 
 <script lang="js">
 import Vue from 'vue'
+import gql from 'graphql-tag'
 import PageLoading from '~/components/PageLoading.vue'
+import { noneAccessType } from '~/assets/config'
 const itemTypes = ['radio', 'checkbox', 'short', 'text',
   'redgreen', 'fileupload', 'fileattachment']
 export default Vue.extend({
@@ -153,57 +157,30 @@ export default Vue.extend({
       files: [],
       focusIndex: 0,
       itemTypes,
-      loading: true
+      loading: true,
+      isPublic: false
     }
   },
   mounted() {
     if (this.formId) {
-      this.$axios.get('/graphql', {
-        params: {
-          query: `{form(id:"${this.formId}"){name,items{question,type,options,text,required,file},multiple,files{id,name,width,height,type}}}`
-        }
-      })
-      .then(res => {
-        if (res.status === 200) {
-          if (res.data) {
-            if (res.data.data && res.data.data.form) {
-              this.name = decodeURIComponent(res.data.data.form.name)
-              for (let i = 0; i < res.data.data.form.items.length; i++) {
-                res.data.data.form.items[i].question = decodeURIComponent(res.data.data.form.items[i].question)
-                res.data.data.form.items[i].options = res.data.data.form.items[i].options.map(option => decodeURIComponent(option))
-                res.data.data.form.items[i].text = decodeURIComponent(res.data.data.form.items[i].text)
-              }
-              this.items = res.data.data.form.items
-              this.multiple = res.data.data.form.multiple
-              this.files = res.data.data.form.files
-              this.loading = false
-            } else if (res.data.errors) {
-              console.error(res.data.errors[0])
-              this.$toasted.global.error({
-                message: `found errors: ${JSON.stringify(res.data.errors)}`
-              })
-            } else {
-              this.$toasted.global.error({
-                message: 'could not find data or errors'
-              })
-            }
-          } else {
-            this.$toasted.global.error({
-              message: 'could not get data'
-            })
-          }
-        } else {
+      this.$apollo.query({query: gql`
+        query form($id: String!){form(id: $id){name,items{question,type,options,text,required,files},multiple,files{id,name,width,height,type}} }
+        `, variables: {id: this.formId}})
+        .then(({ data }) => {
+          console.log(data.form)
+          this.name = data.form.name
+          this.isPublic = data.form.public === noneAccessType
+          this.$store.commit('auth/setRedirectLogin', this.isPublic)
+          this.items = data.form.items
+          this.multiple = data.form.multiple
+          this.files = data.form.files
+          this.loading = false
+        }).catch(err => {
+          console.log(err.message)
           this.$toasted.global.error({
-            message: `status code of ${res.status}`
+            message: `found error: ${err.message}`
           })
-        }
-      })
-      .catch(err => {
-        console.error(err)
-        this.$toasted.global.error({
-          message: err
         })
-      })
     }
   },
   methods: {

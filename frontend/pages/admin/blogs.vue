@@ -142,7 +142,7 @@
                           :multiple="true"
                           :taggable="true"
                           aria-describedby="categoryfeedback"
-                        ></v-select>
+                        />
                       </client-only>
                     </span>
                     <b-form-invalid-feedback
@@ -169,7 +169,7 @@
                           :multiple="true"
                           :taggable="true"
                           aria-describedby="tagfeedback"
-                        ></v-select>
+                        />
                       </client-only>
                     </span>
                     <b-form-invalid-feedback
@@ -188,7 +188,7 @@
                     v-if="blog.heroimage.file && blog.heroimage.src"
                     :src="blog.heroimage.src"
                     class="sampleimage"
-                  ></b-img>
+                  />
                   <b-form-group>
                     <label class="form-required">Hero Image</label>
                     <span>
@@ -219,7 +219,7 @@
                     v-if="blog.tileimage.file && blog.tileimage.src"
                     :src="blog.tileimage.src"
                     class="sampleimage"
-                  ></b-img>
+                  />
                   <b-form-group>
                     <label class="form-required">Tile Image</label>
                     <span>
@@ -259,7 +259,7 @@
                       "
                       :src="blog.files[index].src"
                       class="sampleimage"
-                    ></b-img>
+                    />
                     <video
                       v-else-if="
                         blog.files[index].src &&
@@ -274,7 +274,7 @@
                       autoplay
                       class="sampleimage"
                       allowfullscreen
-                    ></video>
+                    />
                     <br />
                     <code
                       v-if="
@@ -519,10 +519,12 @@
                 show-empty
                 stacked="md"
               >
-                <template v-slot:cell(name)="data">{{ data.value }}</template>
-                <template v-slot:cell(date)="data">{{
-                  formatDate(data.value, 'M/d/yyyy')
-                }}</template>
+                <template v-slot:cell(name)="data">
+                  {{ data.value }}
+                </template>
+                <template v-slot:cell(created)="data">
+                  {{ formatDate(data.value, 'M/d/yyyy') }}
+                </template>
                 <template v-slot:cell(id)="data">
                   <nuxt-link
                     :to="`/blog/${data.value}`"
@@ -532,12 +534,12 @@
                   </nuxt-link>
                 </template>
                 <template v-slot:cell(actions)="data">
-                  <b-button @click="editBlog(data.item)" size="sm" class="mr-1"
-                    >Edit</b-button
-                  >
-                  <b-button @click="deleteBlog(data.item)" size="sm"
-                    >Del</b-button
-                  >
+                  <b-button @click="editBlog(data.item)" size="sm" class="mr-1">
+                    Edit
+                  </b-button>
+                  <b-button @click="deleteBlog(data.item)" size="sm">
+                    Del
+                  </b-button>
                 </template>
               </b-table>
               <b-row class="mb-2">
@@ -638,8 +640,8 @@ export default Vue.extend({
           sortable: true
         },
         {
-          key: 'date',
-          label: 'Date',
+          key: 'created',
+          label: 'Created',
           sortable: true
         },
         {
@@ -1111,158 +1113,63 @@ export default Vue.extend({
         }
       }
       // get blog data first
-      this.$axios
-        .get('/graphql', {
-          params: {
-            query: `{blog(id:"${encodeURIComponent(
-              this.blogid
-            )}",cache:false){title content id author views heroimage{name id width height type} tileimage{name id width height type} caption comments files{name id width height type} categories tags color}}`
-          }
-        })
-        .then(res => {
-          if (res.status === 200) {
-            if (res.data) {
-              if (res.data.data && res.data.data.blog) {
-                const theblog = res.data.data.blog
-                console.log(res.data.data)
-                Object.keys(theblog).forEach(key => {
-                  if (typeof theblog[key] === 'string')
-                    theblog[key] = decodeURIComponent(theblog[key]);
-                })
-                for (let i = 0; i < theblog.files.length; i++) {
-                  Object.keys(theblog.files[i]).forEach(key => {
-                    if (typeof theblog.files[i][key] === 'string')
-                      theblog.files[i][key] = decodeURIComponent(theblog.files[i][key]);
-                  })
-                }
-                theblog.tags = theblog.tags.map(tag => decodeURIComponent(tag))
-                theblog.categories = theblog.categories.map(category => decodeURIComponent(category))
-                getimages(theblog)
-              } else if (res.data.errors) {
-                this.$toasted.global.error({
-                  message: `found errors: ${JSON.stringify(res.data.errors)}`
-                })
-              } else {
-                this.$toasted.global.error({
-                  message: 'could not find data or errors'
-                })
-              }
-            } else {
-              this.$toasted.global.error({
-                message: 'could not get data'
-              })
-            }
-          } else {
-            this.$toasted.global.error({
-              message: `status code of ${res.status}`
-            })
-          }
-        })
-        .catch(err => {
+      this.$apollo.query({query: gql`
+        query blog($id: String!, $cache: Boolean!){blog(id: $id, cache: $cache)
+        {title, caption, content, id, author, views, heroimage{name, id, width, height, type}, tileimage{name, id, width, height, type}, categories, comments, tags, color, files{name, id, width, height, type}} }
+        `, variables: {id: this.id, cache: false}})
+        .then(({ data }) => {
+          const theblog = data.blog
+          getimages(theblog)
+        }).catch(err => {
+          console.error(err)
           this.$toasted.global.error({
-            message: err
+            message: `found error: ${err.message}`
           })
         })
     },
     deleteBlog(searchresult) {
       const id = searchresult.id
-      this.$axios
-        .delete('/graphql', {
-          params: {
-            query: `mutation{deleteBlog(id:"${encodeURIComponent(id)}"){id}}`
-          }
-        })
-        .then(res => {
-          if (res.status === 200) {
-            if (res.data) {
-              if (res.data.data && res.data.data.deleteBlog) {
-                this.searchresults.splice(
-                  this.searchresults.indexOf(searchresult),
-                  1
-                )
-                this.$toasted.global.success({
-                  message: 'blog deleted'
-                })
-              } else if (res.data.errors) {
-                this.$toasted.global.error({
-                  message: `found errors: ${JSON.stringify(res.data.errors)}`
-                })
-              } else {
-                this.$toasted.global.error({
-                  message: 'could not find data or errors'
-                })
-              }
-            } else {
-              this.$toasted.global.error({
-                message: 'could not get data'
-              })
-            }
-          } else {
-            this.$toasted.global.error({
-              message: `status code of ${res.status}`
-            })
-          }
-        })
-        .catch(err => {
+      this.$apollo.mutate({mutation: gql`
+        mutation deleteBlog($id: String!){deleteBlog(id: $id){id} }
+        `, variables: {id: id}})
+        .then(({ data }) => {
+          this.searchresults.splice(
+            this.searchresults.indexOf(searchresult),
+            1
+          )
+          this.$toasted.global.success({
+            message: 'blog deleted'
+          })
+        }).catch(err => {
+          console.error(err)
           this.$toasted.global.error({
-            message: err
+            message: `found error: ${err.message}`
           })
         })
     },
     searchblogs(evt) {
       evt.preventDefault()
-      this.$axios
-        .get('/graphql', {
-          params: {
-            query: `{blogs(perpage:10,page:0,searchterm:"${encodeURIComponent(
-              this.search
-            )}",sort:"title",ascending:false,tags:${JSON.stringify(
-              []
-            )},categories:${JSON.stringify([])},cache:false){title id}}`
-          }
-        })
-        .then(res => {
-          if (res.status === 200) {
-            if (res.data) {
-              if (res.data.data && res.data.data.blogs) {
-                res.data.data.blogs.map(
-                  blog => {
-                    Object.keys(blog).forEach(key => {
-                      if (typeof blog[key] === 'string')
-                        blog[key] = decodeURIComponent(blog[key]);
-                    })
-                    blog.date = this.mongoidToDate(blog.id)
-                  }
-                )
-                this.searchresults = res.data.data.blogs
-                this.$toasted.global.success({
-                  message: `found ${this.searchresults.length} result${
-                    this.searchresults.length === 1 ? '' : 's'
-                  }`
-                })
-              } else if (res.data.errors) {
-                this.$toasted.global.error({
-                  message: `found errors: ${JSON.stringify(res.data.errors)}`
-                })
-              } else {
-                this.$toasted.global.error({
-                  message: 'could not find data or errors'
-                })
-              }
-            } else {
-              this.$toasted.global.error({
-                message: 'could not get data'
-              })
+      this.$apollo.query({query: gql`
+        query blogs($perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!, $tags: [String!]!, $categories: [String!]!, $cache: Boolean!)
+          {blogs(perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending, tags: $tags, categories: $categories, cache: $cache){title, id} }
+        `, variables: {perpage: 10, page: 0, searchterm: this.search, sort: 'title', ascending: false, tags: [], categories: [], cache: false}})
+        .then(({ data }) => {
+          const blogs = data.blogs
+          blogs.map(
+            blog => {
+              blog.created = this.mongoidToDate(blog.id)
             }
-          } else {
-            this.$toasted.global.error({
-              message: `status code of ${res.status}`
-            })
-          }
-        })
-        .catch(err => {
+          )
+          this.searchresults = blogs
+          this.$toasted.global.success({
+            message: `found ${this.searchresults.length} result${
+              this.searchresults.length === 1 ? '' : 's'
+            }`
+          })
+        }).catch(err => {
+          console.error(err)
           this.$toasted.global.error({
-            message: err
+            message: `found error: ${err.message}`
           })
         })
     },
@@ -1413,130 +1320,54 @@ export default Vue.extend({
       const color = this.blog.color.hex8
         ? this.blog.color.hex8
         : this.blog.color.toUpperCase()
+      const heroimage = {
+        name: 'hero',
+        id: this.blog.heroimage.id,
+        height: this.blog.heroimage.height,
+        width: this.blog.heroimage.width,
+        type: this.blog.heroimage.type
+      }
+      const tileimage = {
+        name: 'tile',
+        id: this.blog.tileimage.id,
+        height: this.blog.tileimage.height,
+        width: this.blog.tileimage.width,
+        type: this.blog.tileimage.type
+      }
+      const files = this.blog.files.map(file => () => {
+        return {
+          id: file.id,
+          name: file.name,
+          width: file.width ? file.width : 0,
+          height: file.height ? file.height : 0,
+          type: file.type
+        }
+      })
       if (this.mode === this.modetypes.add) {
-        this.$axios
-          .post('/graphql', {
-            query: `mutation{addBlog(id:"${encodeURIComponent(
-              this.blogid
-            )}",title:"${encodeURIComponent(
-              this.blog.title
-            )}",content:"${encodeURIComponent(
-              this.blog.content
-            )}",color:"${encodeURIComponent(
-              color
-            )}",caption:"${encodeURIComponent(
-              this.blog.caption
-            )}",author:"${encodeURIComponent(
-              this.blog.author
-            )}",heroimage:{${
-              this.blog.heroimage.file ? `id:"${encodeURIComponent(this.blog.heroimage.id)}",name:"hero",height:${this.blog.heroimage.height},width:${this.blog.heroimage.width},type:"${this.blog.heroimage.type}"` : ''
-            }},tileimage:{${
-              this.blog.tileimage.file ? `id:"${encodeURIComponent(this.blog.tileimage.id)}",name:"tile",height:${this.blog.tileimage.height},width:${this.blog.tileimage.width},type:"${this.blog.tileimage.type}"` : ''
-            }},files:[${
-              this.blog.files.map(file =>
-                `{id:"${encodeURIComponent(file.id)}",name:"${encodeURIComponent(file.name)}",height:${file.height ? file.height : 0},width:${file.width ? file.width : 0},type:"${file.type}"}`
-              )
-            }],tags:${JSON.stringify(
-              this.blog.tags.map(tag => encodeURIComponent(tag))
-            )},categories:${JSON.stringify(
-              this.blog.categories.map(category => encodeURIComponent(category))
-            )}){id}}`
-          })
-          .then(res => {
-            console.log(
-              `files ${JSON.stringify(
-                this.blog.files.map(file =>
-                  file.id
-                )
-              )}`
-            )
-            if (res.status === 200) {
-              if (res.data) {
-                if (res.data.data && res.data.data.addBlog) {
-                  blogid = res.data.data.addBlog.id
-                  upload()
-                } else if (res.data.errors) {
-                  this.$toasted.global.error({
-                    message: `found errors: ${JSON.stringify(res.data.errors)}`
-                  })
-                } else {
-                  this.$toasted.global.error({
-                    message: 'could not find data or errors'
-                  })
-                }
-              } else {
-                this.$toasted.global.error({
-                  message: 'could not get data'
-                })
-              }
-            } else {
-              this.$toasted.global.error({
-                message: `status code of ${res.status}`
-              })
-            }
-          })
-          .catch(err => {
+        this.$apollo.mutate({mutation: gql`
+          mutation addBlog($id: String!, $title: String!, $content: String!, $color: String!, $caption: String!, $author: String!, $tileimage: FileInput!, $heroimage: FileInput!, $files: [FileInput!]! $tags: [String!]!, $categories: [String!]!)
+          {addBlog(id: $id, title: $title, content: $content, color: $color, caption: $caption, author: $author, tileimage: $tileimage, heroimage: $heroimage, files: $files, tags: $tags, categories: $categories,){id} }
+          `, variables: {id: this.blogid, title: this.blog.title, content: this.blog.content, color, caption: this.blog.caption, author: this.blog.author, tileimage, heroimage, files, categories: this.blog.categories, tags: this.blog.tags}})
+          .then(({ data }) => {
+            blogid = data.addBlog.id
+            upload()
+          }).catch(err => {
+            console.error(err)
             this.$toasted.global.error({
-              message: err
+              message: `found error: ${err.message}`
             })
           })
       } else {
-        this.$axios
-          .put('/graphql', {
-            query: `mutation{updateBlog(id:"${encodeURIComponent(
-              this.blogid
-            )}",title:"${encodeURIComponent(
-              this.blog.title
-            )}",content:"${encodeURIComponent(
-              this.blog.content
-            )}",color:"${encodeURIComponent(
-              color
-            )}",caption:"${encodeURIComponent(
-              this.blog.caption
-            )}",author:"${encodeURIComponent(
-              this.blog.author
-            )}",heroimage:{${
-              this.blog.heroimage.file ? `id:"${encodeURIComponent(this.blog.heroimage.id)}",name:"hero",height:${this.blog.heroimage.height},width:${this.blog.heroimage.width},type:"${this.blog.heroimage.type}"` : ''
-            }},tileimage:{${
-              this.blog.tileimage.file ? `id:"${encodeURIComponent(this.blog.tileimage.id)}",name:"tile",height:${this.blog.tileimage.height},width:${this.blog.tileimage.width},type:"${this.blog.tileimage.type}"` : ''
-            }},files:[${
-              this.blog.files.map(file =>
-                `{id:"${encodeURIComponent(file.id)}",name:"${encodeURIComponent(file.name)}",height:${file.height ? file.height : 0},width:${file.width ? file.width : 0},type:"${file.type}"}`
-              )
-            }],tags:${JSON.stringify(
-              this.blog.tags.map(tag => encodeURIComponent(tag))
-            )},categories:${JSON.stringify(
-              this.blog.categories.map(category => encodeURIComponent(category))
-            )}){id}}`
-          })
-          .then(res => {
-            if (res.status === 200) {
-              if (res.data) {
-                if (res.data.data && res.data.data.updateBlog) {
-                  upload()
-                } else if (res.data.errors) {
-                  this.$toasted.global.error({
-                    message: `found errors: ${JSON.stringify(res.data.errors)}`
-                  })
-                } else {
-                  this.$toasted.global.error({
-                    message: 'could not find data or errors'
-                  })
-                }
-              } else {
-                this.$toasted.global.error({
-                  message: 'could not get data'
-                })
-              }
-            } else {
-              this.$toasted.global.error({
-                message: `status code of ${res.status}`
-              })
-            }
-          })
-          .catch(err => {
+        this.$apollo.mutate({mutation: gql`
+          mutation updateBlog($id: String!, $title: String!, $content: String!, $color: String!, $caption: String!, $author: String!, $tileimage: FileInput!, $heroimage: FileInput!, $files: [FileInput!]! $tags: [String!]!, $categories: [String!]!)
+          {updateBlog(id: $id, title: $title, content: $content, color: $color, caption: $caption, author: $author, tileimage: $tileimage, heroimage: $heroimage, files: $files, tags: $tags, categories: $categories,){id} }
+          `, variables: {id: this.blogid, title: this.blog.title, content: this.blog.content, color, caption: this.blog.caption, author: this.blog.author, tileimage, heroimage, files, categories: this.blog.categories, tags: this.blog.tags}})
+          .then(({ data }) => {
+            upload()
+          }).catch(err => {
+            console.error(err)
             this.$toasted.global.error({
-              message: err
+              message: `found error: ${err.message}`
             })
           })
       }

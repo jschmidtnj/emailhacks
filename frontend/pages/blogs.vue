@@ -14,7 +14,7 @@
                 }
               "
               placeholder="Type to Search"
-            ></b-form-input>
+            />
             <b-input-group-append>
               <b-button
                 :disabled="!search"
@@ -23,8 +23,9 @@
                   currentPage = 1
                   searchBlogs()
                 "
-                >Clear</b-button
               >
+                Clear
+              </b-button>
             </b-input-group-append>
           </b-input-group>
         </b-form-group>
@@ -40,7 +41,9 @@
                 searchBlogs()
               "
             >
-              <option slot="first" :value="null">-- none --</option>
+              <option slot="first" :value="null">
+                -- none --
+              </option>
             </b-form-select>
             <b-form-select
               slot="prepend"
@@ -51,8 +54,12 @@
                 searchBlogs()
               "
             >
-              <option :value="false">Asc</option>
-              <option :value="true">Desc</option>
+              <option :value="false">
+                Asc
+              </option>
+              <option :value="true">
+                Desc
+              </option>
             </b-form-select>
           </b-input-group>
         </b-form-group>
@@ -66,7 +73,7 @@
               currentPage = 1
               searchBlogs()
             "
-          ></b-form-select>
+          />
         </b-form-group>
       </b-col>
     </b-row>
@@ -78,12 +85,18 @@
       show-empty
       stacked="md"
     >
-      <template v-slot:cell(title)="data">{{ data.value }}</template>
-      <template v-slot:cell(author)="data">{{ data.value }}</template>
-      <template v-slot:cell(date)="data">{{
-        formatDate(data.value, 'M/d/yyyy')
-      }}</template>
-      <template v-slot:cell(views)="data">{{ data.value }}</template>
+      <template v-slot:cell(title)="data">
+        {{ data.value }}
+      </template>
+      <template v-slot:cell(author)="data">
+        {{ data.value }}
+      </template>
+      <template v-slot:cell(updated)="data">
+        {{ formatDate(data.value) }}
+      </template>
+      <template v-slot:cell(views)="data">
+        {{ data.value }}
+      </template>
       <template v-slot:cell(read)="data">
         <nuxt-link
           :to="`/blog/${data.item.id}`"
@@ -106,7 +119,7 @@
             }
           "
           class="my-0"
-        ></b-pagination>
+        />
       </b-col>
     </b-row>
   </b-container>
@@ -114,7 +127,9 @@
 
 <script lang="js">
 import Vue from 'vue'
-import { format } from 'date-fns'
+import gql from 'graphql-tag'
+import { formatRelative } from 'date-fns'
+import { adminTypes } from '~/assets/config'
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({
@@ -266,66 +281,42 @@ export default Vue.extend({
     searchBlogs() {
       this.updateCount()
       const sort = this.sortBy ? this.sortBy : this.sortOptions[0].value
-      this.$axios
-        .get('/graphql', {
-          params: {
-            query: `{blogs(perpage:${
-              this.perPage
-            },page:${this.currentPage - 1},searchterm:"${encodeURIComponent(
-              this.search
-            )}",sort:"${encodeURIComponent(sort)}",ascending:${!this
-              .sortDesc},tags:${JSON.stringify([])},categories:${JSON.stringify(
-              []
-            )},cache:${(!(
-              this.$store.state.auth.user &&
-              this.$store.state.auth.user.type === 'admin'
-            )).toString()}){title views id author date}}`
+      const useCache = this.$store.state.auth.user && adminTypes.includes(this.$store.state.auth.user.type)
+      this.$apollo.query({query: gql`
+        query blogs($perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!, $tags: [String!]!, $categories: [String!]!, $cache: Boolean!)
+          {blogs(perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending, tags: $tags, categories: $categories, cache: $cache)
+          {title, views, id, author, updated} }
+        `, variables: {
+            perpage: this.perPage,
+            page: this.currentPage - 1,
+            searchterm: this.search,
+            sort,
+            ascending: !this.sortDesc,
+            tags: [],
+            categories: [],
+            cache: useCache
           }
         })
-        .then(res => {
-          if (res.status === 200) {
-            if (res.data) {
-              if (res.data.data && res.data.data.blogs) {
-                const blogs = res.data.data.blogs
-                blogs.forEach(blog => {
-                  Object.keys(blog).forEach(key => {
-                    if (typeof blog[key] === 'string')
-                      blog[key] = decodeURIComponent(blog[key])
-                  })
-                })
-                this.items = blogs
-              } else if (res.data.errors) {
-                this.$toasted.global.error({
-                  message: `found errors: ${JSON.stringify(res.data.errors)}`
-                })
-              } else {
-                this.$toasted.global.error({
-                  message: 'could not find data or errors'
-                })
-              }
-            } else {
-              this.$toasted.global.error({
-                message: 'could not get data'
-              })
+        .then(({ data }) => {
+          const blogs = data.blogs
+          blogs.forEach(blog => {
+            if (blog.updated && blog.updated.toString().length === 10) {
+              blog.updated = Number(blog.updated) * 1000
             }
-          } else {
-            this.$toasted.global.error({
-              message: `status code of ${res.status}`
-            })
-          }
-        })
-        .catch(err => {
-          let message = `got error: ${err}`
-          if (err.response && err.response.data) {
-            message = err.response.data.message
-          }
+            if (blog.created && blog.created.toString().length === 10) {
+              blog.created = Number(blog.created) * 1000
+            }
+          })
+          this.items = blogs
+        }).catch(err => {
+          console.error(err)
           this.$toasted.global.error({
-            message
+            message: `found error: ${err.message}`
           })
         })
     },
-    formatDate(dateUTC, formatStr) {
-      return format(dateUTC, formatStr)
+    formatDate(dateUTC) {
+      return formatRelative(dateUTC, new Date())
     }
   }
 })

@@ -1,4 +1,5 @@
 import * as jwt from 'jsonwebtoken'
+import gql from 'graphql-tag'
 // import { oauthConfig } from '~/assets/config'
 
 /**
@@ -8,18 +9,23 @@ import * as jwt from 'jsonwebtoken'
 export const state = () => ({
   token: null,
   user: null,
-  loggedIn: false
+  loggedIn: false,
+  redirectLogin: false
 })
 
 export const getters = {
   token: (state) => state.token,
-  user: (state) => state.user
+  user: (state) => state.user,
+  loggedIn: (state) => state.loggedIn,
+  redirectLogin: (state) => state.redirectLogin
 }
 
 export const mutations = {
-  setToken(state, payload) {
+  setRedirectLogin(state, payload) {
+    state.redirectLogin = payload
+  },
+  commitToken(state, payload) {
     state.token = payload
-    this.$axios.setToken(state.token)
   },
   setUser(state, payload) {
     state.user = payload
@@ -27,7 +33,7 @@ export const mutations = {
   setLoggedIn(state, payload) {
     state.loggedIn = payload
   },
-  logout(state) {
+  commitLogout(state) {
     state.token = null
     state.user = null
     state.loggedIn = false
@@ -51,6 +57,33 @@ export const actions = {
   async loginGoogle({}, payload) {
     return new Promise((resolve, reject) => {
       // use gmail api from script here
+    })
+  },
+  async setToken({ state, commit }, token) {
+    return new Promise((resolve, reject) => {
+      commit('commitToken', token)
+      this.$axios.setToken(state.token)
+      this.$apolloHelpers
+        .onLogin(state.token)
+        .then((res) => {
+          resolve('token set')
+        })
+        .catch((err) => {
+          reject(new Error(err))
+        })
+    })
+  },
+  async logout({ commit }) {
+    return new Promise((resolve, reject) => {
+      commit('commitLogout')
+      this.$apolloHelpers
+        .onLogout()
+        .then((res) => {
+          resolve('logged out')
+        })
+        .catch((err) => {
+          reject(new Error(err))
+        })
     })
   },
   async loginLocal({ commit }, payload) {
@@ -90,36 +123,22 @@ export const actions = {
       if (!state.token) {
         reject(new Error('no token found for user'))
       } else {
-        this.$axios
-          .get('/graphql', {
-            params: {
-              query: '{account{id email type emailverified}}'
-            }
+        this.$apollo
+          .query({
+            query: gql`
+          query account(){account(){id, email, type, emailverified} }
+          `,
+            variables: {}
           })
-          .then((res) => {
-            if (res.status === 200) {
-              if (res.data) {
-                if (res.data.data && res.data.data.account) {
-                  commit('setUser', res.data.data.account)
-                  resolve('found user account data')
-                } else if (res.data.errors) {
-                  reject(
-                    new Error(
-                      `found errors: ${JSON.stringify(res.data.errors)}`
-                    )
-                  )
-                } else {
-                  reject(new Error('could not find data or errors'))
-                }
-              } else {
-                reject(new Error('could not get data'))
-              }
-            } else {
-              reject(new Error(`status code of ${res.status}`))
-            }
+          .then(({ data }) => {
+            commit('setUser', data.account)
+            resolve('found user account data')
           })
           .catch((err) => {
-            reject(new Error(err))
+            console.error(err)
+            this.$toasted.global.error({
+              message: `found error: ${err.message}`
+            })
           })
       }
     })

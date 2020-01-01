@@ -3,8 +3,8 @@
     <span @mouseover="focusMenu = true" @mouseleave="focusMenu = false">
       <editor-menu-bar
         v-if="showMenu && (focusMenu || focusEditor)"
-        :editor="editor"
         v-slot="{ commands, isActive }"
+        :editor="editor"
       >
         <b-nav pills class="menubar">
           <b-nav-item :active="isActive.bold()" @click="commands.bold">
@@ -114,11 +114,6 @@
               <font-awesome-icon icon="grip-lines" />
             </client-only>
           </b-nav-item>
-          <b-nav-item @click="showImagePrompt(commands.image)">
-            <client-only>
-              <font-awesome-icon icon="image" />
-            </client-only>
-          </b-nav-item>
           <b-nav-item @click="commands.undo">
             <client-only>
               <font-awesome-icon icon="undo" />
@@ -170,8 +165,7 @@ import {
   Strike,
   Underline,
   History,
-  CodeBlockHighlight,
-  Image
+  CodeBlockHighlight
 } from 'tiptap-extensions'
 import emojiData from 'emojilib'
 import javascript from 'highlight.js/lib/languages/javascript'
@@ -216,6 +210,11 @@ export default Vue.extend({
           const data = this.editor.getHTML()
           this.$emit('updated-text', data)
         },
+        onDrop(view, event, slice, moved) {
+          // return true to stop the drop event
+          // this will just prevent drop from external sources
+          return !moved;
+        },
         extensions: [
           new CodeBlockHighlight({
             languages: {
@@ -242,7 +241,6 @@ export default Vue.extend({
           new Italic(),
           new Strike(),
           new Underline(),
-          new Image(),
           new History(),
           new Emoji({
             // a list of all suggested items
@@ -320,12 +318,6 @@ export default Vue.extend({
         },
       })
       this.editor.focus()
-    },
-    showImagePrompt(command) {
-      const src = prompt('Enter the url of your image here')
-      if (src !== null) {
-        command({ src })
-      }
     }
   }
 })

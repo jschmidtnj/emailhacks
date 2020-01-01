@@ -14,7 +14,7 @@
                 }
               "
               placeholder="Type to Search"
-            ></b-form-input>
+            />
             <b-input-group-append>
               <b-button
                 :disabled="!search"
@@ -23,8 +23,9 @@
                   currentPage = 1
                   searchForms()
                 "
-                >Clear</b-button
               >
+                Clear
+              </b-button>
             </b-input-group-append>
           </b-input-group>
         </b-form-group>
@@ -40,7 +41,9 @@
                 searchForms()
               "
             >
-              <option slot="first" :value="null">-- none --</option>
+              <option slot="first" :value="null">
+                -- none --
+              </option>
             </b-form-select>
             <b-form-select
               slot="prepend"
@@ -51,8 +54,12 @@
                 searchForms()
               "
             >
-              <option :value="false">Asc</option>
-              <option :value="true">Desc</option>
+              <option :value="false">
+                Asc
+              </option>
+              <option :value="true">
+                Desc
+              </option>
             </b-form-select>
           </b-input-group>
         </b-form-group>
@@ -66,7 +73,7 @@
               currentPage = 1
               searchForms()
             "
-          ></b-form-select>
+          />
         </b-form-group>
       </b-col>
     </b-row>
@@ -78,11 +85,15 @@
       show-empty
       stacked="md"
     >
-      <template v-slot:cell(name)="data">{{ data.value }}</template>
-      <template v-slot:cell(updated)="data">{{
-        formatDate(data.value)
-      }}</template>
-      <template v-slot:cell(views)="data">{{ data.value }}</template>
+      <template v-slot:cell(name)="data">
+        {{ data.value }}
+      </template>
+      <template v-slot:cell(updated)="data">
+        {{ formatDate(data.value) }}
+      </template>
+      <template v-slot:cell(views)="data">
+        {{ data.value }}
+      </template>
       <template v-slot:cell(actions)="data">
         <nuxt-link
           :to="
@@ -104,7 +115,9 @@
         >
           Edit
         </nuxt-link>
-        <b-button @click="deleteForm(data.item)" size="sm">Delete</b-button>
+        <b-button @click="deleteForm(data.item)" size="sm">
+          Delete
+        </b-button>
       </template>
     </b-table>
     <b-row>
@@ -120,7 +133,7 @@
             }
           "
           class="my-0"
-        ></b-pagination>
+        />
       </b-col>
     </b-row>
   </b-container>
@@ -129,6 +142,7 @@
 <script lang="js">
 import Vue from 'vue'
 import { formatRelative } from 'date-fns'
+import gql from 'graphql-tag'
 export default Vue.extend({
   name: 'Forms',
   props: {
@@ -202,43 +216,18 @@ export default Vue.extend({
   },
   methods: {
     deleteForm(form) {
-      this.$axios
-        .delete('/graphql', {
-          params: {
-            query: `mutation{deleteForm(id:"${encodeURIComponent(form.id)}"){id}}`
-          }
-        })
-        .then(res => {
-          if (res.status === 200) {
-            if (res.data) {
-              if (res.data.data && res.data.data.deleteForm) {
-                this.items.splice(this.items.indexOf(form), 1)
-                this.$toasted.global.success({
-                  message: 'form deleted'
-                })
-              } else if (res.data.errors) {
-                this.$toasted.global.error({
-                  message: `found errors: ${JSON.stringify(res.data.errors)}`
-                })
-              } else {
-                this.$toasted.global.error({
-                  message: 'could not find data or errors'
-                })
-              }
-            } else {
-              this.$toasted.global.error({
-                message: 'could not get data'
-              })
-            }
-          } else {
-            this.$toasted.global.error({
-              message: `status code of ${res.status}`
-            })
-          }
-        })
-        .catch(err => {
+      this.$apollo.mutate({mutation: gql`
+        mutation deleteForm($id: String!){deleteForm(id: $id){id} }
+        `, variables: {id: form.id}})
+        .then(({ data }) => {
+          this.items.splice(this.items.indexOf(form), 1)
+          this.$toasted.global.success({
+            message: 'form deleted'
+          })
+        }).catch(err => {
+          console.error(err)
           this.$toasted.global.error({
-            message: err
+            message: `found error: ${err.message}`
           })
         })
     },
@@ -291,66 +280,25 @@ export default Vue.extend({
     searchForms() {
       this.updateCount()
       const sort = this.sortBy ? this.sortBy : this.sortOptions[0].value
-      this.$axios
-        .get('/graphql', {
-          params: {
-            query: `{forms(${
-              this.projectId ? `project:"${encodeURIComponent(this.projectId)}",` : ''
-            }perpage:${
-              this.perPage
-            },page:${this.currentPage - 1},searchterm:"${encodeURIComponent(
-              this.search
-            )}",sort:"${encodeURIComponent(sort)}",ascending:${!this
-              .sortDesc},tags:${JSON.stringify([])},categories:${JSON.stringify(
-              []
-            )}){name views${ this.projectId ? '' : ' project' } id updated}}`
-          }
-        })
-        .then(res => {
-          if (res.status === 200) {
-            if (res.data) {
-              if (res.data.data && res.data.data.forms) {
-                const forms = res.data.data.forms
-                forms.forEach(form => {
-                  Object.keys(form).forEach(key => {
-                    if (typeof form[key] === 'string')
-                      form[key] = decodeURIComponent(form[key])
-                  })
-                  if (form.updated) {
-                    form.updated = Number(form.updated) * 1000
-                  }
-                  if (form.created) {
-                    form.created = Number(form.created) * 1000
-                  }
-                })
-                this.items = forms
-              } else if (res.data.errors) {
-                this.$toasted.global.error({
-                  message: `found errors: ${JSON.stringify(res.data.errors)}`
-                })
-              } else {
-                this.$toasted.global.error({
-                  message: 'could not find data or errors'
-                })
-              }
-            } else {
-              this.$toasted.global.error({
-                message: 'could not get data'
-              })
+      this.$apollo.query({query: gql`
+        query forms($perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!, $tags: [String!]!, $categories: [String!]!)
+          {forms(perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending, tags: $tags, categories: $categories){name, views, id, updated} }
+        `, variables: {perpage: this.perPage, page: this.currentPage - 1, searchterm: this.search, sort, ascending: !this.sortDesc, tags: [], categories: []}})
+        .then(({ data }) => {
+          const forms = data.forms
+          forms.forEach(form => {
+            if (form.updated && form.updated.toString().length === 10) {
+              form.updated = Number(form.updated) * 1000
             }
-          } else {
-            this.$toasted.global.error({
-              message: `status code of ${res.status}`
-            })
-          }
-        })
-        .catch(err => {
-          let message = `got error: ${err}`
-          if (err.response && err.response.data) {
-            message = err.response.data.message
-          }
+            if (form.created && form.created.toString().length === 10) {
+              form.created = Number(form.created) * 1000
+            }
+          })
+          this.items = forms
+        }).catch(err => {
+          console.error(err)
           this.$toasted.global.error({
-            message
+            message: `found error: ${err.message}`
           })
         })
     },

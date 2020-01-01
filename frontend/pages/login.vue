@@ -15,13 +15,17 @@
             type="text"
             placeholder="Enter email"
             aria-describedby="emailfeedback"
-          ></b-form-input>
+          />
           <b-form-invalid-feedback
             id="emailfeedback"
             :state="!$v.form.email.$invalid"
           >
-            <div v-if="!$v.form.email.required">email is required</div>
-            <div v-else-if="!$v.form.email.email">email is invalid</div>
+            <div v-if="!$v.form.email.required">
+              email is required
+            </div>
+            <div v-else-if="!$v.form.email.email">
+              email is invalid
+            </div>
           </b-form-invalid-feedback>
         </b-form-group>
         <b-form-group
@@ -37,26 +41,31 @@
             type="password"
             placeholder="Enter password"
             aria-describedby="passwordfeedback"
-          ></b-form-input>
+          />
           <b-form-invalid-feedback
             id="passwordfeedback"
             :state="!$v.form.password.$invalid"
           >
-            <div v-if="!$v.form.password.required">password is required</div>
+            <div v-if="!$v.form.password.required">
+              password is required
+            </div>
             <div v-else-if="!$v.form.password.validPassword">
               password is invalid
             </div>
           </b-form-invalid-feedback>
         </b-form-group>
-        <b-link href="/reset" class="card-link">reset password</b-link>
+        <b-link href="/reset" class="card-link">
+          reset password
+        </b-link>
         <br />
         <b-button
           :disabled="$v.form.$invalid"
           variant="primary"
           type="submit"
           class="mt-4"
-          >Submit</b-button
         >
+          Submit
+        </b-button>
       </b-form>
       <p slot="footer">
         By clicking submit you aggree to the
@@ -197,9 +206,14 @@ export default Vue.extend({
                 message: 'logged in'
               })
               if (!this.redirect_uri) {
-                this.$store.commit('auth/setToken', token)
-                this.$router.push({
-                  path: '/dashboard'
+                this.$store.dispatch('auth/setToken', token).then(() => {
+                  this.$router.push({
+                    path: '/dashboard'
+                  })
+                }).catch(err => {
+                  this.$toasted.global.error({
+                    message: err
+                  })
                 })
               } else {
                 this.redirect_uri += `?token=${token}`
@@ -209,9 +223,14 @@ export default Vue.extend({
                 ) {
                   window.location.replace(this.redirect_uri)
                 } else if (this.redirect_uri.indexOf('/') === 0) {
-                  this.$store.commit('auth/setToken', token)
-                  this.$router.push({
-                    path: this.redirect_uri
+                  this.$store.dispatch('auth/setToken', token).then(() => {
+                    this.$router.push({
+                      path: this.redirect_uri
+                    })
+                  }).catch(err => {
+                    this.$toasted.global.error({
+                      message: err
+                    })
                   })
                 } else {
                   this.$toasted.global.error({

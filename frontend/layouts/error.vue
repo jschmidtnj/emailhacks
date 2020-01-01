@@ -1,6 +1,6 @@
 <template>
   <div class="permission_denied">
-    <div id="particles-js"></div>
+    <div id="particles-js" />
     <div class="denied__wrapper">
       <h1>{{ error.statusCode }}</h1>
       <!--h3>{{ error }}</h3-->
@@ -381,7 +381,9 @@
         </g>
       </svg>
       <nuxt-link to="/" class="no-underline">
-        <button class="denied__link">Go Home</button>
+        <button class="denied__link">
+          Go Home
+        </button>
       </nuxt-link>
     </div>
   </div>

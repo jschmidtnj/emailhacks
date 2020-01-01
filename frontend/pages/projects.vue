@@ -15,7 +15,7 @@
                   }
                 "
                 placeholder="Type to Search"
-              ></b-form-input>
+              />
               <b-input-group-append>
                 <b-button
                   :disabled="!search"
@@ -24,8 +24,9 @@
                     currentPage = 1
                     searchProjects()
                   "
-                  >Clear</b-button
                 >
+                  Clear
+                </b-button>
               </b-input-group-append>
             </b-input-group>
           </b-form-group>
@@ -41,7 +42,9 @@
                   searchProjects()
                 "
               >
-                <option slot="first" :value="null">-- none --</option>
+                <option slot="first" :value="null">
+                  -- none --
+                </option>
               </b-form-select>
               <b-form-select
                 slot="prepend"
@@ -52,8 +55,12 @@
                   searchProjects()
                 "
               >
-                <option :value="false">Asc</option>
-                <option :value="true">Desc</option>
+                <option :value="false">
+                  Asc
+                </option>
+                <option :value="true">
+                  Desc
+                </option>
               </b-form-select>
             </b-input-group>
           </b-form-group>
@@ -67,7 +74,7 @@
                 currentPage = 1
                 searchProjects()
               "
-            ></b-form-select>
+            />
           </b-form-group>
         </b-col>
       </b-row>
@@ -79,11 +86,15 @@
         show-empty
         stacked="md"
       >
-        <template v-slot:cell(name)="data">{{ data.value }}</template>
-        <template v-slot:cell(updated)="data">{{
-          formatDate(data.value)
-        }}</template>
-        <template v-slot:cell(views)="data">{{ data.value }}</template>
+        <template v-slot:cell(name)="data">
+          {{ data.value }}
+        </template>
+        <template v-slot:cell(updated)="data">
+          {{ formatDate(data.value) }}
+        </template>
+        <template v-slot:cell(views)="data">
+          {{ data.value }}
+        </template>
         <template v-slot:cell(actions)="data">
           <nuxt-link
             :to="`/project/${data.item.id}`"
@@ -91,9 +102,9 @@
           >
             View
           </nuxt-link>
-          <b-button @click="deleteProject(data.item)" size="sm"
-            >Delete</b-button
-          >
+          <b-button @click="deleteProject(data.item)" size="sm">
+            Delete
+          </b-button>
         </template>
       </b-table>
       <b-row>
@@ -109,7 +120,7 @@
               }
             "
             class="my-0"
-          ></b-pagination>
+          />
         </b-col>
       </b-row>
     </b-container>
@@ -122,6 +133,7 @@
 <script lang="js">
 import Vue from 'vue'
 import { formatRelative } from 'date-fns'
+import gql from 'graphql-tag'
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({
@@ -225,43 +237,18 @@ export default Vue.extend({
       this.searchProjects(this.currentPage)
     },
     deleteProject(project) {
-      this.$axios
-        .delete('/graphql', {
-          params: {
-            query: `mutation{deleteProject(id:"${encodeURIComponent(project.id)}"){id}}`
-          }
-        })
-        .then(res => {
-          if (res.status === 200) {
-            if (res.data) {
-              if (res.data.data && res.data.data.deleteProject) {
-                this.items.splice(this.items.indexOf(project), 1)
-                this.$toasted.global.success({
-                  message: 'project deleted'
-                })
-              } else if (res.data.errors) {
-                this.$toasted.global.error({
-                  message: `found errors: ${JSON.stringify(res.data.errors)}`
-                })
-              } else {
-                this.$toasted.global.error({
-                  message: 'could not find data or errors'
-                })
-              }
-            } else {
-              this.$toasted.global.error({
-                message: 'could not get data'
-              })
-            }
-          } else {
-            this.$toasted.global.error({
-              message: `status code of ${res.status}`
-            })
-          }
-        })
-        .catch(err => {
+      this.$apollo.mutate({mutation: gql`
+        mutation deleteProject($id: String!){deleteProject(id: $id){id} }
+        `, variables: {id: this.projectId}})
+        .then(({ data }) => {
+          this.items.splice(this.items.indexOf(project), 1)
+          this.$toasted.global.success({
+            message: 'project deleted'
+          })
+        }).catch(err => {
+          console.error(err)
           this.$toasted.global.error({
-            message: err
+            message: `found error: ${err.message}`
           })
         })
     },
@@ -308,64 +295,25 @@ export default Vue.extend({
     searchProjects() {
       this.updateCount()
       const sort = this.sortBy ? this.sortBy : this.sortOptions[0].value
-      this.$axios
-        .get('/graphql', {
-          params: {
-            query: `{projects(perpage:${
-              this.perPage
-            },page:${this.currentPage - 1},searchterm:"${encodeURIComponent(
-              this.search
-            )}",sort:"${encodeURIComponent(sort)}",ascending:${!this
-              .sortDesc},tags:${JSON.stringify([])},categories:${JSON.stringify(
-              []
-            )}){name views id updated}}`
-          }
-        })
-        .then(res => {
-          if (res.status === 200) {
-            if (res.data) {
-              if (res.data.data && res.data.data.projects) {
-                const projects = res.data.data.projects
-                projects.forEach(project => {
-                  Object.keys(project).forEach(key => {
-                    if (typeof project[key] === 'string')
-                      project[key] = decodeURIComponent(project[key])
-                  })
-                  if (project.updated) {
-                    project.updated = Number(project.updated) * 1000
-                  }
-                  if (project.created) {
-                    project.created = Number(project.created) * 1000
-                  }
-                })
-                this.items = projects
-              } else if (res.data.errors) {
-                this.$toasted.global.error({
-                  message: `found errors: ${JSON.stringify(res.data.errors)}`
-                })
-              } else {
-                this.$toasted.global.error({
-                  message: 'could not find data or errors'
-                })
-              }
-            } else {
-              this.$toasted.global.error({
-                message: 'could not get data'
-              })
+      this.$apollo.query({query: gql`
+        query projects($perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!, $tags: [String!]!, $categories: [String!]!)
+          {projects(perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending, tags: $tags, categories: $categories){name, views, id, updated} }
+        `, variables: {perpage: this.perPage, page: this.currentPage - 1, searchterm: this.search, sort, ascending: !this.sortDesc, tags: [], categories: []}})
+        .then(({ data }) => {
+          const projects = data.projects
+          projects.forEach(project => {
+            if (project.updated && project.updated.toString().length === 10) {
+              project.updated = Number(project.updated) * 1000
             }
-          } else {
-            this.$toasted.global.error({
-              message: `status code of ${res.status}`
-            })
-          }
-        })
-        .catch(err => {
-          let message = `got error: ${err}`
-          if (err.response && err.response.data) {
-            message = err.response.data.message
-          }
+            if (project.created && project.created.toString().length === 10) {
+              project.created = Number(project.created) * 1000
+            }
+          })
+          this.items = projects
+        }).catch(err => {
+          console.error(err)
           this.$toasted.global.error({
-            message
+            message: `found error: ${err.message}`
           })
         })
     },

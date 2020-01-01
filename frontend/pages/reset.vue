@@ -17,12 +17,14 @@
             autocomplete="off"
             placeholder="Enter email"
             aria-describedby="emailfeedback"
-          ></b-form-input>
+          />
           <b-form-invalid-feedback
             id="emailfeedback"
             :state="!$v.emailform.email.$invalid"
           >
-            <div v-if="!$v.emailform.email.required">email is required</div>
+            <div v-if="!$v.emailform.email.required">
+              email is required
+            </div>
             <div v-else-if="!$v.emailform.email.email">
               email is invalid
             </div>
@@ -33,8 +35,9 @@
           variant="primary"
           type="submit"
           class="mt-4"
-          >Submit</b-button
         >
+          Submit
+        </b-button>
       </b-form>
       <b-form v-else @submit="resetPassword">
         <b-form-group
@@ -50,7 +53,7 @@
             type="password"
             placeholder="Enter password"
             aria-describedby="passwordfeedback"
-          ></b-form-input>
+          />
           <b-form-invalid-feedback
             id="passwordfeedback"
             :state="!$v.passwordform.password.$invalid"
@@ -68,8 +71,9 @@
           variant="primary"
           type="submit"
           class="mt-4"
-          >Submit</b-button
         >
+          Submit
+        </b-button>
       </b-form>
       <p slot="footer">
         By clicking submit you aggree to the

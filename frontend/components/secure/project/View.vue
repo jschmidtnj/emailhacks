@@ -4,7 +4,7 @@
       <b-form @submit="updateProject">
         <b-form-group>
           <b-input-group>
-            <b-form-input v-model="name"></b-form-input>
+            <b-form-input v-model="name" />
           </b-input-group>
         </b-form-group>
       </b-form>
@@ -21,9 +21,9 @@
 
 <script lang="js">
 import Vue from 'vue'
-import { format } from 'date-fns'
+import gql from 'graphql-tag'
 import FormList from '~/components/secure/form/FormList.vue'
-import { defaultItemName } from '~/assets/config'
+import { defaultItemName, noneAccessType } from '~/assets/config'
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({
@@ -43,7 +43,8 @@ export default Vue.extend({
   },
   data() {
     return {
-      name: ''
+      name: '',
+      isPublic: false
     }
   },
   // @ts-ignore
@@ -82,88 +83,33 @@ export default Vue.extend({
   },
   methods: {
     getProject() {
-      this.$axios.get('/graphql', {
-        params: {
-          query: `{project(id:"${this.projectId}"){name}}`
-        }
-      })
-      .then(res => {
-        if (res.status === 200) {
-          if (res.data) {
-            if (res.data.data && res.data.data.project) {
-              this.name = decodeURIComponent(res.data.data.project.name)
-            } else if (res.data.errors) {
-              console.error(res.data.errors[0])
-              this.$toasted.global.error({
-                message: `found errors: ${JSON.stringify(res.data.errors)}`
-              })
-            } else {
-              this.$toasted.global.error({
-                message: 'could not find data or errors'
-              })
-            }
-          } else {
-            this.$toasted.global.error({
-              message: 'could not get data'
-            })
-          }
-        } else {
+      this.$apollo.query({query: gql`
+        query project($id: String!){project(id: $id){name,public} }
+        `, variables: {id: this.projectId}})
+        .then(({ data }) => {
+          this.name = data.project.name
+          this.isPublic = data.project.public === noneAccessType
+          this.$store.commit('auth/setRedirectLogin', this.isPublic)
+        }).catch(err => {
+          console.error(err)
           this.$toasted.global.error({
-            message: `status code of ${res.status}`
+            message: `found error: ${err.message}`
           })
-        }
-      })
-      .catch(err => {
-        console.error(err)
-        this.$toasted.global.error({
-          message: err
         })
-      })
     },
     updateProject(evt) {
       evt.preventDefault()
-      this.$axios
-        .post('/graphql', {
-          query: `mutation{updateProject(id:"${encodeURIComponent(
-            this.projectId
-          )}",name:"${encodeURIComponent(
-            this.name
-          )}"){id}}`
-        })
-        .then(res => {
-          if (res.status === 200) {
-            if (res.data) {
-              if (res.data.data && res.data.data.updateProject) {
-                console.log('updated!')
-              } else if (res.data.errors) {
-                console.log(res.data.errors[0])
-                this.$toasted.global.error({
-                  message: `found errors: ${JSON.stringify(res.data.errors)}`
-                })
-              } else {
-                this.$toasted.global.error({
-                  message: 'could not find data or errors'
-                })
-              }
-            } else {
-              this.$toasted.global.error({
-                message: 'could not get data'
-              })
-            }
-          } else {
-            this.$toasted.global.error({
-              message: `status code of ${res.status}`
-            })
-          }
-        })
-        .catch(err => {
+      this.$apollo.mutate({mutation: gql`
+        mutation updateProject($id: String!, $name: String!){updateProject(id: $id, name: $name){id} }
+        `, variables: {id: this.projectId, name: this.name}})
+        .then(({ data }) => {
+          console.log('updated!')
+        }).catch(err => {
+          console.error(err)
           this.$toasted.global.error({
-            message: err
+            message: `found error: ${err.message}`
           })
         })
-    },
-    formatDate(dateUTC, formatStr) {
-      return format(dateUTC, formatStr)
     }
   }
 })

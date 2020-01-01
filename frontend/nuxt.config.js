@@ -4,6 +4,8 @@ const seodata = JSON.parse(process.env.SEOCONFIG)
 const apiurl = process.env.APIURL
 const recaptchasitekey = process.env.RECAPTCHASITEKEY
 
+const production = process.env.NODE_ENV === 'production'
+
 const name = 'Mail Pear'
 
 module.exports = {
@@ -142,8 +144,29 @@ module.exports = {
     '@nuxtjs/sitemap',
     '@nuxtjs/style-resources',
     'nuxt-webfontloader',
-    '@nuxtjs/google-analytics'
+    '@nuxtjs/google-analytics',
+    '@nuxtjs/apollo'
   ],
+  /*
+   ** apollo config
+   */
+  apollo: {
+    tokenName: 'mail-pear-apollo-token',
+    cookieAttributes: {
+      expires: 1, // day(s)
+      // domain: seodata.url, // defaults to domain where it was created
+      secure: production
+    },
+    clientConfigs: {
+      default: {
+        httpEndpoint: `${apiurl}/graphql`,
+        // Use websockets for everything (no HTTP)
+        // You need to pass a `wsEndpoint` for this to work
+        websocketsOnly: false,
+        tokenName: 'mail-pear-apollo-token'
+      }
+    }
+  },
   /*
    ** scss global config
    */

@@ -52,16 +52,26 @@ export default Vue.extend({
         .dispatch('auth/checkLoggedIn')
         .then((loggedIn) => {
           if (!loggedIn) {
-            this.$store.commit('auth/logout')
-            this.$router.push({
-              path: '/login'
+            this.$store.dispatch('auth/logout').then(() => {
+              this.$router.push({
+                path: '/login'
+              })
+            }).catch(err => {
+              this.$toasted.global.error({
+                message: err
+              })
             })
           }
         })
         .catch((err) => {
-          this.$store.commit('auth/logout')
-          this.$router.push({
-            path: '/login'
+          this.$store.dispatch('auth/logout').then(() => {
+            this.$router.push({
+              path: '/login'
+            })
+          }).catch(err => {
+            this.$toasted.global.error({
+              message: err
+            })
           })
         })
     }, checkLoggedInInterval)

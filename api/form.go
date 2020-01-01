@@ -16,7 +16,7 @@ import (
 
 // ItemType graphql question object
 var ItemType = graphql.NewObject(graphql.ObjectConfig{
-	Name: "ItemType",
+	Name: "Item",
 	Fields: graphql.Fields{
 		"question": &graphql.Field{
 			Type: graphql.String,
@@ -33,15 +33,16 @@ var ItemType = graphql.NewObject(graphql.ObjectConfig{
 		"required": &graphql.Field{
 			Type: graphql.Boolean,
 		},
-		"file": &graphql.Field{
-			Type: graphql.String,
+		// file is the index of the file in the array
+		"files": &graphql.Field{
+			Type: graphql.Int,
 		},
 	},
 })
 
 // ItemInputType - type of graphql input
 var ItemInputType = graphql.NewInputObject(graphql.InputObjectConfig{
-	Name: "QuestionInput",
+	Name: "ItemInput",
 	Fields: graphql.InputObjectConfigFieldMap{
 		"question": &graphql.InputObjectFieldConfig{
 			Type: graphql.String,
@@ -58,8 +59,8 @@ var ItemInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 		"required": &graphql.InputObjectFieldConfig{
 			Type: graphql.Boolean,
 		},
-		"file": &graphql.InputObjectFieldConfig{
-			Type: graphql.String,
+		"files": &graphql.InputObjectFieldConfig{
+			Type: graphql.NewList(graphql.Int),
 		},
 	},
 })

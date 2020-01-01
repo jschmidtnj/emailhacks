@@ -2,13 +2,18 @@
   <b-card title="Profile">
     <p>user: {{ this.$store.state.auth.user }}</p>
     <p>token: {{ this.$store.state.auth.token }}</p>
-    <b-btn @click="logout">Logout</b-btn>
-    <b-btn @click="deleteAccount">Delete</b-btn>
+    <b-btn @click="logout">
+      Logout
+    </b-btn>
+    <b-btn @click="deleteAccount">
+      Delete
+    </b-btn>
   </b-card>
 </template>
 
 <script lang="js">
 import Vue from 'vue'
+import gql from 'graphql-tag'
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({
@@ -48,56 +53,32 @@ export default Vue.extend({
   methods: {
     logout(evt) {
       evt.preventDefault()
-      this.$store.commit('auth/logout')
-      this.$router.push({
-        path: '/login'
+      this.$store.dispatch('auth/logout').then(() => {
+        this.$router.push({
+          path: '/login'
+        })
+      }).catch(err => {
+        this.$toasted.global.error({
+          message: err
+        })
       })
     },
     deleteAccount(evt) {
       evt.preventDefault()
-      this.$axios
-        .delete('/graphql', {
-          params: {
-            query: `mutation{deleteAccount(){id}}`
-          }
-        })
-        .then((res) => {
-          if (res.status === 200) {
-            if (res.data) {
-              if (res.data.data && res.data.data.deleteAccount) {
-                this.$toasted.global.success({
-                  message: 'account deleted'
-                })
-                this.$router.push({
-                  path: '/login'
-                })
-              } else if (res.data.errors) {
-                this.$toasted.global.error({
-                  message: `found errors: ${JSON.stringify(res.data.errors)}`
-                })
-              } else {
-                this.$toasted.global.error({
-                  message: 'could not find data or errors'
-                })
-              }
-            } else {
-              this.$toasted.global.error({
-                message: 'could not get data'
-              })
-            }
-          } else {
-            this.$toasted.global.error({
-              message: `status code of ${res.status}`
-            })
-          }
-        })
-        .catch((err) => {
-          let message = `got error: ${err}`
-          if (err.response && err.response.data) {
-            message = err.response.data.message
-          }
+      this.$apollo.mutate({mutation: gql`
+        mutation deleteAccount(){deleteAccount(){id}}
+        `, variables: {}})
+        .then(({ data }) => {
+          this.$toasted.global.success({
+            message: 'account deleted'
+          })
+          this.$router.push({
+            path: '/login'
+          })
+        }).catch(err => {
+          console.error(err)
           this.$toasted.global.error({
-            message
+            message: `found error: ${err.message}`
           })
         })
     }
