@@ -553,8 +553,8 @@ func resetPassword(c *gin.Context) {
 	}
 }
 
-// validateLoggedIn validates JWT token to confirm login
-func validateLoggedIn(t string) (jwt.MapClaims, error) {
+// getTokenData validates JWT token to confirm login
+func getTokenData(t string) (jwt.MapClaims, error) {
 	if t == "" {
 		return nil, errors.New("Authorization token must be present")
 	}
@@ -572,7 +572,7 @@ func validateLoggedIn(t string) (jwt.MapClaims, error) {
 }
 
 func validateAdmin(t string) (jwt.MapClaims, error) {
-	accountdata, err := validateLoggedIn(t)
+	accountdata, err := getTokenData(t)
 	if err != nil {
 		return nil, err
 	}

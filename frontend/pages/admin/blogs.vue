@@ -576,7 +576,7 @@ import {
   cloudStorageURLs,
   options,
   defaultColor,
-  staticstorageindexes,
+  staticStorageIndexes,
   validimages,
   validfiles,
   paths
@@ -780,24 +780,24 @@ export default Vue.extend({
       return format(dateUTC, formatStr)
     },
     getImageTag(image) {
-      return `<img data-src="${cloudStorageURLs.blogs}/${
-        staticstorageindexes.blogfiles
+      return `<img data-src="${cloudStorageURLs.static}/${
+        staticStorageIndexes.blogfiles
       }/${this.blogid}/${image.id + this.paths.original}" src="${
-        cloudStorageURLs.blogs
-      }/${staticstorageindexes.blogfiles}/${this.blogid}/${
+        cloudStorageURLs.static
+      }/${staticStorageIndexes.blogfiles}/${this.blogid}/${
         image.id + this.paths.blur}" class="lazy img-fluid" alt="${
         image.name
       }" data-width="${image.width}" data-height="${image.height}">`
     },
     getGifTag(gif) {
-      return `<img data-src="${cloudStorageURLs.blogs}/${
-        staticstorageindexes.blogfiles
+      return `<img data-src="${cloudStorageURLs.static}/${
+        staticStorageIndexes.blogfiles
       }/${this.blogid}/${gif.id + this.paths.original}" placeholder-original="${
-        cloudStorageURLs.blogs
-      }/${staticstorageindexes.blogfiles}/${this.blogid}/${
+        cloudStorageURLs.static
+      }/${staticStorageIndexes.blogfiles}/${this.blogid}/${
         gif.id + this.paths.placeholder + this.paths.original}" src="${
-        cloudStorageURLs.blogs
-      }/${staticstorageindexes.blogfiles}/${this.blogid}/${
+        cloudStorageURLs.static
+      }/${staticStorageIndexes.blogfiles}/${this.blogid}/${
         gif.id + this.paths.placeholder + this.paths.blur}" class="lazy img-fluid gif" alt="${
         gif.name
       }" data-width="${gif.width}" data-height="${gif.height}">`
@@ -805,13 +805,13 @@ export default Vue.extend({
     getVideoTag(video) {
       return `<video class="img-fluid" data-width="${video.width}" data-height="${
         video.height
-      }" alt="${video.name}" controls allowfullscreen><source src="${cloudStorageURLs.blogs}/${
-        staticstorageindexes.blogfiles
+      }" alt="${video.name}" controls allowfullscreen><source src="${cloudStorageURLs.static}/${
+        staticStorageIndexes.blogfiles
       }/${this.blogid}/${video.id}#t=0.1" type="${video.type}" /></video>`
     },
     getFileTag(file) {
-      return `<a href="${cloudStorageURLs.blogs}/${
-        staticstorageindexes.blogfiles
+      return `<a href="${cloudStorageURLs.static}/${
+        staticStorageIndexes.blogfiles
       }/${this.blogid}/${file.id}" target="_blank">download</a>`
     },
     updateFileSrc(file) {
@@ -885,7 +885,7 @@ export default Vue.extend({
             }
           })
           .then(res => {
-            if (res.status == 200) {
+            if (res.status === 200) {
               finished()
             } else {
               this.$toasted.global.error({
@@ -899,7 +899,7 @@ export default Vue.extend({
               message = err.response.data.message
             }
             this.$toasted.global.error({
-              message: message
+              message
             })
           })
       } else {
@@ -928,8 +928,8 @@ export default Vue.extend({
         if (theblog.heroimage !== null) {
           axios
             .get(
-              `${cloudStorageURLs.blogs}/${
-                staticstorageindexes.blogfiles
+              `${cloudStorageURLs.static}/${
+                staticStorageIndexes.blogfiles
               }/${this.blogid}/${theblog.heroimage.id + this.paths.original}`,
               {
                 responseType: 'blob'
@@ -937,7 +937,7 @@ export default Vue.extend({
             )
             .then(res => {
               if (!cont) return
-              if (res.status == 200) {
+              if (res.status === 200) {
                 if (res.data) {
                   theblog.heroimage.file = res.data
                   theblog.heroimage.uploaded = true
@@ -985,8 +985,8 @@ export default Vue.extend({
         if (theblog.tileimage !== null) {
           axios
             .get(
-              `${cloudStorageURLs.blogs}/${
-                staticstorageindexes.blogfiles
+              `${cloudStorageURLs.static}/${
+                staticStorageIndexes.blogfiles
               }/${this.blogid}/${theblog.tileimage.id + this.paths.original}`,
               {
                 responseType: 'blob'
@@ -994,7 +994,7 @@ export default Vue.extend({
             )
             .then(res => {
               if (!cont) return
-              if (res.status == 200) {
+              if (res.status === 200) {
                 if (res.data) {
                   theblog.tileimage.uploaded = true
                   theblog.tileimage.file = res.data
@@ -1043,8 +1043,8 @@ export default Vue.extend({
           if (!cont) return
           axios
             .get(
-              `${cloudStorageURLs.blogs}/${
-                staticstorageindexes.blogfiles
+              `${cloudStorageURLs.static}/${
+                staticStorageIndexes.blogfiles
               }/${this.blogid}/${filedata.id + this.paths.original}`,
               {
                 responseType: 'blob'
@@ -1052,7 +1052,7 @@ export default Vue.extend({
             )
             .then(res => {
               if (!cont) return
-              if (res.status == 200) {
+              if (res.status === 200) {
                 if (res.data) {
                   filedata.file = res.data
                   theblog.src = null
@@ -1257,7 +1257,7 @@ export default Vue.extend({
               }
               console.log(message)
               this.$toasted.global.error({
-                message: message
+                message
               })
             })
         }

@@ -84,7 +84,12 @@ export default Vue.extend({
   methods: {
     getProject() {
       this.$apollo.query({query: gql`
-        query project($id: String!){project(id: $id){name,public} }
+        query project($id: String!) {
+          project(id: $id) {
+            name
+            public
+          }
+        }
         `, variables: {id: this.projectId}})
         .then(({ data }) => {
           this.name = data.project.name

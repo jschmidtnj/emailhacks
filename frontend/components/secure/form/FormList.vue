@@ -251,6 +251,7 @@ export default Vue.extend({
             if (res.data) {
               if (res.data.count !== null) {
                 this.totalRows = res.data.count
+                console.log(res.data.count)
               } else {
                 this.$toasted.global.error({
                   message: 'could not find count data'
@@ -280,9 +281,17 @@ export default Vue.extend({
     searchForms() {
       this.updateCount()
       const sort = this.sortBy ? this.sortBy : this.sortOptions[0].value
+      console.log(`sort by ${sort}`)
       this.$apollo.query({query: gql`
         query forms($perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!, $tags: [String!]!, $categories: [String!]!)
-          {forms(perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending, tags: $tags, categories: $categories){name, views, id, updated} }
+          {forms(perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending, tags: $tags, categories: $categories){
+            name
+            views
+            id
+            updated
+            project
+           }
+          }
         `, variables: {perpage: this.perPage, page: this.currentPage - 1, searchterm: this.search, sort, ascending: !this.sortDesc, tags: [], categories: []}})
         .then(({ data }) => {
           const forms = data.forms

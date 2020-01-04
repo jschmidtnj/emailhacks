@@ -14,6 +14,15 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+var FormUpdateResponseType = graphql.NewObject(graphql.ObjectConfig{
+	Name: "FormUpdate",
+	Fields: graphql.Fields{
+		"id": &graphql.Field{
+			Type: graphql.String,
+		},
+	},
+})
+
 // ItemType graphql question object
 var ItemType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "Item",
@@ -44,6 +53,12 @@ var ItemType = graphql.NewObject(graphql.ObjectConfig{
 var ItemInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 	Name: "ItemInput",
 	Fields: graphql.InputObjectConfigFieldMap{
+		"updateAction": &graphql.InputObjectFieldConfig{
+			Type: graphql.String,
+		},
+		"index": &graphql.InputObjectFieldConfig{
+			Type: graphql.Int,
+		},
 		"question": &graphql.InputObjectFieldConfig{
 			Type: graphql.String,
 		},
@@ -51,7 +66,7 @@ var ItemInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 			Type: graphql.String,
 		},
 		"options": &graphql.InputObjectFieldConfig{
-			Type: graphql.NewList(graphql.String),
+			Type: graphql.NewList(StringArrayInputType),
 		},
 		"text": &graphql.InputObjectFieldConfig{
 			Type: graphql.String,
@@ -60,7 +75,7 @@ var ItemInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 			Type: graphql.Boolean,
 		},
 		"files": &graphql.InputObjectFieldConfig{
-			Type: graphql.NewList(graphql.Int),
+			Type: graphql.NewList(IntArrayInputType),
 		},
 	},
 })
@@ -70,6 +85,9 @@ var FormType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 	Name: "Form",
 	Fields: graphql.Fields{
 		"id": &graphql.Field{
+			Type: graphql.String,
+		},
+		"userId": &graphql.Field{
 			Type: graphql.String,
 		},
 		"created": &graphql.Field{
@@ -107,6 +125,9 @@ var FormType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 		},
 		"files": &graphql.Field{
 			Type: graphql.NewList(FileType),
+		},
+		"updateToken": &graphql.Field{
+			Type: graphql.String,
 		},
 	},
 })
@@ -216,7 +237,7 @@ func checkFormAccess(formID primitive.ObjectID, accessToken string, necessaryAcc
 		return formData, nil
 	}
 	// next check if logged in
-	claims, err := validateLoggedIn(accessToken)
+	claims, err := getTokenData(accessToken)
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +282,7 @@ func countForms(c *gin.Context) {
 		handleError("register http method not Get", http.StatusBadRequest, response)
 		return
 	}
-	claims, err := validateLoggedIn(getAuthToken(request))
+	claims, err := getTokenData(getAuthToken(request))
 	if err != nil {
 		handleError("user not logged in", http.StatusBadRequest, response)
 		return

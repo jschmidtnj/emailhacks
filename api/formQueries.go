@@ -3,7 +3,9 @@ package main
 import (
 	"errors"
 	"fmt"
+	"time"
 
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/language/ast"
 	json "github.com/json-iterator/go"
@@ -11,6 +13,13 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
+
+type formAccessClaims struct {
+	FormID string `json:"formid"`
+	UserID string `json:"userid"`
+	Type   string `json:"type"`
+	jwt.StandardClaims
+}
 
 var formQueryFields = graphql.Fields{
 	"forms": &graphql.Field{
@@ -49,7 +58,7 @@ var formQueryFields = graphql.Fields{
 			// see this: https://github.com/olivere/elastic/issues/483
 			// for potential fix to source issue (tried gave null pointer error)
 			accessToken := params.Context.Value(tokenKey).(string)
-			claims, err := validateLoggedIn(accessToken)
+			claims, err := getTokenData(accessToken)
 			if err != nil {
 				return nil, err
 			}
@@ -220,6 +229,7 @@ var formQueryFields = graphql.Fields{
 					formData["access"] = access
 					formData["categories"] = categories
 					formData["tags"] = tags
+					formData["userId"] = userIDString
 					forms[i] = formData
 				}
 			}
@@ -240,7 +250,7 @@ var formQueryFields = graphql.Fields{
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			accessToken := params.Context.Value(tokenKey).(string)
 			var userIDString = ""
-			claims, err := validateLoggedIn(accessToken)
+			claims, err := getTokenData(accessToken)
 			if err == nil {
 				userIDString = claims["id"].(string)
 			}
@@ -263,7 +273,29 @@ var formQueryFields = graphql.Fields{
 					return nil, errors.New("problem casting format date to boolean")
 				}
 			}
-			formData, err := checkFormAccess(formID, accessToken, editAccessLevel, formatDate, false)
+			var getFormUpdateToken = false
+			fieldarray := params.Info.FieldASTs
+			fieldselections := fieldarray[0].SelectionSet.Selections
+			for _, field := range fieldselections {
+				fieldast, ok := field.(*ast.Field)
+				if !ok {
+					return nil, errors.New("field cannot be converted to *ast.FIeld")
+				}
+				if fieldast.Name.Value == "updateToken" {
+					getFormUpdateToken = true
+					break
+				}
+			}
+			var necessaryAccessLevel []string
+			if getFormUpdateToken {
+				if len(userIDString) == 0 {
+					return nil, errors.New("cannot get access token with no edit access")
+				}
+				necessaryAccessLevel = editAccessLevel
+			} else {
+				necessaryAccessLevel = viewAccessLevel
+			}
+			formData, err := checkFormAccess(formID, accessToken, necessaryAccessLevel, formatDate, false)
 			if err != nil {
 				return nil, err
 			}
@@ -279,6 +311,32 @@ var formQueryFields = graphql.Fields{
 				formData["access"] = access
 				formData["categories"] = categories
 				formData["tags"] = tags
+			}
+			if getFormUpdateToken {
+				// return access token with current claims + project
+				var accessType string
+				_, err = validateAdmin(accessToken)
+				isAdmin := err == nil
+				if isAdmin {
+					accessType = validAccessTypes[0]
+				} else {
+					accessType = validAccessTypes[1]
+				}
+				expirationTime := time.Now().Add(time.Duration(tokenExpiration) * time.Hour)
+				token := jwt.NewWithClaims(jwt.SigningMethodHS256, formAccessClaims{
+					formIDString,
+					userIDString,
+					accessType,
+					jwt.StandardClaims{
+						ExpiresAt: expirationTime.Unix(),
+						Issuer:    jwtIssuer,
+					},
+				})
+				tokenString, err := token.SignedString(jwtSecret)
+				if err != nil {
+					return nil, err
+				}
+				formData["updateToken"] = tokenString
 			}
 			_, err = formCollection.UpdateOne(ctxMongo, bson.M{
 				"_id": formID,
@@ -306,6 +364,7 @@ var formQueryFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
+			formData["userId"] = userIDString
 			return formData, nil
 		},
 	},

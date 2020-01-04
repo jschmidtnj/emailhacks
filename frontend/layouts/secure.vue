@@ -34,7 +34,7 @@ export default Vue.extend({
       return (
         this.$store.state.auth &&
         this.$store.state.auth.user &&
-        adminTypes.contains(this.store.state.auth.user.type)
+        adminTypes.includes(this.store.state.auth.user.type)
       )
     }
   },

@@ -119,15 +119,23 @@ export const actions = {
     })
   },
   async getUser({ state, commit }) {
+    const client = this.app.apolloProvider.defaultClient
     return new Promise((resolve, reject) => {
       if (!state.token) {
         reject(new Error('no token found for user'))
       } else {
-        this.$apollo
+        client
           .query({
             query: gql`
-          query account(){account(){id, email, type, emailverified} }
-          `,
+              query account {
+                account {
+                  id
+                  email
+                  type
+                  emailverified
+                }
+              }
+            `,
             variables: {}
           })
           .then(({ data }) => {

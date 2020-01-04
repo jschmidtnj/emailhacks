@@ -11,6 +11,7 @@
                     <b-form-input
                       id="name"
                       v-model="name"
+                      @blur="update(['name'])"
                       size="lg"
                       type="text"
                       placeholder="Title"
@@ -21,6 +22,7 @@
                   <b-col sm>
                     <b-form-checkbox
                       v-model="multiple"
+                      @blur="update(['multiple'])"
                       class="pull-right"
                       name="allow-multiple"
                       switch
@@ -63,6 +65,7 @@
                             v-if="item.type !== itemTypes[3].id"
                             :id="`item-${index}-name`"
                             v-model="item.question"
+                            @blur="update(['items'])"
                             size="md"
                             type="text"
                             placeholder="Question"
@@ -121,6 +124,7 @@
                             <b-form-input
                               v-model="item.options[optionIndex]"
                               :placeholder="`option ${optionIndex + 1}`"
+                              @blur="update(['items'])"
                               size="sm"
                               type="text"
                               style="width:100%;"
@@ -201,6 +205,7 @@
                           :ref="`editor-${index}`"
                           :show-menu="index === focusIndex"
                           @updated-text="(text) => updatedText(text, index)"
+                          @blur="update(['items'])"
                         />
                       </div>
                       <div
@@ -237,7 +242,7 @@
                                 :id="`item-${index}-file-attachment`"
                                 v-model="item.files[0].file"
                                 :accept="validfiles.join(', ')"
-                                @input="updateFileSrc(index, 0)"
+                                @input="uploadFile(index, 0)"
                                 placeholder="Choose a file or drop it here..."
                                 drop-placeholder="Drop file here..."
                                 style="max-width:30rem;"
@@ -247,8 +252,17 @@
                           </b-row>
                           <b-row>
                             <b-col>
+                              <b-progress
+                                v-if="
+                                  item.files[0].file && !item.files[0].uploaded
+                                "
+                                :value="item.files[0].uploadProgress"
+                                :max="100"
+                                show-progress
+                                animated
+                              ></b-progress>
                               <a
-                                v-if="item.files[0].file"
+                                v-else-if="item.files[0].file"
                                 :href="getFileURL(index)"
                                 :download="items[index].files[0].name"
                                 class="mt-2 mb-2"
@@ -269,7 +283,7 @@
                                 :id="`item-${index}-image`"
                                 v-model="item.files[0].file"
                                 :accept="validDisplayFiles.join(', ')"
-                                @input="updateFileSrc(index, 0)"
+                                @input="uploadFile(index, 0)"
                                 placeholder="Choose an image or drop it here..."
                                 drop-placeholder="Drop image here..."
                                 style="max-width:30rem;"
@@ -279,8 +293,17 @@
                           </b-row>
                           <b-row>
                             <b-col style="padding-left:0;">
-                              <b-img
+                              <b-progress
                                 v-if="
+                                  item.files[0].file && !item.files[0].uploaded
+                                "
+                                :value="item.files[0].uploadProgress"
+                                :max="100"
+                                show-progress
+                                animated
+                              ></b-progress>
+                              <b-img
+                                v-else-if="
                                   item.files[0].file &&
                                     item.files[0].src &&
                                     checkImageType(item.files[0].type)
@@ -291,7 +314,6 @@
                               <video
                                 v-else-if="
                                   item.files[0].src &&
-                                    item.files[0].id &&
                                     item.files[0].type &&
                                     checkVideoType(item.files[0].type)
                                 "
@@ -388,9 +410,10 @@
 import Vue from 'vue'
 import clonedeep from 'lodash.clonedeep'
 import gql from 'graphql-tag'
+import axios from 'axios'
 import TextEditor from '~/components/secure/form/TextEditor.vue'
 import PageLoading from '~/components/PageLoading.vue'
-import { defaultItemName, validfiles, validimages, validDisplayFiles } from '~/assets/config'
+import { cloudStorageURLs, staticStorageIndexes, paths, defaultItemName, validfiles, validimages, validDisplayFiles } from '~/assets/config'
 
 // still need image picker and image viewer component
 
@@ -435,7 +458,9 @@ const defaultFile = {
   height: null,
   type: '',
   file: null,
-  src: null
+  src: null,
+  uploadProgress: 0,
+  uploaded: false
 }
 const clone = (obj) => {
   const newObj = clonedeep(obj)
@@ -446,7 +471,7 @@ const defaultItem = {
   question: '',
   type: itemTypes[0].id,
   options: [],
-  text: [],
+  text: '',
   required: false,
   files: [clone(defaultFile)]
 }
@@ -472,10 +497,12 @@ export default Vue.extend({
   },
   data() {
     return {
+      paths,
       validDisplayFiles,
       validfiles,
       validimages,
       loading: true,
+      objectType: 'form',
       itemTypes,
       focusIndex: 0,
       editorContent: {},
@@ -484,19 +511,85 @@ export default Vue.extend({
       multiple: false
     }
   },
+  getFile(itemIndex, fileIndex) {
+    const fileObj = this.items[itemIndex].files[fileIndex]
+    axios
+      .get(
+        `${cloudStorageURLs.static}/${
+          staticStorageIndexes.formfiles
+        }/${this.formId}/${fileObj.id + this.paths.original}`,
+        {
+          responseType: 'blob'
+        }
+      )
+      .then(res => {
+        if (res.status === 200) {
+          if (res.data) {
+            fileObj.file = res.data
+            fileObj.uploaded = true
+            fileObj.src = null
+            this.updateFileSrc(itemIndex, fileIndex)
+          } else {
+            this.$toasted.global.error({
+              message: 'could not get image data'
+            })
+          }
+        } else {
+          this.$toasted.global.error({
+            message: `got status code of ${res.status} on image upload`
+          })
+        }
+      })
+      .catch(err => {
+        this.$toasted.global.error({
+          message: `got error on hero image get: ${err}`
+        })
+      })
+  },
   mounted() {
     if (this.getInitialData) {
       this.$apollo.query({query: gql`
-        query form($id: String!){form(id: $id){name,items{question,type,options,text,required,files},multiple,files{id,name,width,height,type}} }
+        query form($id: String!) {
+          form(id: $id){
+            name items{
+              question
+              type
+              options
+              text
+              required
+              files
+            }
+            multiple
+            files{
+              id
+              name
+              width
+              height
+              type
+            }
+          }
+        }
         `, variables: {id: this.formId}})
         .then(({ data }) => {
           this.name = data.form.name
           const newEditorContent = {}
+          console.log(data.form)
           for (let i = 0; i < data.form.items.length; i++) {
             if (data.form.items[i].type === itemTypes[3].id) {
               newEditorContent[i] = data.form.items[i].text
             }
-            data.form.items[i].files = [clone(defaultFile)]
+            if (data.form.items[i].files === null) {
+              data.form.items[i].files = []
+            }
+            data.form.items[i].files.map((fileObjIndex, itemIndex) => {
+              const fileData = data.form.files[fileObjIndex]
+              const fileObj = clone(defaultFile)
+              for (const key in fileData) {
+                fileObj[key] = fileData[key]
+              }
+              this.getFile(i, itemIndex)
+              return fileObj
+            })
           }
           this.editorContent = newEditorContent
           this.items = data.form.items
@@ -522,21 +615,46 @@ export default Vue.extend({
   methods: {
     submit(evt) {
       evt.preventDefault()
-      for (let i = 0; i < this.items.length; i++) {
-        if (this.items[i].type === itemTypes[3].id) {
-          this.items[i].text = this.editorContent[i]
-        }
-        delete this.items[i].__typename
-        this.items[i].files = []
-      }
-      // send images first
-      // then send json object
-      // console.log(this.items)
+      console.log('submit!')
+    },
+    update(updated) {
       const files = []
+      if (updated.includes('items') || updated.includes('files')) {
+        for (let i = 0; i < this.items.length; i++) {
+          if (this.items[i].type === itemTypes[3].id) {
+            this.items[i].text = this.editorContent[i]
+          }
+          if (this.items[i].type === itemTypes[5].id ||
+              this.items[i].type === itemTypes[6].id ||
+              this.items[i].type === itemTypes[7].id) {
+            for (let j = 0; j < this.items[i].files.length; j++) {
+              files.push({
+                id: this.items[i].files[j].id,
+                name: this.items[i].files[j].name,
+                width: this.items[i].files[j].width,
+                height: this.items[i].files[j].height,
+                type: this.items[i].files[j].type
+              })
+              this.items[i].files[j] = files.length - 1
+            }
+          } else {
+            this.items[i].files = []
+          }
+        }
+      }
       this.$apollo.mutate({mutation: gql`
-        mutation updateForm($id: String!, $name: String!, $items: [ItemInput!]!, $multiple: Boolean!, $files: [FileInput!]!)
-        {updateForm(id: $id, name: $name, items: $items, multiple: $multiple, files: $files){id} }
-        `, variables: {id: this.formId, name: this.name, items: this.items, multiple: this.multiple, files}})
+        mutation updateForm($id: String!, $name: String, $items: [ItemInput!], $multiple: Boolean, $files: [FileInput!]) {
+          updateForm(id: $id, name: $name, items: $items, multiple: $multiple, files: $files) {
+            id
+          }
+        }
+        `, variables: {
+          id: this.formId,
+          name: updated.includes('name') ? this.name : null,
+          items: updated.includes('items') ? this.items : null,
+          multiple: updated.includes('multiple') ? this.multiple : null,
+          files: updated.includes('files') ? files : null
+        }})
         .then(({ data }) => {
           console.log('updated!')
         }).catch(err => {
@@ -547,14 +665,13 @@ export default Vue.extend({
         })
     },
     getFileURL(itemIndex) {
-      return ''
-      /*
-      if (this.items[itemIndex].files[0].id.lenquerygth > 0) {
+      if (this.items[itemIndex].files[0].uploaded) {
         // it's uploaded. create link to get from cloud
-        return ''
+        return `${cloudStorageURLs.static}/${
+                staticStorageIndexes.formfiles
+              }/${this.formId}/${this.items[itemIndex].files[0].id + this.paths.original}`
       }
       return URL.createObjectURL(this.items[itemIndex].files[0].file)
-      */
     },
     checkImageType(type) {
       return /^image\/.*$/.test(type)
@@ -562,10 +679,85 @@ export default Vue.extend({
     checkVideoType(type) {
       return /^video\/.*$/.test(type)
     },
+    deleteFile(itemIndex, fileIndex) {
+      const fileObj = this.items[itemIndex].files[fileIndex]
+      fileObj.src = null
+      this.$axios
+        .delete('/deleteFiles', {
+          data: {
+            fileids: [
+              fileObj.id
+            ],
+            postid: this.formid,
+            posttype: this.objectType
+          }
+        })
+        .then(res => {
+          if (res.status === 200) {
+            console.log('deleted file')
+          } else {
+            this.$toasted.global.error({
+              message: `got status code of ${res.status} on file delete`
+            })
+          }
+        })
+        .catch(err => {
+          let message = `got error on file delete: ${err}`
+          if (err.response && err.response.data) {
+            message = err.response.data.message
+          }
+          this.$toasted.global.error({
+            message
+          })
+        })
+    },
+    uploadFile(itemIndex, fileIndex) {
+      const fileObj = this.items[itemIndex].files[fileIndex]
+      if (!fileObj.file) return
+      fileObj.uploadProgress = 0
+      if (fileObj.uploaded) {
+        this.deleteFile(itemIndex, fileIndex)
+      }
+      fileObj.uploaded = false
+      const formData = new FormData()
+      formData.append('file', fileObj.file)
+      this.$axios
+        .put('/writeFile', formData, {
+          params: {
+            posttype: this.objectType,
+            filetype: fileObj.file.type,
+            postid: this.formId
+          },
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        })
+        .then(res => {
+          if (res.status === 200) {
+            fileObj.uploadProgress = 100
+            fileObj.uploaded = true
+            fileObj.id = res.data.id
+            this.updateFileSrc(itemIndex, fileIndex)
+          } else {
+            this.$toasted.global.error({
+              message: `got status code of ${res.status} on file upload`
+            })
+          }
+        })
+        .catch(err => {
+          let message = `got error: ${err}`
+          if (err.response && err.response.data) {
+            message = err.response.data.message
+          }
+          console.log(message)
+          this.$toasted.global.error({
+            message
+          })
+        })
+    },
     updateFileSrc(itemIndex, fileIndex) {
       const fileObj = this.items[itemIndex].files[fileIndex]
       if (fileObj.file && !fileObj.src) {
-        fileObj.type = fileObj.file.type
         if (this.checkVideoType(fileObj.type))
           this.updateVideoSrc(itemIndex, fileIndex)
         else if (this.checkImageType(fileObj.type))
@@ -581,6 +773,7 @@ export default Vue.extend({
         fileObj.width = img.width
         fileObj.height = img.height
         console.log(`image width: ${fileObj.width}, height: ${fileObj.height}`)
+        this.update(['items', 'files'])
       }
       const reader = new FileReader()
       reader.onload = e => {
@@ -607,6 +800,7 @@ export default Vue.extend({
             fileObj.height = videotag.videoHeight
             // @ts-ignore
             fileObj.width = videotag.videoWidth
+            this.update(['items', 'files'])
           }
         })
       }
@@ -686,10 +880,20 @@ export default Vue.extend({
           if (this.validDisplayFiles.includes(this.items[itemIndex].files[0].type)) {
             this.updateFileSrc(itemIndex, 0)
           } else {
+            const fileObj = this.items[itemIndex].files[0]
+            if (fileObj.uploaded) {
+              this.deleteFile(itemIndex, 0)
+            }
             this.items[itemIndex].files = [clone(defaultFile)]
           }
+        } else if (this.items[itemIndex].files[0].uploaded &&
+          type.id !== itemTypes[6].id &&
+          type.id !== itemTypes[5].id) {
+          // no file uploads
+          this.deleteFIle(itemIndex, 0)
         }
       }
+      this.update(['items'])
     },
     deleteEditorData(itemIndex) {
       if (this.editorContent.hasOwnProperty(itemIndex)) {
@@ -713,6 +917,12 @@ export default Vue.extend({
       if (this.items[itemIndex].type === itemTypes[3].id) {
         this.deleteEditorData(itemIndex)
       }
+      if ((this.items[itemIndex].type === itemTypes[5].id ||
+          this.items[itemIndex].type === itemTypes[6].id ||
+          this.items[itemIndex].type === itemTypes[7].id) &&
+          this.items[itemIndex].files[0].uploaded) {
+        this.deleteFile(itemIndex, 0)
+      }
       this.items.splice(itemIndex, 1)
       if (this.focusIndex >= this.items.length) {
         if (this.items.length > 0) {
@@ -725,10 +935,12 @@ export default Vue.extend({
     addOption(evt, itemIndex) {
       evt.preventDefault()
       this.items[itemIndex].options.push('')
+      this.update(['items'])
     },
     removeOption(evt, itemIndex, optionIndex) {
       evt.preventDefault()
       this.items[itemIndex].options.splice(optionIndex, 1)
+      this.update(['items'])
     }
   }
 })

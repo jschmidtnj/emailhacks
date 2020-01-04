@@ -102,41 +102,117 @@ func checkAccessObj(accessObj map[string]interface{}) error {
 	return nil
 }
 
+func checkFileObjCreate(fileobj map[string]interface{}) error {
+	if fileobj["id"] == nil {
+		return errors.New("no file id given")
+	}
+	if _, ok := fileobj["id"].(string); !ok {
+		return errors.New("problem casting id to string")
+	}
+	if fileobj["name"] == nil {
+		return errors.New("no file name given")
+	}
+	if _, ok := fileobj["name"].(string); !ok {
+		return errors.New("problem casting name to string")
+	}
+	if fileobj["width"] == nil {
+		return errors.New("no file width given")
+	}
+	if _, ok := fileobj["width"].(int); !ok {
+		return errors.New("problem casting width to int")
+	}
+	if fileobj["height"] == nil {
+		return errors.New("no file height given")
+	}
+	if _, ok := fileobj["height"].(int); !ok {
+		return errors.New("problem casting height to int")
+	}
+	if fileobj["type"] == nil {
+		return errors.New("no file type given")
+	}
+	if _, ok := fileobj["type"].(string); !ok {
+		return errors.New("problem casting type to string")
+	}
+	return nil
+}
+
+func checkFileObjUpdate(fileobj map[string]interface{}) error {
+	if fileobj["id"] == nil {
+		return errors.New("no file id given")
+	}
+	if _, ok := fileobj["id"].(string); !ok {
+		return errors.New("problem casting id to string")
+	}
+	if fileobj["updateAction"] == nil {
+		return errors.New("no update action given")
+	}
+	action, ok := fileobj["updateAction"].(string)
+	if !ok {
+		return errors.New("update action cannot be cast to string")
+	}
+	if !findInArray(action, validUpdateActions) {
+		return errors.New("invalid action given")
+	}
+	if fileobj["name"] != nil {
+		if _, ok := fileobj["name"].(string); !ok {
+			return errors.New("problem casting name to string")
+		}
+	}
+	if fileobj["width"] != nil {
+		if _, ok := fileobj["width"].(int); !ok {
+			return errors.New("problem casting width to int")
+		}
+	}
+	if fileobj["height"] != nil {
+		if _, ok := fileobj["height"].(int); !ok {
+			return errors.New("problem casting height to int")
+		}
+	}
+	if fileobj["type"] != nil {
+		if _, ok := fileobj["type"].(string); !ok {
+			return errors.New("problem casting type to string")
+		}
+	}
+	return nil
+}
+
 func deleteForm(formID primitive.ObjectID, formData bson.M, formatDate bool, userIDString string) (map[string]interface{}, error) {
-	if formData == nil {
-		var err error
-		formData, err = getForm(formID, formatDate, false)
-		if err != nil {
-			return nil, err
-		}
-	}
 	formIDString := formID.Hex()
-	access, tags, categories, err := getFormattedGQLData(formData, nil, userIDString)
-	if err != nil {
-		return nil, err
-	}
-	formData["access"] = access
-	formData["categories"] = categories
-	formData["tags"] = tags
-	for _, accessUserData := range access {
-		accessUserID, err := primitive.ObjectIDFromHex(accessUserData["id"].(string))
+	if !justDeleteElastic {
+		if formData == nil {
+			var err error
+			formData, err = getForm(formID, formatDate, false)
+			if err != nil {
+				return nil, err
+			}
+		}
+		access, tags, categories, err := getFormattedGQLData(formData, nil, userIDString)
 		if err != nil {
 			return nil, err
 		}
-		_, err = userCollection.UpdateOne(ctxMongo, bson.M{
-			"_id": accessUserID,
-		}, bson.M{
-			"$pull": bson.M{
-				"forms": bson.M{
-					"id": formIDString,
+		formData["access"] = access
+		formData["categories"] = categories
+		formData["tags"] = tags
+		for _, accessUserData := range access {
+			accessUserID, err := primitive.ObjectIDFromHex(accessUserData["id"].(string))
+			if err != nil {
+				return nil, err
+			}
+			_, err = userCollection.UpdateOne(ctxMongo, bson.M{
+				"_id": accessUserID,
+			}, bson.M{
+				"$pull": bson.M{
+					"forms": bson.M{
+						"id": formIDString,
+					},
 				},
-			},
-		})
-		if err != nil {
-			return nil, err
+			})
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	_, err = elasticClient.Delete().
+	_, err := elasticClient.Delete().
 		Index(formElasticIndex).
 		Type(formElasticType).
 		Id(formIDString).
@@ -144,55 +220,57 @@ func deleteForm(formID primitive.ObjectID, formData bson.M, formatDate bool, use
 	if err != nil {
 		return nil, err
 	}
-	_, err = formCollection.DeleteOne(ctxMongo, bson.M{
-		"_id": formID,
-	})
-	if err != nil {
-		return nil, err
-	}
-	primativefiles, ok := formData["files"].(primitive.A)
-	if !ok {
-		return nil, errors.New("cannot convert files to primitive")
-	}
-	for _, primativefile := range primativefiles {
-		filedatadoc, ok := primativefile.(primitive.D)
-		if !ok {
-			return nil, errors.New("cannot convert file to primitive doc")
-		}
-		filedata := filedatadoc.Map()
-		fileid, ok := filedata["id"].(string)
-		if !ok {
-			return nil, errors.New("cannot convert file id to string")
-		}
-		filetype, ok := filedata["type"].(string)
-		if !ok {
-			return nil, errors.New("cannot convert file type to string")
-		}
-		fileobj := storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + originalPath)
-		if err := fileobj.Delete(ctxStorage); err != nil {
+	if !justDeleteElastic {
+		_, err = formCollection.DeleteOne(ctxMongo, bson.M{
+			"_id": formID,
+		})
+		if err != nil {
 			return nil, err
 		}
-		if filetype == "image/gif" {
-			fileobj = storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + placeholderPath + originalPath)
-			blurobj := storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + placeholderPath + blurPath)
+		primativefiles, ok := formData["files"].(primitive.A)
+		if !ok {
+			return nil, errors.New("cannot convert files to primitive")
+		}
+		for _, primativefile := range primativefiles {
+			filedatadoc, ok := primativefile.(primitive.D)
+			if !ok {
+				return nil, errors.New("cannot convert file to primitive doc")
+			}
+			filedata := filedatadoc.Map()
+			fileid, ok := filedata["id"].(string)
+			if !ok {
+				return nil, errors.New("cannot convert file id to string")
+			}
+			filetype, ok := filedata["type"].(string)
+			if !ok {
+				return nil, errors.New("cannot convert file type to string")
+			}
+			fileobj := storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + originalPath)
 			if err := fileobj.Delete(ctxStorage); err != nil {
 				return nil, err
 			}
-			if err := blurobj.Delete(ctxStorage); err != nil {
-				return nil, err
-			}
-		} else {
-			var hasblur = false
-			for _, blurtype := range haveblur {
-				if blurtype == filetype {
-					hasblur = true
-					break
-				}
-			}
-			if hasblur {
-				fileobj = storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + blurPath)
+			if filetype == "image/gif" {
+				fileobj = storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + placeholderPath + originalPath)
+				blurobj := storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + placeholderPath + blurPath)
 				if err := fileobj.Delete(ctxStorage); err != nil {
 					return nil, err
+				}
+				if err := blurobj.Delete(ctxStorage); err != nil {
+					return nil, err
+				}
+			} else {
+				var hasblur = false
+				for _, blurtype := range haveblur {
+					if blurtype == filetype {
+						hasblur = true
+						break
+					}
+				}
+				if hasblur {
+					fileobj = storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + blurPath)
+					if err := fileobj.Delete(ctxStorage); err != nil {
+						return nil, err
+					}
 				}
 			}
 		}

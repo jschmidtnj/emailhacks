@@ -45,7 +45,7 @@ var projectQueryFields = graphql.Fields{
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			// see this: https://github.com/olivere/elastic/issues/483
 			// for potential fix to source issue (tried gave null pointer error)
-			claims, err := validateLoggedIn(params.Context.Value(tokenKey).(string))
+			claims, err := getTokenData(params.Context.Value(tokenKey).(string))
 			if err != nil {
 				return nil, err
 			}
@@ -213,7 +213,7 @@ var projectQueryFields = graphql.Fields{
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			accessToken := params.Context.Value(tokenKey).(string)
-			claims, err := validateLoggedIn(accessToken)
+			claims, err := getTokenData(accessToken)
 			userIDString := claims["id"].(string)
 			if params.Args["id"] == nil {
 				return nil, errors.New("no id argument found")

@@ -18,7 +18,7 @@ var userQueryFields = graphql.Fields{
 			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-			accountdata, err := validateLoggedIn(params.Context.Value(tokenKey).(string))
+			accountdata, err := getTokenData(params.Context.Value(tokenKey).(string))
 			if err != nil {
 				return nil, err
 			}
@@ -158,7 +158,7 @@ var userQueryFields = graphql.Fields{
 			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-			_, err := validateLoggedIn(params.Context.Value(tokenKey).(string))
+			_, err := getTokenData(params.Context.Value(tokenKey).(string))
 			if err != nil {
 				return nil, err
 			}

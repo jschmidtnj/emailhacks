@@ -78,6 +78,8 @@ var jwtIssuer string
 
 var mode string
 
+var schema graphql.Schema
+
 // subscribers: https://github.com/graphql-go/graphql/issues/49
 // use normal websockets for sending update data between clients
 
@@ -102,7 +104,7 @@ func graphqlMiddleware() gin.HandlerFunc {
 	}
 }
 
-func graphqlHandler(schema graphql.Schema) gin.HandlerFunc {
+func graphqlHandler() gin.HandlerFunc {
 	handler := handler.New(
 		&handler.Config{
 			Schema:     &schema,
@@ -221,9 +223,10 @@ func main() {
 	shortlinkRecaptchaSecret = os.Getenv("SHORTLINKRECAPTCHASECRET")
 	shortlinkURL = os.Getenv("SHORTLINKURL")
 	port := ":" + os.Getenv("PORT")
-	schema, err := graphql.NewSchema(graphql.SchemaConfig{
-		Query:    rootQuery(),
-		Mutation: rootMutation(),
+	schema, err = graphql.NewSchema(graphql.SchemaConfig{
+		Query:        rootQuery(),
+		Mutation:     rootMutation(),
+		Subscription: rootSubscription(),
 	})
 	if err != nil {
 		logger.Fatal(err.Error())
@@ -257,11 +260,12 @@ func main() {
 	graphqlGroup := router.Group("/graphql")
 	graphqlGroup.Use(graphqlMiddleware())
 	{
-		graphqlGroup.GET("", graphqlHandler(schema))
-		graphqlGroup.POST("", graphqlHandler(schema))
-		graphqlGroup.PUT("", graphqlHandler(schema))
-		graphqlGroup.DELETE("", graphqlHandler(schema))
+		graphqlGroup.GET("", graphqlHandler())
+		graphqlGroup.POST("", graphqlHandler())
+		graphqlGroup.PUT("", graphqlHandler())
+		graphqlGroup.DELETE("", graphqlHandler())
 	}
+	router.GET("/subscriptions", subscriptionsHandler)
 	router.POST("/sendTestEmail", sendTestEmail)
 	router.PUT("/loginEmailPassword", loginEmailPassword)
 	router.POST("/register", register)

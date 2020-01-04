@@ -11,54 +11,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func checkFileObjCreate(fileobj map[string]interface{}) error {
-	if fileobj["id"] == nil {
-		return errors.New("no file id given")
-	}
-	if fileobj["name"] == nil {
-		return errors.New("no file name given")
-	}
-	if fileobj["width"] == nil {
-		return errors.New("no file width given")
-	}
-	if fileobj["height"] == nil {
-		return errors.New("no file height given")
-	}
-	if fileobj["type"] == nil {
-		return errors.New("no file type given")
-	}
-	return checkFileObjUpdate(fileobj)
-}
-
-func checkFileObjUpdate(fileobj map[string]interface{}) error {
-	if fileobj["id"] != nil {
-		if _, ok := fileobj["id"].(string); !ok {
-			return errors.New("problem casting id to string")
-		}
-	}
-	if fileobj["name"] != nil {
-		if _, ok := fileobj["name"].(string); !ok {
-			return errors.New("problem casting name to string")
-		}
-	}
-	if fileobj["width"] != nil {
-		if _, ok := fileobj["width"].(int); !ok {
-			return errors.New("problem casting width to int")
-		}
-	}
-	if fileobj["height"] != nil {
-		if _, ok := fileobj["height"].(int); !ok {
-			return errors.New("problem casting height to int")
-		}
-	}
-	if fileobj["type"] != nil {
-		if _, ok := fileobj["type"].(string); !ok {
-			return errors.New("problem casting type to string")
-		}
-	}
-	return nil
-}
-
 var blogMutationFields = graphql.Fields{
 	"addBlog": &graphql.Field{
 		Type:        BlogType,

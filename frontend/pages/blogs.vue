@@ -284,8 +284,14 @@ export default Vue.extend({
       const useCache = this.$store.state.auth.user && adminTypes.includes(this.$store.state.auth.user.type)
       this.$apollo.query({query: gql`
         query blogs($perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!, $tags: [String!]!, $categories: [String!]!, $cache: Boolean!)
-          {blogs(perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending, tags: $tags, categories: $categories, cache: $cache)
-          {title, views, id, author, updated} }
+          {blogs(perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending, tags: $tags, categories: $categories, cache: $cache) {
+            title
+            views
+            id
+            author
+            updated
+          }
+        }
         `, variables: {
             perpage: this.perPage,
             page: this.currentPage - 1,

@@ -34,6 +34,9 @@ var FileInputType = graphql.NewInputObject(
 			"id": &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
+			"updateAction": &graphql.InputObjectFieldConfig{
+				Type: graphql.String,
+			},
 			"name": &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},

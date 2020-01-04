@@ -104,7 +104,7 @@ var userMutationFields = graphql.Fields{
 			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-			claims, err := validateLoggedIn(params.Context.Value(tokenKey).(string))
+			claims, err := getTokenData(params.Context.Value(tokenKey).(string))
 			if err != nil {
 				return nil, err
 			}

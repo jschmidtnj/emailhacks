@@ -16,6 +16,8 @@ var shortLinkMongoName = "shortlink"
 
 var tokenKey = "token"
 
+var dataKey = "data"
+
 var graphiQL = false
 
 var graphqlPlayground = true
@@ -136,3 +138,10 @@ var haveblur = []string{
 var progressiveImageSize = 30
 
 var progressiveImageBlurAmount = 20.0
+
+var justDeleteElastic = false
+
+var validUpdateActions = []string{
+	"add",
+	"remove",
+}

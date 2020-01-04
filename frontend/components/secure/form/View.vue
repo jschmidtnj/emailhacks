@@ -164,7 +164,27 @@ export default Vue.extend({
   mounted() {
     if (this.formId) {
       this.$apollo.query({query: gql`
-        query form($id: String!){form(id: $id){name,items{question,type,options,text,required,files},multiple,files{id,name,width,height,type}} }
+        query form($id: String!){
+          form(id: $id) {
+            name
+            items {
+              question
+              type
+              options
+              text
+              required
+              files
+            }
+            multiple
+            files {
+              id
+              name
+              width
+              height
+              type
+            }
+          }
+        }
         `, variables: {id: this.formId}})
         .then(({ data }) => {
           console.log(data.form)

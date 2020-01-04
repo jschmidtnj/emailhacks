@@ -6,7 +6,13 @@ export const codes = {
 }
 
 export const cloudStorageURLs = {
-  blogs: 'https://cdn.mailpear.com'
+  static: 'https://storage.googleapis.com/emailhacks'
+}
+
+export const staticStorageIndexes = {
+  blogfiles: 'blogfiles',
+  formfiles: 'formfiles',
+  placeholder: 'placeholder'
 }
 
 // periodically check if logged in
@@ -47,11 +53,6 @@ export const options = {
 }
 
 export const defaultColor = '#194d332B'
-
-export const staticstorageindexes = {
-  blogfiles: 'blogfiles',
-  placeholder: 'placeholder'
-}
 
 export const validfiles = [
   'image/jpeg',

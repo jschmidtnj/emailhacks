@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"errors"
-	json "github.com/json-iterator/go"
 	"image"
 	"image/draw"
 	"image/gif"
@@ -12,12 +11,15 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"strconv"
+
+	json "github.com/json-iterator/go"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"cloud.google.com/go/storage"
 	"github.com/disintegration/imaging"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 func validateContentType(thetype string) error {
@@ -246,7 +248,8 @@ func writeFile(c *gin.Context) {
 		handleError("upload file http method not PUT", http.StatusBadRequest, response)
 		return
 	}
-	if _, err := validateAdmin(getAuthToken(request)); err != nil {
+	accessToken := getAuthToken(request)
+	if _, err := getTokenData(accessToken); err != nil {
 		handleError("auth error: "+err.Error(), http.StatusBadRequest, response)
 		return
 	}
@@ -268,20 +271,43 @@ func writeFile(c *gin.Context) {
 		handleError("invalid posttype in query", http.StatusBadRequest, response)
 		return
 	}
+	_, err := validateAdmin(accessToken)
+	isAdmin := err == nil
+	if posttype == blogType && !isAdmin {
+		handleError("you need to be admin to edit blogs", http.StatusBadRequest, response)
+		return
+	}
 	postid := request.URL.Query().Get("postid")
 	if postid == "" {
 		handleError("error getting post id from query", http.StatusBadRequest, response)
 		return
 	}
-	fileid := request.URL.Query().Get("fileid")
-	if fileid == "" {
-		handleError("error getting file id from query", http.StatusBadRequest, response)
+	postIDObj, err := primitive.ObjectIDFromHex(postid)
+	if err != nil {
+		handleError("invalid post id found", http.StatusBadRequest, response)
 		return
 	}
-	fileidDecoded, err := url.QueryUnescape(fileid)
-	if err != nil {
-		handleError(err.Error(), http.StatusBadRequest, response)
-		return
+	if posttype == formType {
+		_, err = checkFormAccess(postIDObj, accessToken, editAccessLevel, false, false)
+		if err != nil {
+			handleError(err.Error(), http.StatusBadRequest, response)
+			return
+		}
+	}
+	var fileid string
+	if posttype == blogType {
+		fileid = request.URL.Query().Get("fileid")
+		if fileid == "" {
+			handleError("error getting file id from query", http.StatusBadRequest, response)
+			return
+		}
+	} else {
+		uuid, err := uuid.NewRandom()
+		if err != nil {
+			handleError("error creating uuid: "+err.Error(), http.StatusBadRequest, response)
+			return
+		}
+		fileid = uuid.String()
 	}
 	file, _, err := request.FormFile("file")
 	if err != nil {
@@ -291,32 +317,32 @@ func writeFile(c *gin.Context) {
 	defer file.Close()
 	switch filetype {
 	case "image/jpeg":
-		if err = writeJpeg(file, filetype, posttype, fileidDecoded, postid); err != nil {
+		if err = writeJpeg(file, filetype, posttype, fileid, postid); err != nil {
 			handleError(err.Error(), http.StatusBadRequest, response)
 			return
 		}
 		break
 	case "image/png":
-		if err = writePng(file, filetype, posttype, fileidDecoded, postid); err != nil {
+		if err = writePng(file, filetype, posttype, fileid, postid); err != nil {
 			handleError(err.Error(), http.StatusBadRequest, response)
 			return
 		}
 		break
 	case "image/gif":
-		if err = writeGif(file, filetype, posttype, fileidDecoded, postid); err != nil {
+		if err = writeGif(file, filetype, posttype, fileid, postid); err != nil {
 			handleError(err.Error(), http.StatusBadRequest, response)
 			return
 		}
 		break
 	default:
-		if err = writeGenericFile(file, filetype, posttype, fileidDecoded, postid); err != nil {
+		if err = writeGenericFile(file, filetype, posttype, fileid, postid); err != nil {
 			handleError(err.Error(), http.StatusBadRequest, response)
 			return
 		}
 		break
 	}
 	response.Header().Set("Content-Type", "application/json")
-	response.Write([]byte(`{"message":"file updated"}`))
+	response.Write([]byte(`{"message":"file updated","id":"` + postid + `"}`))
 }
 
 func deleteFiles(c *gin.Context) {
@@ -326,7 +352,8 @@ func deleteFiles(c *gin.Context) {
 		handleError("delete post files http method not Delete", http.StatusBadRequest, response)
 		return
 	}
-	if _, err := validateAdmin(getAuthToken(request)); err != nil {
+	authToken := getAuthToken(request)
+	if _, err := getTokenData(authToken); err != nil {
 		handleError("auth error: "+err.Error(), http.StatusBadRequest, response)
 		return
 	}
@@ -366,6 +393,24 @@ func deleteFiles(c *gin.Context) {
 	if !findInArray(posttype, validTypes) {
 		handleError("invalid posttype in body", http.StatusBadRequest, response)
 		return
+	}
+	_, err = validateAdmin(authToken)
+	isAdmin := err == nil
+	if posttype == blogType && !isAdmin {
+		handleError("you need to be admin to edit blogs", http.StatusBadRequest, response)
+		return
+	}
+	postIDObj, err := primitive.ObjectIDFromHex(postid)
+	if err != nil {
+		handleError("invalid post id found", http.StatusBadRequest, response)
+		return
+	}
+	if posttype == formType {
+		_, err = checkFormAccess(postIDObj, authToken, editAccessLevel, false, false)
+		if err != nil {
+			handleError(err.Error(), http.StatusBadRequest, response)
+			return
+		}
 	}
 	fileids, ok := filedata["fileids"].([]interface{})
 	if !ok {

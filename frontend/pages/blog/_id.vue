@@ -8,12 +8,12 @@
               <b-img-lazy
                 v-if="blog.heroimage"
                 :blank-src="
-                  `${blogCdn}/${staticstorageindexes.blogfiles}/${
+                  `${blogCdn}/${staticStorageIndexes.blogfiles}/${
                     blog.id
                   }/${blog.heroimage.id + paths.blur}`
                 "
                 :src="
-                  `${blogCdn}/${staticstorageindexes.blogfiles}/${
+                  `${blogCdn}/${staticStorageIndexes.blogfiles}/${
                     blog.id
                   }/${blog.heroimage.id + paths.original}`
                 "
@@ -65,7 +65,7 @@ import LazyLoad from 'vanilla-lazyload'
 import PageLoading from '~/components/PageLoading.vue'
 import {
   cloudStorageURLs,
-  staticstorageindexes,
+  staticStorageIndexes,
   paths,
   adminTypes
 } from '~/assets/config'
@@ -90,8 +90,8 @@ export default Vue.extend({
       type: 'blog',
       blog: null,
       shortlinkurl,
-      blogCdn: cloudStorageURLs.blogs,
-      staticstorageindexes,
+      blogCdn: cloudStorageURLs.static,
+      staticStorageIndexes,
       paths
     }
   },
@@ -138,7 +138,7 @@ export default Vue.extend({
     ]
     const script = []
     if (this.blog) {
-      const image = `${cloudStorageURLs.blogs}/${this.staticstorageindexes.blogfiles
+      const image = `${cloudStorageURLs.static}/${this.staticStorageIndexes.blogfiles
       }/${this.blog.id}/${this.blog.tileimage.id + this.paths.original}`
       meta.push({
         property: 'og:image',

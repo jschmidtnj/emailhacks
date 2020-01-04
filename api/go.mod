@@ -27,7 +27,9 @@ require (
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/google/pprof v0.0.0-20190723021845-34ac40c74b70 // indirect
 	github.com/google/shlex v0.0.0-20181106134648-c34317bd91bf // indirect
+	github.com/google/uuid v1.1.1
 	github.com/gorilla/handlers v1.4.2 // indirect
+	github.com/gorilla/websocket v1.4.1
 	github.com/graphql-go/graphql v0.7.8
 	github.com/graphql-go/handler v0.2.3
 	github.com/hashicorp/golang-lru v0.5.3 // indirect

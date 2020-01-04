@@ -119,7 +119,7 @@ func checkProjectAccess(projectID primitive.ObjectID, accessToken string, necess
 			break
 		}
 		// next check if logged in
-		claims, err := validateLoggedIn(accessToken)
+		claims, err := getTokenData(accessToken)
 		if err != nil {
 			return nil, err
 		}
@@ -162,7 +162,7 @@ func countProjects(c *gin.Context) {
 		handleError("register http method not Get", http.StatusBadRequest, response)
 		return
 	}
-	claims, err := validateLoggedIn(getAuthToken(request))
+	claims, err := getTokenData(getAuthToken(request))
 	if err != nil {
 		handleError("user not logged in", http.StatusBadRequest, response)
 		return
