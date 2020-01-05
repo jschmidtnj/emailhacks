@@ -246,6 +246,9 @@ var formQueryFields = graphql.Fields{
 			"formatDate": &graphql.ArgumentConfig{
 				Type: graphql.Boolean,
 			},
+			"editAccessToken": &graphql.ArgumentConfig{
+				Type: graphql.Boolean,
+			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			accessToken := params.Context.Value(tokenKey).(string)
@@ -281,19 +284,20 @@ var formQueryFields = graphql.Fields{
 				if !ok {
 					return nil, errors.New("field cannot be converted to *ast.FIeld")
 				}
-				if fieldast.Name.Value == "updateToken" {
+				if fieldast.Name.Value == "updatesAccessToken" {
 					getFormUpdateToken = true
 					break
 				}
 			}
-			var necessaryAccessLevel []string
-			if getFormUpdateToken {
-				if len(userIDString) == 0 {
-					return nil, errors.New("cannot get access token with no edit access")
+			var necessaryAccessLevel = viewAccessLevel
+			if getFormUpdateToken && len(userIDString) != 0 && params.Args["editAccessToken"] != nil {
+				needEditAccess, ok := params.Args["editAccessToken"].(bool)
+				if !ok {
+					return nil, errors.New("cannot cast editAccessToken to bool")
 				}
-				necessaryAccessLevel = editAccessLevel
-			} else {
-				necessaryAccessLevel = viewAccessLevel
+				if needEditAccess {
+					necessaryAccessLevel = editAccessLevel
+				}
 			}
 			formData, err := checkFormAccess(formID, accessToken, necessaryAccessLevel, formatDate, false)
 			if err != nil {
@@ -336,7 +340,7 @@ var formQueryFields = graphql.Fields{
 				if err != nil {
 					return nil, err
 				}
-				formData["updateToken"] = tokenString
+				formData["updatesAccessToken"] = tokenString
 			}
 			_, err = formCollection.UpdateOne(ctxMongo, bson.M{
 				"_id": formID,

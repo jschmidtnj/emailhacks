@@ -4,7 +4,7 @@ import (
 	"errors"
 	json "github.com/json-iterator/go"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v7"
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/language/ast"
 	"github.com/olivere/elastic/v7"

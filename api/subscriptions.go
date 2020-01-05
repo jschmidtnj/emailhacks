@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"net/http"
-	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v7"
 	"github.com/gorilla/websocket"
 	"github.com/graphql-go/graphql"
 	json "github.com/json-iterator/go"
@@ -37,11 +37,11 @@ type Subscriber struct {
 }
 
 type Connection struct {
-	Conn        *redis.PubSub
-	Subscribers map[string]Subscriber
+	Conn          *redis.PubSub
+	Subscribers   map[string]Subscriber
+	LastSave      time.Time
+	AlreadySaving bool
 }
-
-var connections sync.Map
 
 func rootSubscription() *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
@@ -95,6 +95,7 @@ func subscriptionsHandler(c *gin.Context) {
 				payload := graphql.Do(graphql.Params{
 					Schema:        schema,
 					RequestString: msg.Payload.Query,
+					Context:       context.WithValue(context.Background(), miscKey, true),
 				})
 				if payload.HasErrors() {
 					message, err := json.Marshal(map[string]interface{}{
@@ -112,22 +113,28 @@ func subscriptionsHandler(c *gin.Context) {
 					}
 					return
 				}
-				updateTokenString := payload.Data.(map[string]interface{})["formUpdates"].(map[string]interface{})["id"].(string)
-				formIDString, userIDString, _ := getUpdateClaimsData(updateTokenString)
+				updatesAccessTokenString := payload.Data.(map[string]interface{})["formUpdates"].(map[string]interface{})["name"].(string)
+				formIDString, userIDString, _ := getUpdateClaimsData(updatesAccessTokenString, editAccessLevel)
 				var subscriber = Subscriber{
 					FormID:        formIDString,
 					Conn:          conn,
 					RequestString: msg.Payload.Query,
 					OperationID:   msg.OperationID,
 				}
-				currentConnection, ok := connections.Load(formIDString)
-				if !ok {
-					pubsub := redisClient.Subscribe("form-" + formIDString)
+				currentConnection, _ := connections.Load(formIDString)
+				if currentConnection == nil {
+					pubsub := redisClient.Subscribe(updateFormPath + formIDString)
+					currentTime := time.Now()
 					connections.Store(formIDString, Connection{
 						pubsub,
 						map[string]Subscriber{},
+						currentTime,
+						false,
 					})
+					logger.Info("start websocket sender")
 					go websocketSubscriptionSender(formIDString)
+				} else {
+					logger.Info("current connection not nil...")
 				}
 				currentConnection, _ = connections.Load(formIDString)
 				currentSub, ok := currentConnection.(Connection).Subscribers[userIDString]
@@ -138,6 +145,7 @@ func subscriptionsHandler(c *gin.Context) {
 					delete(currentConnection.(Connection).Subscribers, userIDString)
 				}
 				currentConnection.(Connection).Subscribers[userIDString] = subscriber
+				logger.Info("saved new subscriber")
 			}
 		}
 	}()
@@ -147,6 +155,7 @@ func websocketSubscriptionSender(formIDString string) {
 	for {
 		connection, ok := connections.Load(formIDString)
 		if !ok {
+			logger.Info("cannot find connection...")
 			return
 		}
 		connectionData := connection.(Connection)
@@ -155,7 +164,7 @@ func websocketSubscriptionSender(formIDString string) {
 				payload := graphql.Do(graphql.Params{
 					Schema:        schema,
 					RequestString: subscriber.RequestString,
-					Context:       context.WithValue(context.Background(), dataKey, msg),
+					Context:       context.WithValue(context.Background(), dataKey, msg.Payload),
 				})
 				message, err := json.Marshal(map[string]interface{}{
 					"type":    "data",
@@ -176,76 +185,4 @@ func websocketSubscriptionSender(formIDString string) {
 			}
 		}
 	}
-}
-
-func sender() {
-	go func() {
-		for {
-			/*
-				connections.Range(func(key, value interface{}) bool {
-					connection, ok := value.(*Connection)
-					if !ok {
-						return true
-					}
-					connection.Conn
-					return true
-				})
-				ch := pubsub.Channel()
-				// Consume messages.
-				for msg := range ch {
-					fmt.Println(msg.Channel, msg.Payload)
-				}
-				_ = pubsub.Close()
-					time.Sleep(1 * time.Second)
-					for _, post := range posts {
-						post.Likes = post.Likes + 1
-					}
-					subscribers.Range(func(key, value interface{}) bool {
-						subscriber, ok := value.(*Subscriber)
-						if !ok {
-							return true
-						}
-						// pass into context update data
-						// maybe look into this: https://stackoverflow.com/a/40380147
-						params := graphql.Params{
-							Schema:         *schema,
-							RequestString:  opts.Query,
-							VariableValues: opts.Variables,
-							OperationName:  opts.OperationName,
-							Context: context.WithValue(context.Background(), "x-auth-id", "12345"),
-						}
-						graphql.Do(params)
-						payload := graphql.Do(graphql.Params{
-							Schema:        schema,
-							RequestString: subscriber.RequestString,
-						})
-						message, err := json.Marshal(map[string]interface{}{
-							"type":    "data",
-							"id":      subscriber.OperationID,
-							"payload": payload,
-						})
-						if err != nil {
-							log.Printf("failed to marshal message: %v", err)
-							return true
-						}
-						if err := subscriber.Conn.WriteMessage(websocket.TextMessage, message); err != nil {
-							if err == websocket.ErrCloseSent {
-								subscribers.Delete(key)
-								return true
-							}
-							log.Printf("failed to write to ws connection: %v", err)
-							return true
-						}
-						return true
-					})
-			*/
-		}
-	}()
-}
-
-func executeJobs() {
-	// update routine to check redis db for jobs to do. if there is a job, assign a unique id to it
-	// and read again to make sure no one else took it. then perform task and sleep, do next task next
-	// https://github.com/graphql-go/graphql/issues/49
-
 }

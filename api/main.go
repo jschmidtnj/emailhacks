@@ -3,19 +3,24 @@ package main
 import (
 	"context"
 	"regexp"
+	"sync"
 
 	"cloud.google.com/go/storage"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v7"
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/handler"
 	"github.com/joho/godotenv"
 	json "github.com/json-iterator/go"
 	"github.com/olivere/elastic/v7"
+	"github.com/vmihailenco/taskq/v2"
+	"github.com/vmihailenco/taskq/v2/redisq"
 
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -80,8 +85,15 @@ var mode string
 
 var schema graphql.Schema
 
-// subscribers: https://github.com/graphql-go/graphql/issues/49
-// use normal websockets for sending update data between clients
+var queueFactory taskq.Factory
+
+var messageQueue taskq.Queue
+
+var ctxMessageQueue context.Context
+
+var saveFormTask *taskq.Task
+
+var connections sync.Map
 
 /**
  * @api {get} /hello Test rest request
@@ -114,6 +126,42 @@ func graphqlHandler() gin.HandlerFunc {
 		})
 	return func(c *gin.Context) {
 		handler.ServeHTTP(c.Writer, c.Request)
+	}
+}
+
+func setupCloseHandler() {
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		logger.Info("closing gracefully...")
+		if err := queueFactory.Close(); err != nil {
+			logger.Error("problem closing message queue factory: " + err.Error())
+		}
+		connections.Range(func(key, value interface{}) bool {
+			if err := value.(Connection).Conn.Close(); err != nil {
+				logger.Error("problem closing redis pubsub connection: " + err.Error())
+			}
+			return true
+		})
+		if err := redisClient.Close(); err != nil {
+			logger.Error("problem closing redis client: " + err.Error())
+		}
+		elasticClient.Stop()
+		if err := storageClient.Close(); err != nil {
+			logger.Error("error closing storage connection: " + err.Error())
+		}
+		if err := mongoClient.Disconnect(ctxMongo); err != nil {
+			logger.Error("problem closing mongodb connection: " + err.Error())
+		}
+		os.Exit(0)
+	}()
+}
+
+func setupMessageQueueWorker() {
+	err := queueFactory.StartConsumers(ctxMessageQueue)
+	if err != nil {
+		logger.Fatal("cannot start queue consumer: " + err.Error())
 	}
 }
 
@@ -195,7 +243,7 @@ func main() {
 		logger.Fatal("could not cast gcp project id to string")
 	}
 	if err := storageBucket.Create(ctxStorage, gcpprojectid, nil); err != nil {
-		logger.Info(err.Error())
+		logger.Info("error creating storage bucket: " + err.Error())
 	}
 	redisAddress := os.Getenv("REDISADDRESS")
 	redisPassword := os.Getenv("REDISPASSWORD")
@@ -215,6 +263,20 @@ func main() {
 	} else {
 		logger.Info("connected to redis cache: " + pong)
 	}
+	queueFactory = redisq.NewFactory()
+	messageQueue = queueFactory.RegisterQueue(&taskq.QueueOptions{
+		Name:  "api-task-worker",
+		Redis: redisClient,
+	})
+	ctxMessageQueue = context.Background()
+	saveFormTask = taskq.RegisterTask(&taskq.TaskOptions{
+		Name: "saveForm",
+		Handler: func(formIDString string) error {
+			return updateForm(formIDString)
+		},
+	})
+	setupCloseHandler()
+	setupMessageQueueWorker()
 	validHexcode, err = regexp.Compile(hexRegex)
 	if err != nil {
 		logger.Fatal(err.Error())

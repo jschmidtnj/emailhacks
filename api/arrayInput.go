@@ -21,7 +21,7 @@ func checkArrayInputObj(accessObj map[string]interface{}) error {
 	if !ok {
 		return errors.New("update action cannot be cast to string")
 	}
-	if !findInArray(action, validUpdateActions) {
+	if !findInArray(action, validUpdateArrayActions) {
 		return errors.New("invalid action given")
 	}
 	if accessObj["value"] == nil {

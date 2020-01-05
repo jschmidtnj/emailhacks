@@ -408,12 +408,12 @@
 
 <script lang="js">
 import Vue from 'vue'
-import clonedeep from 'lodash.clonedeep'
+import cloneDeepWith from 'lodash.clonedeepwith'
 import gql from 'graphql-tag'
 import axios from 'axios'
 import TextEditor from '~/components/secure/form/TextEditor.vue'
 import PageLoading from '~/components/PageLoading.vue'
-import { cloudStorageURLs, staticStorageIndexes, paths, defaultItemName, validfiles, validimages, validDisplayFiles } from '~/assets/config'
+import { cloudStorageURLs, staticStorageIndexes, paths, validfiles, validimages, validDisplayFiles } from '~/assets/config'
 
 // still need image picker and image viewer component
 
@@ -463,9 +463,11 @@ const defaultFile = {
   uploaded: false
 }
 const clone = (obj) => {
-  const newObj = clonedeep(obj)
-  delete newObj.__typename
-  return newObj
+  return cloneDeepWith(obj, (curr) => {
+    if (curr && typeof curr === 'object') {
+      delete curr.__typename
+    }
+  })
 }
 const defaultItem = {
   question: '',
@@ -482,10 +484,6 @@ export default Vue.extend({
     PageLoading
   },
   props: {
-    getInitialData: {
-      type: Boolean,
-      default: true
-    },
     projectId: {
       type: String,
       default: null
@@ -508,7 +506,8 @@ export default Vue.extend({
       editorContent: {},
       name: '',
       items: [],
-      multiple: false
+      multiple: false,
+      updatesAccessToken: null
     }
   },
   getFile(itemIndex, fileIndex) {
@@ -547,70 +546,69 @@ export default Vue.extend({
       })
   },
   mounted() {
-    if (this.getInitialData) {
-      this.$apollo.query({query: gql`
-        query form($id: String!) {
-          form(id: $id){
-            name items{
-              question
-              type
-              options
-              text
-              required
-              files
-            }
-            multiple
-            files{
-              id
-              name
-              width
-              height
-              type
-            }
+    this.$apollo.query({query: gql`
+      query form($id: String!) {
+        form(id: $id, editAccessToken: true){
+          name
+          items{
+            question
+            type
+            options
+            text
+            required
+            files
           }
+          multiple
+          files{
+            id
+            name
+            width
+            height
+            type
+          }
+          updatesAccessToken
         }
-        `, variables: {id: this.formId}})
-        .then(({ data }) => {
-          this.name = data.form.name
-          const newEditorContent = {}
-          console.log(data.form)
-          for (let i = 0; i < data.form.items.length; i++) {
-            if (data.form.items[i].type === itemTypes[3].id) {
-              newEditorContent[i] = data.form.items[i].text
-            }
-            if (data.form.items[i].files === null) {
-              data.form.items[i].files = []
-            }
-            data.form.items[i].files.map((fileObjIndex, itemIndex) => {
-              const fileData = data.form.files[fileObjIndex]
-              const fileObj = clone(defaultFile)
-              for (const key in fileData) {
-                fileObj[key] = fileData[key]
-              }
-              this.getFile(i, itemIndex)
-              return fileObj
-            })
+      }
+      `, variables: {id: this.formId}})
+      .then(({ data }) => {
+        this.name = data.form.name
+        const newEditorContent = {}
+        console.log(data.form)
+        for (let i = 0; i < data.form.items.length; i++) {
+          if (data.form.items[i].type === itemTypes[3].id) {
+            newEditorContent[i] = data.form.items[i].text
           }
-          this.editorContent = newEditorContent
-          this.items = data.form.items
-          this.multiple = data.form.multiple
-          this.loading = false
-          this.$nextTick(() => {
-            const newTextLocations = Object.keys(this.editorContent)
-            for (let i = 0; i < newTextLocations.length; i++) {
-              this.$refs[`editor-${newTextLocations[i]}`][0]._data.editor.setContent(this.editorContent[newTextLocations[i]])
+          if (data.form.items[i].files === null) {
+            data.form.items[i].files = []
+          }
+          data.form.items[i].files.map((fileObjIndex, itemIndex) => {
+            const fileData = data.form.files[fileObjIndex]
+            const fileObj = clone(defaultFile)
+            for (const key in fileData) {
+              fileObj[key] = fileData[key]
             }
+            this.getFile(i, itemIndex)
+            return fileObj
           })
-        }).catch(err => {
-          console.log(err.message)
-          this.$toasted.global.error({
-            message: `found error: ${err.message}`
-          })
+        }
+        this.updatesAccessToken = data.form.updatesAccessToken
+        this.editorContent = newEditorContent
+        this.items = data.form.items
+        this.multiple = data.form.multiple
+        this.loading = false
+        this.createSubscription()
+        this.$nextTick(() => {
+          const newTextLocations = Object.keys(this.editorContent)
+          for (let i = 0; i < newTextLocations.length; i++) {
+            this.$refs[`editor-${newTextLocations[i]}`][0]._data.editor.setContent(this.editorContent[newTextLocations[i]])
+          }
         })
-    } else {
-      this.name = defaultItemName
-      this.loading = false
-    }
+      }).catch(err => {
+        console.log(err.message)
+        this.$toasted.global.error({
+          message: `found error: ${err.message}`
+        })
+      })
   },
   methods: {
     submit(evt) {
@@ -663,6 +661,40 @@ export default Vue.extend({
             message: `found error: ${err.message}`
           })
         })
+    },
+    createSubscription() {
+      // for some reason variables didn't work with the subscription...
+      this.$apollo.subscribe({
+        query: gql`subscription updates {
+          formUpdates(id: "${this.formId}", updatesAccessToken: "${this.updatesAccessToken}") {
+            name
+            items{
+              question
+              type
+              options
+              text
+              required
+              files
+            }
+            multiple
+            files{
+              id
+              name
+              width
+              height
+              type
+            }
+          }
+        }`,
+        variables: {}
+      }).subscribe({
+        next (data) {
+          console.log(data)
+        },
+        error(error) {
+          console.error(error)
+        }
+      })
     },
     getFileURL(itemIndex) {
       if (this.items[itemIndex].files[0].uploaded) {
@@ -862,6 +894,7 @@ export default Vue.extend({
       return 'Unknown Type'
     },
     selectItemType(evt, itemIndex, type) {
+      console.log(this.items[itemIndex])
       evt.preventDefault()
       if (type.id === itemTypes[3].id) {
         this.items[itemIndex].options = []
@@ -893,7 +926,7 @@ export default Vue.extend({
           this.deleteFIle(itemIndex, 0)
         }
       }
-      this.update(['items'])
+      // this.update(['items'])
     },
     deleteEditorData(itemIndex) {
       if (this.editorContent.hasOwnProperty(itemIndex)) {
@@ -911,6 +944,28 @@ export default Vue.extend({
       }
       this.items.push(newItem)
       this.focusIndex = this.items.length - 1
+      const newItemUpdateObj = clone(newItem)
+      newItemUpdateObj.updateAction = 'add'
+      newItemUpdateObj.files = []
+      this.$apollo.mutate({mutation: gql`
+        mutation updateFormPart($id: String!, $updatesAccessToken: String!, $items: [ItemInput!]) {
+          updateFormPart(id: $id, items: $items, updatesAccessToken: $updatesAccessToken) {
+            id
+          }
+        }
+        `, variables: {
+          id: this.formId,
+          updatesAccessToken: this.updatesAccessToken,
+          items: [newItemUpdateObj]
+        }})
+        .then(({ data }) => {
+          console.log('added item!')
+        }).catch(err => {
+          console.error(err)
+          this.$toasted.global.error({
+            message: `found error: ${err.message}`
+          })
+        })
     },
     removeItem(evt, itemIndex) {
       evt.preventDefault()
@@ -923,7 +978,30 @@ export default Vue.extend({
           this.items[itemIndex].files[0].uploaded) {
         this.deleteFile(itemIndex, 0)
       }
-      this.items.splice(itemIndex, 1)
+      this.items[itemIndex].updateAction = 'remove'
+      this.items[itemIndex].index = itemIndex
+      this.items[itemIndex].files = []
+      delete this.items[itemIndex].__typename
+      this.$apollo.mutate({mutation: gql`
+        mutation updateFormPart($id: String!, $updatesAccessToken: String!, $items: [ItemInput!]) {
+          updateFormPart(id: $id, items: $items, updatesAccessToken: $updatesAccessToken) {
+            id
+          }
+        }
+        `, variables: {
+          id: this.formId,
+          updatesAccessToken: this.updatesAccessToken,
+          items: [this.items[itemIndex]]
+        }})
+        .then(({ data }) => {
+          this.items.splice(itemIndex, 1)
+          console.log('remove item!')
+        }).catch(err => {
+          console.error(err)
+          this.$toasted.global.error({
+            message: `found error: ${err.message}`
+          })
+        })
       if (this.focusIndex >= this.items.length) {
         if (this.items.length > 0) {
           this.focusIndex = this.items.length - 1

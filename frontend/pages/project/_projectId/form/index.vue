@@ -4,7 +4,6 @@
       v-if="formId && projectId"
       :form-id="formId"
       :project-id="projectId"
-      :get-initial-data="false"
     />
   </b-container>
 </template>

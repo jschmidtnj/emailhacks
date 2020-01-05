@@ -23,63 +23,6 @@ var FormUpdateResponseType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-// ItemType graphql question object
-var ItemType = graphql.NewObject(graphql.ObjectConfig{
-	Name: "Item",
-	Fields: graphql.Fields{
-		"question": &graphql.Field{
-			Type: graphql.String,
-		},
-		"type": &graphql.Field{
-			Type: graphql.String,
-		},
-		"options": &graphql.Field{
-			Type: graphql.NewList(graphql.String),
-		},
-		"text": &graphql.Field{
-			Type: graphql.String,
-		},
-		"required": &graphql.Field{
-			Type: graphql.Boolean,
-		},
-		// file is the index of the file in the array
-		"files": &graphql.Field{
-			Type: graphql.Int,
-		},
-	},
-})
-
-// ItemInputType - type of graphql input
-var ItemInputType = graphql.NewInputObject(graphql.InputObjectConfig{
-	Name: "ItemInput",
-	Fields: graphql.InputObjectConfigFieldMap{
-		"updateAction": &graphql.InputObjectFieldConfig{
-			Type: graphql.String,
-		},
-		"index": &graphql.InputObjectFieldConfig{
-			Type: graphql.Int,
-		},
-		"question": &graphql.InputObjectFieldConfig{
-			Type: graphql.String,
-		},
-		"type": &graphql.InputObjectFieldConfig{
-			Type: graphql.String,
-		},
-		"options": &graphql.InputObjectFieldConfig{
-			Type: graphql.NewList(StringArrayInputType),
-		},
-		"text": &graphql.InputObjectFieldConfig{
-			Type: graphql.String,
-		},
-		"required": &graphql.InputObjectFieldConfig{
-			Type: graphql.Boolean,
-		},
-		"files": &graphql.InputObjectFieldConfig{
-			Type: graphql.NewList(IntArrayInputType),
-		},
-	},
-})
-
 // FormType form type object for user forms graphql
 var FormType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 	Name: "Form",
@@ -126,7 +69,7 @@ var FormType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 		"files": &graphql.Field{
 			Type: graphql.NewList(FileType),
 		},
-		"updateToken": &graphql.Field{
+		"updatesAccessToken": &graphql.Field{
 			Type: graphql.String,
 		},
 	},

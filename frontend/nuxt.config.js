@@ -163,7 +163,8 @@ module.exports = {
         // Use websockets for everything (no HTTP)
         // You need to pass a `wsEndpoint` for this to work
         websocketsOnly: false,
-        tokenName: 'mail-pear-apollo-token'
+        tokenName: 'mail-pear-apollo-token',
+        wsEndpoint: `ws://${apiurl.split(/https?:\/\//g)[1]}/subscriptions`
       }
     }
   },

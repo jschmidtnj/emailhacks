@@ -16,6 +16,8 @@ var shortLinkMongoName = "shortlink"
 
 var tokenKey = "token"
 
+var miscKey = "misc"
+
 var dataKey = "data"
 
 var graphiQL = false
@@ -141,7 +143,17 @@ var progressiveImageBlurAmount = 20.0
 
 var justDeleteElastic = false
 
-var validUpdateActions = []string{
+var validUpdateArrayActions = []string{
 	"add",
 	"remove",
+	"move",
+	"set",
 }
+
+var validUpdateMapActions = []string{
+	"add",
+	"remove",
+	"set",
+}
+
+var autosaveTime = 3 // seconds

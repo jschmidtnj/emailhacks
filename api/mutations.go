@@ -102,80 +102,6 @@ func checkAccessObj(accessObj map[string]interface{}) error {
 	return nil
 }
 
-func checkFileObjCreate(fileobj map[string]interface{}) error {
-	if fileobj["id"] == nil {
-		return errors.New("no file id given")
-	}
-	if _, ok := fileobj["id"].(string); !ok {
-		return errors.New("problem casting id to string")
-	}
-	if fileobj["name"] == nil {
-		return errors.New("no file name given")
-	}
-	if _, ok := fileobj["name"].(string); !ok {
-		return errors.New("problem casting name to string")
-	}
-	if fileobj["width"] == nil {
-		return errors.New("no file width given")
-	}
-	if _, ok := fileobj["width"].(int); !ok {
-		return errors.New("problem casting width to int")
-	}
-	if fileobj["height"] == nil {
-		return errors.New("no file height given")
-	}
-	if _, ok := fileobj["height"].(int); !ok {
-		return errors.New("problem casting height to int")
-	}
-	if fileobj["type"] == nil {
-		return errors.New("no file type given")
-	}
-	if _, ok := fileobj["type"].(string); !ok {
-		return errors.New("problem casting type to string")
-	}
-	return nil
-}
-
-func checkFileObjUpdate(fileobj map[string]interface{}) error {
-	if fileobj["id"] == nil {
-		return errors.New("no file id given")
-	}
-	if _, ok := fileobj["id"].(string); !ok {
-		return errors.New("problem casting id to string")
-	}
-	if fileobj["updateAction"] == nil {
-		return errors.New("no update action given")
-	}
-	action, ok := fileobj["updateAction"].(string)
-	if !ok {
-		return errors.New("update action cannot be cast to string")
-	}
-	if !findInArray(action, validUpdateActions) {
-		return errors.New("invalid action given")
-	}
-	if fileobj["name"] != nil {
-		if _, ok := fileobj["name"].(string); !ok {
-			return errors.New("problem casting name to string")
-		}
-	}
-	if fileobj["width"] != nil {
-		if _, ok := fileobj["width"].(int); !ok {
-			return errors.New("problem casting width to int")
-		}
-	}
-	if fileobj["height"] != nil {
-		if _, ok := fileobj["height"].(int); !ok {
-			return errors.New("problem casting height to int")
-		}
-	}
-	if fileobj["type"] != nil {
-		if _, ok := fileobj["type"].(string); !ok {
-			return errors.New("problem casting type to string")
-		}
-	}
-	return nil
-}
-
 func deleteForm(formID primitive.ObjectID, formData bson.M, formatDate bool, userIDString string) (map[string]interface{}, error) {
 	formIDString := formID.Hex()
 	if !justDeleteElastic {
@@ -424,17 +350,18 @@ func rootMutation() *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: "Mutation",
 		Fields: graphql.Fields{
-			"addForm":       formMutationFields["addForm"],
-			"updateForm":    formMutationFields["updateForm"],
-			"deleteForm":    formMutationFields["deleteForm"],
-			"deleteUser":    userMutationFields["deleteUser"],
-			"deleteAccount": userMutationFields["deleteAccount"],
-			"addProject":    projectMutationFields["addProject"],
-			"updateProject": projectMutationFields["updateProject"],
-			"deleteProject": projectMutationFields["deleteProject"],
-			"addBlog":       blogMutationFields["addBlog"],
-			"updateBlog":    blogMutationFields["updateBlog"],
-			"deleteBlog":    blogMutationFields["deleteBlog"],
+			"addForm":        formMutationFields["addForm"],
+			"updateForm":     formMutationFields["updateForm"],
+			"updateFormPart": formMutationFields["updateFormPart"],
+			"deleteForm":     formMutationFields["deleteForm"],
+			"deleteUser":     userMutationFields["deleteUser"],
+			"deleteAccount":  userMutationFields["deleteAccount"],
+			"addProject":     projectMutationFields["addProject"],
+			"updateProject":  projectMutationFields["updateProject"],
+			"deleteProject":  projectMutationFields["deleteProject"],
+			"addBlog":        blogMutationFields["addBlog"],
+			"updateBlog":     blogMutationFields["updateBlog"],
+			"deleteBlog":     blogMutationFields["deleteBlog"],
 		},
 	})
 }
