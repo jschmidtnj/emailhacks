@@ -15,6 +15,9 @@ export const staticStorageIndexes = {
   placeholder: 'placeholder'
 }
 
+// autosave this quickly
+export const autosaveInterval = 1 * 1000
+
 // periodically check if logged in
 export const checkLoggedInInterval = 5 * 60 * 1000
 

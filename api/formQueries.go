@@ -229,7 +229,6 @@ var formQueryFields = graphql.Fields{
 					formData["access"] = access
 					formData["categories"] = categories
 					formData["tags"] = tags
-					formData["userId"] = userIDString
 					forms[i] = formData
 				}
 			}
@@ -368,7 +367,6 @@ var formQueryFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			formData["userId"] = userIDString
 			return formData, nil
 		},
 	},

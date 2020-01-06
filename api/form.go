@@ -14,23 +14,11 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-var FormUpdateResponseType = graphql.NewObject(graphql.ObjectConfig{
-	Name: "FormUpdate",
-	Fields: graphql.Fields{
-		"id": &graphql.Field{
-			Type: graphql.String,
-		},
-	},
-})
-
 // FormType form type object for user forms graphql
 var FormType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 	Name: "Form",
 	Fields: graphql.Fields{
 		"id": &graphql.Field{
-			Type: graphql.String,
-		},
-		"userId": &graphql.Field{
 			Type: graphql.String,
 		},
 		"created": &graphql.Field{
@@ -71,6 +59,28 @@ var FormType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 		},
 		"updatesAccessToken": &graphql.Field{
 			Type: graphql.String,
+		},
+	},
+})
+
+// FormUpdateType form update response type
+var FormUpdateType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
+	Name: "FormUpdate",
+	Fields: graphql.Fields{
+		"id": &graphql.Field{
+			Type: graphql.String,
+		},
+		"name": &graphql.Field{
+			Type: graphql.String,
+		},
+		"items": &graphql.Field{
+			Type: graphql.NewList(UpdateItemResponseType),
+		},
+		"multiple": &graphql.Field{
+			Type: graphql.Boolean,
+		},
+		"files": &graphql.Field{
+			Type: graphql.NewList(UpdateFileType),
 		},
 	},
 })

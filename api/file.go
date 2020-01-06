@@ -109,6 +109,58 @@ func checkFileObjUpdatePart(fileobj map[string]interface{}) error {
 	return nil
 }
 
+// UpdateFileType graphql file object
+var UpdateFileType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
+	Name: "UpdateFile",
+	Fields: graphql.Fields{
+		"id": &graphql.Field{
+			Type: graphql.String,
+		},
+		"name": &graphql.Field{
+			Type: graphql.String,
+		},
+		"width": &graphql.Field{
+			Type: graphql.Int,
+		},
+		"height": &graphql.Field{
+			Type: graphql.Int,
+		},
+		"type": &graphql.Field{
+			Type: graphql.String,
+		},
+		"updateAction": &graphql.Field{
+			Type: graphql.String,
+		},
+	},
+})
+
+// UpdateFileInputType - type of graphql input
+var UpdateFileInputType = graphql.NewInputObject(
+	graphql.InputObjectConfig{
+		Name: "UpdateFileInput",
+		Fields: graphql.InputObjectConfigFieldMap{
+			"id": &graphql.InputObjectFieldConfig{
+				Type: graphql.String,
+			},
+			"updateAction": &graphql.InputObjectFieldConfig{
+				Type: graphql.String,
+			},
+			"name": &graphql.InputObjectFieldConfig{
+				Type: graphql.String,
+			},
+			"height": &graphql.InputObjectFieldConfig{
+				Type: graphql.Int,
+			},
+			"width": &graphql.InputObjectFieldConfig{
+				Type: graphql.Int,
+			},
+			"type": &graphql.InputObjectFieldConfig{
+				Type: graphql.String,
+			},
+		},
+	},
+)
+
 // FileType graphql image object
 var FileType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 	Name: "File",
@@ -137,9 +189,6 @@ var FileInputType = graphql.NewInputObject(
 		Name: "FileInput",
 		Fields: graphql.InputObjectConfigFieldMap{
 			"id": &graphql.InputObjectFieldConfig{
-				Type: graphql.String,
-			},
-			"updateAction": &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
 			"name": &graphql.InputObjectFieldConfig{

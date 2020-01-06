@@ -222,7 +222,6 @@ var formMutationFields = graphql.Fields{
 				formData["updated"] = now.Format(dateFormat)
 			}
 			formData["id"] = formIDString
-			formData["userId"] = userIDString
 			delete(formData["access"].(bson.M), userIDString)
 			formData["access"] = userAccess[0]
 			formData["tags"] = tags
@@ -489,7 +488,7 @@ var formMutationFields = graphql.Fields{
 		},
 	},
 	"updateFormPart": &graphql.Field{
-		Type:        FormType,
+		Type:        FormUpdateType,
 		Description: "Update a Form",
 		Args: graphql.FieldConfigArgument{
 			"updatesAccessToken": &graphql.ArgumentConfig{
@@ -502,7 +501,7 @@ var formMutationFields = graphql.Fields{
 				Type: graphql.String,
 			},
 			"items": &graphql.ArgumentConfig{
-				Type: graphql.NewList(ItemInputType),
+				Type: graphql.NewList(UpdateItemInputType),
 			},
 			"multiple": &graphql.ArgumentConfig{
 				Type: graphql.Boolean,
@@ -511,7 +510,7 @@ var formMutationFields = graphql.Fields{
 				Type: graphql.String,
 			},
 			"files": &graphql.ArgumentConfig{
-				Type: graphql.NewList(FileInputType),
+				Type: graphql.NewList(UpdateFileInputType),
 			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
@@ -534,8 +533,7 @@ var formMutationFields = graphql.Fields{
 			if !ok {
 				return nil, errors.New("cannot cast update token to string")
 			}
-			var tokenFormIDString string
-			tokenFormIDString, _, err = getUpdateClaimsData(accessToken, editAccessLevel)
+			tokenFormIDString, userIDString, err := getUpdateClaimsData(accessToken, editAccessLevel)
 			if err != nil {
 				return nil, err
 			}
@@ -543,6 +541,9 @@ var formMutationFields = graphql.Fields{
 				return nil, errors.New("form id in token does not match given form id")
 			}
 			var updateData map[string]interface{}
+			newUpdateData := map[string]interface{}{
+				"id": userIDString,
+			}
 			savedUpdateData, err := redisClient.Get(updateFormPath + formIDString).Result()
 			if err != nil {
 				updateData = map[string]interface{}{}
@@ -558,6 +559,7 @@ var formMutationFields = graphql.Fields{
 					return nil, errors.New("problem casting name to string")
 				}
 				updateData["name"] = name
+				newUpdateData["name"] = name
 			}
 			if params.Args["multiple"] != nil {
 				multiple, ok := params.Args["multiple"].(bool)
@@ -565,6 +567,7 @@ var formMutationFields = graphql.Fields{
 					return nil, errors.New("problem casting multple to bool")
 				}
 				updateData["multiple"] = multiple
+				newUpdateData["multiple"] = multiple
 			}
 			if params.Args["items"] != nil {
 				itemsInterface, ok := params.Args["items"].([]interface{})
@@ -580,6 +583,7 @@ var formMutationFields = graphql.Fields{
 						return nil, err
 					}
 				}
+				newUpdateData["items"] = items
 				if updateData["items"] != nil {
 					currentItemUpdates, err := interfaceListToMapList(updateData["items"].([]interface{}))
 					if err != nil {
@@ -598,6 +602,7 @@ var formMutationFields = graphql.Fields{
 					return nil, errors.New("invalid public access level")
 				}
 				updateData["public"] = public
+				newUpdateData["public"] = public
 			}
 			if params.Args["files"] != nil {
 				filesinterface, ok := params.Args["files"].([]interface{})
@@ -613,7 +618,8 @@ var formMutationFields = graphql.Fields{
 						return nil, err
 					}
 				}
-				if updateData["items"] != nil {
+				newUpdateData["files"] = files
+				if updateData["files"] != nil {
 					currentFileUpdates, err := interfaceListToMapList(updateData["files"].([]interface{}))
 					if err != nil {
 						return nil, err
@@ -628,17 +634,20 @@ var formMutationFields = graphql.Fields{
 			}
 			err = redisClient.Set(updateFormPath+formIDString, updateDataJSON, time.Second*time.Duration(autosaveTime*2)).Err()
 			if err != nil {
-				logger.Info("got an error!")
 				return nil, err
 			}
 			// save update task
 			msg := saveFormTask.WithArgs(ctxMessageQueue, formIDString).OnceInPeriod(time.Duration(autosaveTime) * time.Second)
 			msg.Delay = time.Duration(autosaveTime) * time.Second
 			if err = messageQueue.Add(msg); err != nil {
+				logger.Info("update already saved: " + err.Error())
+			}
+			newUpdateDataJSON, err := json.Marshal(newUpdateData)
+			if err != nil {
 				return nil, err
 			}
 			// send to other clients
-			err = redisClient.Publish(updateFormPath+formIDString, updateDataJSON).Err()
+			err = redisClient.Publish(updateFormPath+formIDString, newUpdateDataJSON).Err()
 			if err != nil {
 				return nil, err
 			}
@@ -705,7 +714,6 @@ var formMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			formData["userId"] = userIDString
 			return formData, nil
 		},
 	},

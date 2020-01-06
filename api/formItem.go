@@ -6,6 +6,74 @@ import (
 	"github.com/graphql-go/graphql"
 )
 
+// UpdateItemResponseType response for item update
+var UpdateItemResponseType = graphql.NewObject(graphql.ObjectConfig{
+	Name: "UpdateItemResponse",
+	Fields: graphql.Fields{
+		"question": &graphql.Field{
+			Type: graphql.String,
+		},
+		"type": &graphql.Field{
+			Type: graphql.String,
+		},
+		"options": &graphql.Field{
+			Type: graphql.NewList(graphql.String),
+		},
+		"text": &graphql.Field{
+			Type: graphql.String,
+		},
+		"required": &graphql.Field{
+			Type: graphql.Boolean,
+		},
+		"files": &graphql.Field{
+			Type: graphql.NewList(graphql.Int),
+		},
+		"updateAction": &graphql.Field{
+			Type: graphql.String,
+		},
+		"index": &graphql.Field{
+			Type: graphql.Int,
+		},
+		"newIndex": &graphql.Field{
+			Type: graphql.Int,
+		},
+	},
+})
+
+// UpdateItemInputType - type of graphql input
+var UpdateItemInputType = graphql.NewInputObject(graphql.InputObjectConfig{
+	Name: "UpdateItemInput",
+	Fields: graphql.InputObjectConfigFieldMap{
+		"updateAction": &graphql.InputObjectFieldConfig{
+			Type: graphql.String,
+		},
+		"index": &graphql.InputObjectFieldConfig{
+			Type: graphql.Int,
+		},
+		"newIndex": &graphql.InputObjectFieldConfig{
+			Type: graphql.Int,
+		},
+		"question": &graphql.InputObjectFieldConfig{
+			Type: graphql.String,
+		},
+		"type": &graphql.InputObjectFieldConfig{
+			Type: graphql.String,
+		},
+		"options": &graphql.InputObjectFieldConfig{
+			Type: graphql.NewList(graphql.String),
+		},
+		"text": &graphql.InputObjectFieldConfig{
+			Type: graphql.String,
+		},
+		"required": &graphql.InputObjectFieldConfig{
+			Type: graphql.Boolean,
+		},
+		"files": &graphql.InputObjectFieldConfig{
+			Type: graphql.NewList(graphql.Int), // maybe change to IntArrayInputType
+		},
+	},
+})
+
 // ItemType graphql question object
 var ItemType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "Item",
@@ -27,7 +95,7 @@ var ItemType = graphql.NewObject(graphql.ObjectConfig{
 		},
 		// file is the index of the file in the array
 		"files": &graphql.Field{
-			Type: graphql.Int,
+			Type: graphql.NewList(graphql.Int),
 		},
 	},
 })
@@ -36,15 +104,6 @@ var ItemType = graphql.NewObject(graphql.ObjectConfig{
 var ItemInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 	Name: "ItemInput",
 	Fields: graphql.InputObjectConfigFieldMap{
-		"updateAction": &graphql.InputObjectFieldConfig{
-			Type: graphql.String,
-		},
-		"index": &graphql.InputObjectFieldConfig{
-			Type: graphql.Int,
-		},
-		"newIndex": &graphql.InputObjectFieldConfig{
-			Type: graphql.Int,
-		},
 		"question": &graphql.InputObjectFieldConfig{
 			Type: graphql.String,
 		},
@@ -169,10 +228,10 @@ func checkItemObjUpdatePart(itemObj map[string]interface{}) error {
 		}
 	}
 	if action == validUpdateArrayActions[2] {
-		if itemObj["toIndex"] == nil {
-			return errors.New("no to index given")
+		if itemObj["newIndex"] == nil {
+			return errors.New("no new index given")
 		}
-		if _, ok := itemObj["toIndex"].(int); !ok {
+		if _, ok := itemObj["newIndex"].(int); !ok {
 			return errors.New("cannot cast to index to int")
 		}
 	}

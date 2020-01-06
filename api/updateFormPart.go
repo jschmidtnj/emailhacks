@@ -119,9 +119,17 @@ func updateForm(formIDString string) error {
 			} else {
 				var index = -1
 				for i, fileItem := range files {
-					if fileItem.(primitive.M)["id"].(string) == fileUpdate["id"].(string) {
-						index = i
-						break
+					mapItem, ok := fileItem.(map[string]interface{})
+					if ok {
+						if mapItem["id"].(string) == fileUpdate["id"].(string) {
+							index = i
+							break
+						}
+					} else {
+						if fileItem.(bson.M)["id"].(string) == fileUpdate["id"].(string) {
+							index = i
+							break
+						}
 					}
 				}
 				if index < 0 {

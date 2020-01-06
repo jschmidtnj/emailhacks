@@ -48,7 +48,7 @@ func getUpdateClaimsData(accessToken string, accessLevel []string) (string, stri
 
 var collaborationFields = graphql.Fields{
 	"formUpdates": &graphql.Field{
-		Type:        FormType,
+		Type:        FormUpdateType,
 		Description: "Subscribe to form updates",
 		Args: graphql.FieldConfigArgument{
 			"id": &graphql.ArgumentConfig{
@@ -57,9 +57,6 @@ var collaborationFields = graphql.Fields{
 			"updatesAccessToken": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			data := params.Context.Value(dataKey)
@@ -67,35 +64,6 @@ var collaborationFields = graphql.Fields{
 				var dataObj map[string]interface{}
 				if err := json.UnmarshalFromString(data.(string), &dataObj); err != nil {
 					return nil, err
-				}
-				var formatDate = false
-				if params.Args["formatDate"] != nil {
-					var ok bool
-					formatDate, ok = params.Args["formatDate"].(bool)
-					if !ok {
-						return nil, errors.New("problem casting format date to boolean")
-					}
-				}
-				if dataObj["created"] != nil && formatDate {
-					if dataObj["id"] == nil {
-						return nil, errors.New("id not found")
-					}
-					idString, ok := dataObj["id"].(string)
-					if !ok {
-						return nil, errors.New("unable to cast id to string")
-					}
-					formID, err := primitive.ObjectIDFromHex(idString)
-					if err != nil {
-						return nil, errors.New("unable to create object id from string")
-					}
-					dataObj["created"] = objectidTimestamp(formID).Format(dateFormat)
-				}
-				if dataObj["updated"] != nil && formatDate {
-					updatedInt, ok := dataObj["updated"].(int64)
-					if !ok {
-						return nil, errors.New("cannot cast updated time to int")
-					}
-					dataObj["updated"] = intTimestamp(updatedInt).Format(dateFormat)
 				}
 				return dataObj, nil
 			} else if params.Context.Value(miscKey) != nil {

@@ -342,7 +342,7 @@ func writeFile(c *gin.Context) {
 		break
 	}
 	response.Header().Set("Content-Type", "application/json")
-	response.Write([]byte(`{"message":"file updated","id":"` + postid + `"}`))
+	response.Write([]byte(`{"message":"file updated","id":"` + fileid + `"}`))
 }
 
 func deleteFiles(c *gin.Context) {
