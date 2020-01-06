@@ -34,6 +34,7 @@ type Subscriber struct {
 	Conn          *websocket.Conn
 	RequestString string
 	OperationID   string
+	ID            string
 }
 
 type Connection struct {
@@ -95,7 +96,7 @@ func subscriptionsHandler(c *gin.Context) {
 				payload := graphql.Do(graphql.Params{
 					Schema:        schema,
 					RequestString: msg.Payload.Query,
-					Context:       context.WithValue(context.Background(), miscKey, true),
+					Context:       context.WithValue(context.Background(), getTokenKey, true),
 				})
 				if payload.HasErrors() {
 					message, err := json.Marshal(map[string]interface{}{
@@ -113,8 +114,29 @@ func subscriptionsHandler(c *gin.Context) {
 					}
 					return
 				}
-				updatesAccessTokenString := payload.Data.(map[string]interface{})["formUpdates"].(map[string]interface{})["name"].(string)
-				formIDString, userIDString, _ := getUpdateClaimsData(updatesAccessTokenString, editAccessLevel)
+				updatesAccessTokenString := payload.Data.(map[string]interface{})["formUpdates"].(map[string]interface{})["id"].(string)
+				formIDString, _, connectionIDString, _ := getUpdateClaimsData(updatesAccessTokenString, editAccessLevel)
+				payload = graphql.Do(graphql.Params{
+					Schema:        schema,
+					RequestString: msg.Payload.Query,
+					Context:       context.WithValue(context.Background(), getConnectionIDKey, connectionIDString),
+				})
+				message, err := json.Marshal(map[string]interface{}{
+					"type":    "data",
+					"id":      msg.OperationID,
+					"payload": payload,
+				})
+				if err != nil {
+					logger.Info("failed to marshal message: " + err.Error())
+				} else if err = conn.WriteMessage(websocket.TextMessage, message); err != nil {
+					logger.Error("failed to write to ws connection: " + err.Error())
+				}
+				if payload.HasErrors() || err != nil {
+					if err = conn.Close(); err != nil {
+						logger.Error("cannot close connection: " + err.Error())
+					}
+					return
+				}
 				var subscriber = Subscriber{
 					FormID:        formIDString,
 					Conn:          conn,
@@ -137,14 +159,14 @@ func subscriptionsHandler(c *gin.Context) {
 					logger.Info("current connection not nil...")
 				}
 				currentConnection, _ = connections.Load(formIDString)
-				currentSub, ok := currentConnection.(Connection).Subscribers[userIDString]
+				currentSub, ok := currentConnection.(Connection).Subscribers[connectionIDString]
 				if ok {
 					if err = currentSub.Conn.Close(); err != nil {
 						logger.Error("cannot close connection: " + err.Error())
 					}
-					delete(currentConnection.(Connection).Subscribers, userIDString)
+					delete(currentConnection.(Connection).Subscribers, connectionIDString)
 				}
-				currentConnection.(Connection).Subscribers[userIDString] = subscriber
+				currentConnection.(Connection).Subscribers[connectionIDString] = subscriber
 				logger.Info("saved new subscriber")
 			}
 		}

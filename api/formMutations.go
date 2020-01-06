@@ -533,7 +533,7 @@ var formMutationFields = graphql.Fields{
 			if !ok {
 				return nil, errors.New("cannot cast update token to string")
 			}
-			tokenFormIDString, userIDString, err := getUpdateClaimsData(accessToken, editAccessLevel)
+			tokenFormIDString, _, connectionIDString, err := getUpdateClaimsData(accessToken, editAccessLevel)
 			if err != nil {
 				return nil, err
 			}
@@ -542,7 +542,7 @@ var formMutationFields = graphql.Fields{
 			}
 			var updateData map[string]interface{}
 			newUpdateData := map[string]interface{}{
-				"id": userIDString,
+				"id": connectionIDString,
 			}
 			savedUpdateData, err := redisClient.Get(updateFormPath + formIDString).Result()
 			if err != nil {
@@ -619,6 +619,10 @@ var formMutationFields = graphql.Fields{
 					}
 				}
 				newUpdateData["files"] = files
+				for i, _ := range files {
+					delete(files[i], "fileIndex")
+					delete(files[i], "itemIndex")
+				}
 				if updateData["files"] != nil {
 					currentFileUpdates, err := interfaceListToMapList(updateData["files"].([]interface{}))
 					if err != nil {

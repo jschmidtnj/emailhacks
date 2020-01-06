@@ -36,7 +36,7 @@
             <hr />
             <draggable
               v-model="items"
-              @end="finishedDragging"
+              @end="(evt) => finishedDragging(evt, true)"
               group="items"
               ghost-class="ghost"
             >
@@ -134,6 +134,17 @@
                             <b-form-input
                               v-model="item.options[optionIndex]"
                               :placeholder="`option ${optionIndex + 1}`"
+                              @change="
+                                setUpdates({
+                                  items: [
+                                    {
+                                      updateAction: 'set',
+                                      index,
+                                      ...getItemData(index)
+                                    }
+                                  ]
+                                })
+                              "
                               size="sm"
                               type="text"
                               style="width:100%;"
@@ -348,7 +359,7 @@
                         <b-col class="text-right">
                           <button
                             :disabled="items.length <= 1"
-                            @click="(evt) => removeItem(evt, index)"
+                            @click="(evt) => removeItem(evt, index, true)"
                             class="button-link"
                             style="display: inline-block;"
                           >
@@ -378,7 +389,7 @@
               <b-row>
                 <b-col class="text-center">
                   <b-button
-                    @click="addItem"
+                    @click="(evt) => addItem(evt, true)"
                     pill
                     variant="primary"
                     class="add-button"
@@ -476,6 +487,16 @@ const clone = (obj) => {
     }
   })
 }
+const arrayMove = (arr, from, to) => {
+  if (to >= arr.length) {
+    let k = to - arr.length + 1;
+    while (k--) {
+      arr.push(undefined);
+    }
+  }
+  arr.splice(to, 0, arr.splice(from, 1)[0]);
+}
+const checkDefined = (field) => typeof field !== 'undefined' && field !== null
 const defaultItem = {
   question: '',
   type: itemTypes[0].id,
@@ -520,7 +541,8 @@ export default Vue.extend({
       name: '',
       items: [],
       multiple: false,
-      updatesAccessToken: null
+      updatesAccessToken: null,
+      connectionId: null
     }
   },
   mounted() {
@@ -578,7 +600,6 @@ export default Vue.extend({
         for (let i = 0; i < this.items.length; i++) {
           for (let j = 0; j < this.items[i].files.length; j++) {
             const fileObj = this.items[i].files[j]
-            console.log(this.items[i].files[j])
             // maybe use src instead with link
             if (fileObj.uploaded && (this.checkImageType(fileObj.type) || this.checkVideoType(fileObj.type))) {
               // this.getFile(i, j)
@@ -608,7 +629,6 @@ export default Vue.extend({
       console.log('submit!')
     },
     getFile(itemIndex, fileIndex) {
-      console.log('get file')
       const fileObj = this.items[itemIndex].files[fileIndex]
       axios
         .get(
@@ -648,12 +668,25 @@ export default Vue.extend({
     },
     getFileData(itemIndex, fileIndex) {
       return {
+        fileIndex,
+        itemIndex,
         id: this.items[itemIndex].files[fileIndex].id,
         name: this.items[itemIndex].files[fileIndex].name,
         width: this.items[itemIndex].files[fileIndex].width,
         height: this.items[itemIndex].files[fileIndex].height,
         type: this.items[itemIndex].files[fileIndex].type
       }
+    },
+    getTotalFileIndex(itemIndex, fileIndex) {
+      let totalFileIndex = 0
+      for (let i = 0; i < itemIndex; i++) {
+        this.items[i].files.forEach(file => {
+          if (file.uploaded) {
+            totalFileIndex++
+          }
+        })
+      }
+      return totalFileIndex + fileIndex
     },
     getItemData(itemIndex) {
       const item = {
@@ -668,14 +701,7 @@ export default Vue.extend({
         this.items[itemIndex].text = this.editorContent[itemIndex]
         item.text = this.items[itemIndex].text
       }
-      let currentFileIndex = 0
-      for (let i = 0; i < itemIndex; i++) {
-        this.items[i].files.forEach(file => {
-          if (file.uploaded) {
-            currentFileIndex++
-          }
-        })
-      }
+      let currentFileIndex = this.getTotalFileIndex(itemIndex, 0)
       for (let i = 0; i < this.items[itemIndex].files.length; i++) {
         if (this.items[itemIndex].files[i].uploaded) {
           item.files.push(currentFileIndex)
@@ -691,8 +717,6 @@ export default Vue.extend({
         })
       }
       if (items) {
-        console.log('save item updates')
-        console.log(items)
         items.forEach(item => {
           if (item.updateAction === 'set') {
             const itemIndex = this.pendingUpdates.items.findIndex(currentItem => {
@@ -748,17 +772,109 @@ export default Vue.extend({
         }})
         .then(({ data }) => {
           this.pendingUpdates = clone(defaultPendingUpdates)
-          console.log('updated!')
         }).catch(err => {
-          console.log(this.pendingUpdates.items)
           console.error(err)
           this.$toasted.global.error({
             message: `found error: ${err.message}`
           })
         })
     },
+    handleUpdates(data) {
+      let foundUpdate = false
+      const updateData = data.data.formUpdates
+      if (!updateData) return
+      if (!this.connectionId && updateData.id) {
+        const splitConnectionData = updateData.id.split('connection-')
+        if (splitConnectionData.length === 2) {
+          this.connectionId = splitConnectionData[1]
+        } else {
+          return
+        }
+      }
+      if (updateData.id === this.connectionId) return
+      if (checkDefined(updateData.name)) {
+        this.name = updateData.name
+        foundUpdate = true
+      }
+      if (checkDefined(updateData.multiple)) {
+        this.multiple = updateData.multiple
+        foundUpdate = true
+      }
+      if (checkDefined(updateData.items)) {
+        foundUpdate = true
+        updateData.items.forEach(item => {
+          if (item.updateAction === 'add') {
+            this.addItem(null, false)
+          } else if (item.updateAction === 'set') {
+            const index = item.index
+            const newItem = clone(defaultItem)
+            delete item.updateAction
+            delete item.index
+            delete item.newIndex
+            for (const key in item) {
+              if (key === 'files' && (!item.files || item.files.length === 0))
+                continue
+              newItem[key] = item[key]
+            }
+            this.items[index] = newItem
+            if (this.items[index].type === itemTypes[3].id) {
+              this.editorContent[index] = this.items[index].text
+              this.updateEditorContent(index)
+            }
+          } else if (item.updateAction === 'move') {
+            const from = item.index
+            const to = item.newIndex
+            arrayMove(this.items, from, to)
+            this.$nextTick(() => {
+              this.finishedDragging({
+                oldIndex: from,
+                newIndex: to
+              }, false)
+            })
+          } else if (item.updateAction === 'remove') {
+            const index = item.index
+            this.removeItem(null, index, false)
+          }
+        })
+      }
+      if (checkDefined(updateData.files)) {
+        console.log('constructor:')
+        console.log(updateData.files.constructor === Array)
+        console.log(updateData.files.constructor)
+        foundUpdate = true
+        updateData.files.forEach(file => {
+          const itemIndex = file.itemIndex
+          const fileIndex = file.fileIndex
+          const updateAction = file.updateAction
+          delete file.itemIndex
+          delete file.fileIndex
+          delete file.updateAction
+          if (updateAction === 'add') {
+            while (this.items[itemIndex].files.length < this.fileIndex + 1) {
+              this.items[itemIndex].files.push(clone(defaultItem))
+            }
+            for (const key in file) {
+              this.items[itemIndex].files[fileIndex][key] = file[key]
+            }
+          } else if (updateAction === 'set') {
+            for (const key in file) {
+              this.items[itemIndex].files[fileIndex][key] = file[key]
+            }
+          } else if (updateAction === 'remove') {
+            if (this.items[itemIndex].files.length === 1) {
+              this.items[itemIndex].files[0] = clone(defaultFile)
+            } else {
+              this.items[itemIndex].files.splice(fileIndex, 1)
+            }
+          }
+        })
+      }
+      if (foundUpdate) {
+        this.$forceUpdate()
+      }
+    },
     createSubscription() {
-      // for some reason variables didn't work with the subscription...
+      const updateFunction = this.handleUpdates
       this.$apollo.subscribe({
         query: gql`subscription updates {
           formUpdates(id: "${this.formId}", updatesAccessToken: "${this.updatesAccessToken}") {
@@ -783,13 +899,15 @@ export default Vue.extend({
               height
               type
               updateAction
+              fileIndex
+              itemIndex
             }
           }
         }`,
         variables: {}
       }).subscribe({
-        next (data) {
-          console.log(data)
+        next(data) {
+          updateFunction(data)
         },
         error(error) {
           console.error(error)
@@ -823,7 +941,10 @@ export default Vue.extend({
         }],
         files: [{
           updateAction: 'remove',
-          id: fileObj.id
+          index: this.getTotalFileIndex(itemIndex, fileIndex),
+          id: fileObj.id,
+          itemIndex,
+          fileIndex
         }]
       })
       this.$axios
@@ -900,7 +1021,6 @@ export default Vue.extend({
         })
     },
     updateFileSrc(itemIndex, fileIndex, justUploaded) {
-      console.log('update file source')
       const fileObj = this.items[itemIndex].files[fileIndex]
       if (fileObj.file && !fileObj.src) {
         if (!fileObj.type) {
@@ -922,6 +1042,7 @@ export default Vue.extend({
             }],
             files: [{
               updateAction: justUploaded ? 'add' : 'set',
+              index: this.getTotalFileIndex(itemIndex, fileIndex),
               ...this.getFileData(itemIndex, fileIndex)
             }]
           })
@@ -945,6 +1066,7 @@ export default Vue.extend({
           }],
           files: [{
             updateAction: justUploaded ? 'add' : 'set',
+            index: this.getTotalFileIndex(itemIndex, fileIndex),
             ...this.getFileData(itemIndex, fileIndex)
           }]
         })
@@ -982,6 +1104,7 @@ export default Vue.extend({
               }],
               files: [{
                 updateAction: justUploaded ? 'add' : 'set',
+                index: this.getTotalFileIndex(itemIndex, fileIndex),
                 ...this.getFileData(itemIndex, fileIndex)
               }]
             })
@@ -989,11 +1112,13 @@ export default Vue.extend({
         })
       }
       reader.readAsDataURL(fileObj.file)
-      console.log('done')
     },
-    finishedDragging(evt) {
+    updateEditorContent(index) {
+      this.$refs[`editor-${index}`][0]._data.editor.setContent(this.editorContent[index])
+    },
+    finishedDragging(evt, doUpdate) {
       if (evt.oldIndex === evt.newIndex) {
-        return;
+        return
       }
       const oldTextLocations = Object.keys(this.editorContent).map(elem => Number(elem)).sort()
       const newTextLocations = [...oldTextLocations]
@@ -1002,7 +1127,7 @@ export default Vue.extend({
       if (movingText) {
         indexOld = oldTextLocations.indexOf(evt.oldIndex)
         if (indexOld < 0) {
-          return;
+          return
         }
         newTextLocations.splice(indexOld, 1)
       }
@@ -1029,19 +1154,26 @@ export default Vue.extend({
       for (let i = 0; i < newTextLocations.length; i++) {
         newEditorContent[newTextLocations[i]] = this.editorContent[oldTextLocations[i]]
       }
-      for (let i = 0; i < newTextLocations.length; i++) {
-        this.$refs[`editor-${newTextLocations[i]}`][0]._data.editor.setContent(newEditorContent[newTextLocations[i]])
-      }
       this.editorContent = newEditorContent
-      this.setUpdates({
-        items: [{
-          updateAction: 'move',
-          index: evt.oldIndex,
-          newIndex: evt.newIndex
-        }]
-      })
-      console.log('moved item!')
-      this.focusIndex = evt.newIndex
+      for (let i = 0; i < newTextLocations.length; i++) {
+        this.updateEditorContent(newTextLocations[i])
+      }
+      if (doUpdate) {
+        this.setUpdates({
+          items: [{
+            updateAction: 'move',
+            index: evt.oldIndex,
+            newIndex: evt.newIndex
+          }]
+        })
+        this.focusIndex = evt.newIndex
+      } else if (this.focusIndex === evt.oldIndex) {
+        this.focusIndex = evt.newIndex
+      } else if (evt.newIndex >= this.focusIndex && evt.oldIndex <= this.focusIndex) {
+        this.focusIndex--
+      } else if (evt.newIndex <= this.focusIndex && evt.oldIndex >= this.focusIndex) {
+        this.focusIndex++
+      }
     },
     focusItem(evt, itemIndex) {
       this.focusIndex = itemIndex
@@ -1054,11 +1186,14 @@ export default Vue.extend({
       return 'Unknown Type'
     },
     selectItemType(evt, itemIndex, type) {
-      console.log(this.items[itemIndex])
       evt.preventDefault()
-      if (type.id === itemTypes[0].id ||
-          type.id === itemTypes[1].id) {
-        this.items[itemIndex].options = ['']
+      const oldType = this.items[itemIndex].type
+      if ((type.id === itemTypes[0].id ||
+          type.id === itemTypes[1].id)) {
+        if (!(oldType === itemTypes[0].id ||
+          oldType === itemTypes[1].id)) {
+          this.items[itemIndex].options = ['']
+        }
       } else {
         this.items[itemIndex].options = []
       }
@@ -1113,8 +1248,10 @@ export default Vue.extend({
         }]
       })
     },
-    addItem(evt) {
-      evt.preventDefault()
+    addItem(evt, doUpdate) {
+      if (evt) {
+        evt.preventDefault()
+      }
       const newItem = clone(defaultItem)
       if (newItem.type === itemTypes[0].id ||
           newItem.type === itemTypes[1].id) {
@@ -1125,13 +1262,16 @@ export default Vue.extend({
       const newItemUpdateObj = clone(newItem)
       newItemUpdateObj.updateAction = 'add'
       newItemUpdateObj.files = []
-      this.setUpdates({
-        items: [newItemUpdateObj]
-      })
-      console.log('added item!')
+      if (doUpdate) {
+        this.setUpdates({
+          items: [newItemUpdateObj]
+        })
+      }
     },
-    removeItem(evt, itemIndex) {
-      evt.preventDefault()
+    removeItem(evt, itemIndex, doUpdate) {
+      if (evt) {
+        evt.preventDefault()
+      }
       if (this.items[itemIndex].type === itemTypes[3].id) {
         this.deleteEditorData(itemIndex)
       }
@@ -1139,16 +1279,22 @@ export default Vue.extend({
           this.items[itemIndex].type === itemTypes[6].id ||
           this.items[itemIndex].type === itemTypes[7].id) &&
           this.items[itemIndex].files[0].uploaded) {
-        this.deleteFile(itemIndex, 0)
+        if (doUpdate) {
+          this.deleteFile(itemIndex, 0)
+        } else {
+          this.items[itemIndex].files[0].src = null
+          this.items[itemIndex].files[0].uploaded = false
+        }
       }
-      this.setUpdates({
-        items: [{
-          updateAction: 'remove',
-          index: itemIndex
-        }]
-      })
+      if (doUpdate) {
+        this.setUpdates({
+          items: [{
+            updateAction: 'remove',
+            index: itemIndex
+          }]
+        })
+      }
       this.items.splice(itemIndex, 1)
-      console.log('remove item!')
       if (this.focusIndex >= this.items.length) {
         if (this.items.length > 0) {
           this.focusIndex = this.items.length - 1

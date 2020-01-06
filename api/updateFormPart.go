@@ -77,9 +77,10 @@ func updateForm(formIDString string) error {
 					// move to new index
 					newIndex := int(itemUpdate["newIndex"].(float64))
 					delete(itemUpdate, "newIndex")
-					temp := items[newIndex]
-					items[newIndex] = items[index]
-					items[index] = temp
+					err = moveArray(items, index, newIndex)
+					if err != nil {
+						logger.Info(err.Error())
+					}
 				} else if action == validUpdateArrayActions[3] {
 					// set index to value
 					items[index] = itemUpdate
@@ -111,30 +112,14 @@ func updateForm(formIDString string) error {
 			return errors.New("cannot cast files to array")
 		}
 		for _, fileUpdate := range filesUpdate {
+			index := int(fileUpdate["index"].(float64))
+			delete(fileUpdate, "index")
 			action := fileUpdate["updateAction"].(string)
 			delete(fileUpdate, "updateAction")
 			if action == validUpdateMapActions[0] {
 				// add
 				files = append(files, fileUpdate)
 			} else {
-				var index = -1
-				for i, fileItem := range files {
-					mapItem, ok := fileItem.(map[string]interface{})
-					if ok {
-						if mapItem["id"].(string) == fileUpdate["id"].(string) {
-							index = i
-							break
-						}
-					} else {
-						if fileItem.(bson.M)["id"].(string) == fileUpdate["id"].(string) {
-							index = i
-							break
-						}
-					}
-				}
-				if index < 0 {
-					continue
-				}
 				if action == validUpdateMapActions[1] {
 					// remove
 					files = append(files[:index], files[index+1:]...)

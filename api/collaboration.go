@@ -9,41 +9,48 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func getUpdateClaimsData(accessToken string, accessLevel []string) (string, string, error) {
+func getUpdateClaimsData(accessToken string, accessLevel []string) (string, string, string, error) {
 	claims, err := getTokenData(accessToken)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	if claims["type"] == nil {
-		return "", "", errors.New("cannot find claims type")
+		return "", "", "", errors.New("cannot find claims type")
 	}
 	claimsType, ok := claims["type"].(string)
 	if !ok {
-		return "", "", errors.New("cannot cast type to string")
+		return "", "", "", errors.New("cannot cast type to string")
 	}
 	if !findInArray(claimsType, accessLevel) {
-		return "", "", errors.New("no edit access level found for editing form")
+		return "", "", "", errors.New("no edit access level found for editing form")
 	}
 	if claims["userid"] == nil {
-		return "", "", errors.New("cannot find user id")
+		return "", "", "", errors.New("cannot find user id")
 	}
 	userIDString, ok := claims["userid"].(string)
 	if !ok {
-		return "", "", errors.New("cannot cast user id to string")
+		return "", "", "", errors.New("cannot cast user id to string")
 	}
 	_, err = primitive.ObjectIDFromHex(userIDString)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	formIDString, ok := claims["formid"].(string)
 	if !ok {
-		return "", "", errors.New("cannot cast user id to string")
+		return "", "", "", errors.New("cannot cast user id to string")
 	}
 	_, err = primitive.ObjectIDFromHex(formIDString)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
-	return formIDString, userIDString, nil
+	if claims["connectionid"] == nil {
+		return "", "", "", errors.New("cannot find connection ID in token")
+	}
+	connectionIDString, ok := claims["connectionid"].(string)
+	if !ok {
+		return "", "", "", errors.New("cannot cast connection id to string")
+	}
+	return formIDString, userIDString, connectionIDString, nil
 }
 
 var collaborationFields = graphql.Fields{
@@ -66,7 +73,15 @@ var collaborationFields = graphql.Fields{
 					return nil, err
 				}
 				return dataObj, nil
-			} else if params.Context.Value(miscKey) != nil {
+			} else if params.Context.Value(getConnectionIDKey) != nil {
+				connectionIDString, ok := params.Context.Value(getConnectionIDKey).(string)
+				if !ok {
+					return nil, errors.New("cannot cast connectionID to string")
+				}
+				return map[string]interface{}{
+					"id": "connection-" + connectionIDString,
+				}, nil
+			} else if params.Context.Value(getTokenKey) != nil {
 				fieldarray := params.Info.FieldASTs
 				fieldselections := fieldarray[0].SelectionSet.Selections
 				var foundIDField = false
@@ -75,13 +90,13 @@ var collaborationFields = graphql.Fields{
 					if !ok {
 						return nil, errors.New("field cannot be converted to *ast.FIeld")
 					}
-					if fieldast.Name.Value == "name" {
+					if fieldast.Name.Value == "id" {
 						foundIDField = true
 						break
 					}
 				}
 				if !foundIDField {
-					return nil, errors.New("you must query name field, even if you don't use it")
+					return nil, errors.New("you must query id field, even if you don't use it")
 				}
 				if params.Args["updatesAccessToken"] == nil {
 					return nil, errors.New("cannot find update token")
@@ -90,7 +105,7 @@ var collaborationFields = graphql.Fields{
 				if !ok {
 					return nil, errors.New("cannot cast token to string")
 				}
-				tokenFormIDString, _, err := getUpdateClaimsData(updatesAccessTokenString, viewAccessLevel)
+				tokenFormIDString, _, _, err := getUpdateClaimsData(updatesAccessTokenString, viewAccessLevel)
 				if err != nil {
 					return nil, err
 				}
@@ -109,7 +124,7 @@ var collaborationFields = graphql.Fields{
 					return nil, errors.New("token form id does not match given form id")
 				}
 				formData := map[string]interface{}{
-					"name": updatesAccessTokenString,
+					"id": updatesAccessTokenString,
 				}
 				return formData, nil
 			} else {

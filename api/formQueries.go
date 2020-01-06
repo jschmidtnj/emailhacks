@@ -6,6 +6,7 @@ import (
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/google/uuid"
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/language/ast"
 	json "github.com/json-iterator/go"
@@ -15,9 +16,10 @@ import (
 )
 
 type formAccessClaims struct {
-	FormID string `json:"formid"`
-	UserID string `json:"userid"`
-	Type   string `json:"type"`
+	FormID       string `json:"formid"`
+	UserID       string `json:"userid"`
+	ConnectionID string `json:"connectionid"`
+	Type         string `json:"type"`
 	jwt.StandardClaims
 }
 
@@ -326,9 +328,15 @@ var formQueryFields = graphql.Fields{
 					accessType = validAccessTypes[1]
 				}
 				expirationTime := time.Now().Add(time.Duration(tokenExpiration) * time.Hour)
+				uuid, err := uuid.NewRandom()
+				if err != nil {
+					return nil, err
+				}
+				connectionIDString := uuid.String()
 				token := jwt.NewWithClaims(jwt.SigningMethodHS256, formAccessClaims{
 					formIDString,
 					userIDString,
+					connectionIDString,
 					accessType,
 					jwt.StandardClaims{
 						ExpiresAt: expirationTime.Unix(),

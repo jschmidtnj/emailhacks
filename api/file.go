@@ -86,6 +86,24 @@ func checkFileObjUpdatePart(fileobj map[string]interface{}) error {
 	if !findInArray(action, validUpdateMapActions) {
 		return errors.New("invalid action given")
 	}
+	if fileobj["index"] == nil {
+		return errors.New("no index given")
+	}
+	if _, ok := fileobj["index"].(int); !ok {
+		return errors.New("cannot cast index to int")
+	}
+	if fileobj["fileIndex"] == nil {
+		return errors.New("no file index given")
+	}
+	if _, ok := fileobj["fileIndex"].(int); !ok {
+		return errors.New("cannot cast file index to int")
+	}
+	if fileobj["itemIndex"] == nil {
+		return errors.New("no item index given")
+	}
+	if _, ok := fileobj["itemIndex"].(int); !ok {
+		return errors.New("cannot cast item index to int")
+	}
 	if fileobj["name"] != nil {
 		if _, ok := fileobj["name"].(string); !ok {
 			return errors.New("problem casting name to string")
@@ -131,6 +149,12 @@ var UpdateFileType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 		"updateAction": &graphql.Field{
 			Type: graphql.String,
 		},
+		"fileIndex": &graphql.Field{
+			Type: graphql.Int,
+		},
+		"itemIndex": &graphql.Field{
+			Type: graphql.Int,
+		},
 	},
 })
 
@@ -144,6 +168,15 @@ var UpdateFileInputType = graphql.NewInputObject(
 			},
 			"updateAction": &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
+			},
+			"index": &graphql.InputObjectFieldConfig{
+				Type: graphql.Int,
+			},
+			"fileIndex": &graphql.InputObjectFieldConfig{
+				Type: graphql.Int,
+			},
+			"itemIndex": &graphql.InputObjectFieldConfig{
+				Type: graphql.Int,
 			},
 			"name": &graphql.InputObjectFieldConfig{
 				Type: graphql.String,

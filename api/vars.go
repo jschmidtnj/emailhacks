@@ -16,9 +16,11 @@ var shortLinkMongoName = "shortlink"
 
 var tokenKey = "token"
 
-var miscKey = "misc"
+var getTokenKey = "misc"
 
 var dataKey = "data"
+
+var getConnectionIDKey = "connection"
 
 var graphiQL = false
 
