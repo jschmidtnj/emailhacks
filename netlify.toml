@@ -9,6 +9,6 @@
     Feature-Policy = "geolocation 'none'; midi 'none'; sync-xhr 'none'; microphone 'none'; camera 'none'; magnetometer 'none'; gyroscope 'none'; speaker 'none'; fullscreen 'none'; payment 'none'"
     X-Content-Type-Options = "nosniff"
 [build]
-  base = "frontend"
-  publish = "dist"
+  base = "frontend/"
+  publish = "frontend/dist"
   command = "yarn predeploy"

@@ -1,4 +1,0 @@
-[context.production]
-  base = "frontend"
-  publish = "dist"
-  command = "yarn predeploy"
