@@ -463,6 +463,7 @@ var formMutationFields = graphql.Fields{
 					return nil, err
 				}
 			}
+			updateDataElastic["updated"] = formData["updated"]
 			_, err = elasticClient.Update().
 				Index(formElasticIndex).
 				Type(formElasticType).

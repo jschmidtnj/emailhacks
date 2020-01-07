@@ -10,21 +10,16 @@
           </div>
         </li>
         <li class="nav-item">
-          <nuxt-link to="/projects" class="no-underline">
-            <a class="nav-link">All Projects</a>
-          </nuxt-link>
-        </li>
-        <li v-if="!inProject" class="nav-item">
-          <nuxt-link to="/forms" class="no-underline">
-            <a class="nav-link">All Forms</a>
-          </nuxt-link>
+          <a @click="navigationPath" href="#" class="nav-link">
+            {{ inProject ? 'Back' : 'All Projects' }}
+          </a>
         </li>
         <li class="nav-item">
           <nuxt-link v-if="!inProject" to="/project" class="no-underline">
             <a class="nav-link">New Project</a>
           </nuxt-link>
         </li>
-        <li v-if="inProject" class="nav-item">
+        <li v-if="inProject && !inForm" class="nav-item">
           <nuxt-link :to="`/project/${projectId}/form`" class="no-underline">
             <a class="nav-link">New Form</a>
           </nuxt-link>
@@ -40,12 +35,16 @@ export default Vue.extend({
   name: 'Sidebar',
   data() {
     return {
-      projectPath: '/project/'
+      projectPath: '/project/',
+      formPath: '/form/'
     }
   },
   computed: {
     inProject() {
       return this.$nuxt.$route.path.includes(this.projectPath)
+    },
+    inForm() {
+      return this.$nuxt.$route.path.includes(this.formPath)
     },
     projectId() {
       const projectPathIndex = this.$route.path.indexOf(this.projectPath)
@@ -57,6 +56,16 @@ export default Vue.extend({
         return after.substring(0, extraIndex)
       }
       return after
+    }
+  },
+  methods: {
+    navigationPath(evt) {
+      evt.preventDefault()
+      if (this.inProject) {
+        this.$router.go(-1)
+      } else {
+        this.$router.push({ path: '/projects' })
+      }
     }
   }
 })

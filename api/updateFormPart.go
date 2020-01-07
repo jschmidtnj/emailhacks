@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"time"
 
 	json "github.com/json-iterator/go"
 	"go.mongodb.org/mongo-driver/bson"
@@ -70,6 +71,9 @@ func updateForm(formIDString string) error {
 			} else {
 				index := int(itemUpdate["index"].(float64))
 				delete(itemUpdate, "index")
+				if index >= len(items) || index < 0 {
+					continue
+				}
 				if action == validUpdateArrayActions[1] {
 					// remove
 					items = append(items[:index], items[index+1:]...)
@@ -136,6 +140,8 @@ func updateForm(formIDString string) error {
 		updateDataDB["$set"].(bson.M)["files"] = files
 		updateDataElastic["files"] = files
 	}
+	updateDataElastic["updated"] = time.Now().Unix()
+	delete(updateDataElastic, "created")
 	_, err = elasticClient.Update().
 		Index(formElasticIndex).
 		Type(formElasticType).

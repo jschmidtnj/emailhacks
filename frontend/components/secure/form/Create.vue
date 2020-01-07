@@ -820,7 +820,9 @@ export default Vue.extend({
             this.items[index] = newItem
             if (this.items[index].type === itemTypes[3].id) {
               this.editorContent[index] = this.items[index].text
-              this.updateEditorContent(index)
+              this.$nextTick(() => {
+                this.updateEditorContent(index)
+              })
             }
           } else if (item.updateAction === 'move') {
             const from = item.index
@@ -847,6 +849,11 @@ export default Vue.extend({
           delete file.itemIndex
           delete file.fileIndex
           delete file.updateAction
+          if (!this.items[itemIndex].files) {
+            this.items[itemIndex].files = [clone(defaultFile)]
+          } else if (typeof this.items[itemIndex].files[0] === 'number') {
+            this.items[itemIndex].files[0] = clone(defaultFile)
+          }
           if (updateAction === 'add') {
             while (this.items[itemIndex].files.length < fileIndex) {
               this.items[itemIndex].files.push(clone(defaultFile))
@@ -1124,7 +1131,9 @@ export default Vue.extend({
       reader.readAsDataURL(fileObj.file)
     },
     updateEditorContent(index) {
-      this.$refs[`editor-${index}`][0]._data.editor.setContent(this.editorContent[index])
+      if (this.$refs[`editor-${index}`] && this.$refs[`editor-${index}`].length > 0) {
+        this.$refs[`editor-${index}`][0]._data.editor.setContent(this.editorContent[index])
+      }
     },
     finishedDragging(evt, doUpdate) {
       if (evt.oldIndex === evt.newIndex) {

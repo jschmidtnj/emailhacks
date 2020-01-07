@@ -173,7 +173,7 @@ export default Vue.extend({
       perPage: 5,
       pageOptions: [5, 10, 15],
       sortBy: null,
-      sortDesc: false,
+      sortDesc: true,
       search: ''
     }
   },

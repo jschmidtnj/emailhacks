@@ -183,7 +183,7 @@ export default Vue.extend({
       perPage: 5,
       pageOptions: [5, 10, 15],
       sortBy: null,
-      sortDesc: false,
+      sortDesc: true,
       search: ''
     }
   },
@@ -304,6 +304,7 @@ export default Vue.extend({
             }
           })
           this.items = forms
+          this.$forceUpdate()
         }).catch(err => {
           console.error(err)
           this.$toasted.global.error({
