@@ -144,9 +144,7 @@ export const actions = {
           })
           .catch((err) => {
             console.error(err)
-            this.$toasted.global.error({
-              message: `found error: ${err.message}`
-            })
+            reject(err)
           })
       }
     })

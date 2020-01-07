@@ -60,7 +60,6 @@ func subscriptionsHandler(c *gin.Context) {
 	if err != nil {
 		message := "failed to do websocket upgrade: " + err.Error()
 		logger.Error(message)
-		handleError(message, http.StatusBadRequest, response)
 		return
 	}
 	connectionACK, err := json.Marshal(map[string]string{
@@ -78,7 +77,7 @@ func subscriptionsHandler(c *gin.Context) {
 	go func() {
 		for {
 			_, p, err := conn.ReadMessage()
-			if websocket.IsCloseError(err, websocket.CloseGoingAway) {
+			if err != nil {
 				return
 			}
 			if err != nil {
@@ -93,6 +92,8 @@ func subscriptionsHandler(c *gin.Context) {
 				return
 			}
 			if msg.Type == "start" {
+				logger.Info("just starting")
+				logger.Info(msg.Payload.Query)
 				payload := graphql.Do(graphql.Params{
 					Schema:        schema,
 					RequestString: msg.Payload.Query,

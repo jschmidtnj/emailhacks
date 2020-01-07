@@ -2,9 +2,9 @@ const pkg = require('./package')
 require('dotenv').config()
 const seodata = JSON.parse(process.env.SEOCONFIG)
 const apiurl = process.env.APIURL
+const useSecure = process.env.USESECURE !== 'false'
 const recaptchasitekey = process.env.RECAPTCHASITEKEY
-
-const production = process.env.NODE_ENV === 'production'
+const fullApiUrl = `${useSecure ? 'https' : 'http'}://${apiurl}`
 
 const name = 'Mail Pear'
 
@@ -17,7 +17,7 @@ module.exports = {
     seoconfig: process.env.SEOCONFIG,
     githuburl: pkg.repository.url,
     authconfig: process.env.AUTHCONFIG,
-    apiurl,
+    apiurl: fullApiUrl,
     recaptchasitekey
   },
 
@@ -155,18 +155,16 @@ module.exports = {
     cookieAttributes: {
       expires: 1, // day(s)
       // domain: seodata.url, // defaults to domain where it was created
-      secure: production
+      secure: useSecure
     },
     clientConfigs: {
       default: {
-        httpEndpoint: `${apiurl}/graphql`,
+        httpEndpoint: fullApiUrl + '/graphql',
         // Use websockets for everything (no HTTP)
         // You need to pass a `wsEndpoint` for this to work
         websocketsOnly: false,
         tokenName: 'mail-pear-apollo-token',
-        wsEndpoint: `${production ? 'wss' : 'ws'}://${
-          apiurl.split(/https?:\/\//g)[1]
-        }/subscriptions`
+        wsEndpoint: `${useSecure ? 'wss' : 'ws'}://${apiurl}/subscriptions`
       }
     }
   },
@@ -201,7 +199,7 @@ module.exports = {
    ** See https://axios.nuxtjs.org/options
    */
   axios: {
-    baseURL: apiurl
+    baseURL: fullApiUrl
   },
   /*
    ** Sitemap config

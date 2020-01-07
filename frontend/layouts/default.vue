@@ -21,6 +21,7 @@ import Vue from 'vue'
 import Navbar from '~/components/Navbar.vue'
 import Sidebar from '~/components/Sidebar.vue'
 import MainFooter from '~/components/Footer.vue'
+import { checkLoggedInInterval } from '~/assets/config'
 export default Vue.extend({
   name: 'Default',
   components: {
@@ -50,9 +51,45 @@ export default Vue.extend({
       meta
     }
   },
+  data() {
+    return {
+      interval: null
+    }
+  },
   computed: {
     loggedIn() {
       return this.$store.state.auth && this.$store.state.auth.loggedIn
+    }
+  },
+  mounted() {
+    this.interval = setInterval(() => {
+      this.$store
+        .dispatch('auth/checkLoggedIn')
+        .then((loggedIn) => {
+          if (!loggedIn) {
+            this.$store.dispatch('auth/logout').then(() => {
+              console.log('logged out')
+            }).catch(err => {
+              this.$toasted.global.error({
+                message: err
+              })
+            })
+          }
+        })
+        .catch((err) => {
+          this.$store.dispatch('auth/logout').then(() => {
+            console.log('logged out')
+          }).catch(err => {
+            this.$toasted.global.error({
+              message: err
+            })
+          })
+        })
+    }, checkLoggedInInterval)
+  },
+  beforeDestroy() {
+    if (this.interval) {
+      clearInterval(this.interval)
     }
   }
 })
