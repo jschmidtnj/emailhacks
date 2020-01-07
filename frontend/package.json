@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "progressive email generator",
   "author": "Joshua",
-  "license": "MIT",
+  "license": "CC-BY-NC-SA",
   "private": false,
   "scripts": {
     "dev": "cross-env NODE_ENV=development nodemon server/index.js --watch server",
@@ -15,7 +15,7 @@
     "generate": "nuxt-ts generate",
     "lint": "eslint --ext .js,.vue --fix --ignore-path .gitignore .",
     "precommit": "yarn lint",
-    "predeploy": "yarn precommit && yarn email:build && yarn generate && cp -r dist/ ../dist/",
+    "predeploy": "yarn precommit && yarn email:build && yarn generate",
     "serve": "node staticserver.js",
     "now-build": "yarn predeploy",
     "deploy:gcp": "gcloud app deploy",

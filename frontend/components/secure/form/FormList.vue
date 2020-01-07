@@ -212,7 +212,7 @@ export default Vue.extend({
       )
         this.sortBy = this.$route.query.sortby
     }
-    this.searchForms(this.currentPage)
+    this.searchForms()
   },
   methods: {
     deleteForm(form) {
@@ -235,7 +235,7 @@ export default Vue.extend({
       this.sortBy = ctx.sortBy //   ==> Field key for sorting by (or null for no sorting)
       this.sortDesc = ctx.sortDesc // ==> true if sorting descending, false otherwise
       this.currentPage = 1
-      this.searchForms(this.currentPage)
+      this.searchForms()
     },
     updateCount() {
       this.$axios
@@ -304,7 +304,9 @@ export default Vue.extend({
             }
           })
           this.items = forms
-          this.$forceUpdate()
+          this.$nextTick(() => {
+            this.$forceUpdate()
+          })
         }).catch(err => {
           console.error(err)
           this.$toasted.global.error({

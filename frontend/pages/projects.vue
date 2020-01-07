@@ -227,14 +227,14 @@ export default Vue.extend({
       )
         this.sortBy = this.$route.query.sortby
     }
-    this.searchProjects(this.currentPage)
+    this.searchProjects()
   },
   methods: {
     sort(ctx) {
       this.sortBy = ctx.sortBy //   ==> Field key for sorting by (or null for no sorting)
       this.sortDesc = ctx.sortDesc // ==> true if sorting descending, false otherwise
       this.currentPage = 1
-      this.searchProjects(this.currentPage)
+      this.searchProjects()
     },
     deleteProject(project) {
       this.$apollo.mutate({mutation: gql`
@@ -310,7 +310,9 @@ export default Vue.extend({
             }
           })
           this.items = projects
-          this.$forceUpdate()
+          this.$nextTick(() => {
+            this.$forceUpdate()
+          })
         }).catch(err => {
           console.error(err)
           this.$toasted.global.error({

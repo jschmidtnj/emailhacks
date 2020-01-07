@@ -1,7 +1,8 @@
 {
   "name": "initadmin",
   "description": "admin initialization - add keys and stuff",
-  "license": "MIT",
+  "license": "CC-BY-NC-SA",
+  "author": "Joshua",
   "scripts": {
     "lint": "tslint --project tsconfig.json --fix",
     "build": "tsc",

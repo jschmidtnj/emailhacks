@@ -229,14 +229,14 @@ export default Vue.extend({
       )
         this.sortBy = this.$route.query.sortby
     }
-    this.searchBlogs(this.currentPage)
+    this.searchBlogs()
   },
   methods: {
     sort(ctx) {
       this.sortBy = ctx.sortBy //   ==> Field key for sorting by (or null for no sorting)
       this.sortDesc = ctx.sortDesc // ==> true if sorting descending, false otherwise
       this.currentPage = 1
-      this.searchBlogs(this.currentPage)
+      this.searchBlogs()
     },
     updateCount() {
       this.$axios

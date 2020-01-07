@@ -19,8 +19,8 @@
     "type": "git",
     "url": "git+https://github.com/jschmidtnj/emailhacks.git"
   },
-  "author": "Joshua Schmidt",
-  "license": "MIT",
+  "author": "Joshua",
+  "license": "CC-BY-NC-SA",
   "dependencies": {
     "pwabuilder": "^2.0.3-rc.0",
     "vuepress": "^0.14.11"

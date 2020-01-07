@@ -92,8 +92,6 @@ func subscriptionsHandler(c *gin.Context) {
 				return
 			}
 			if msg.Type == "start" {
-				logger.Info("just starting")
-				logger.Info(msg.Payload.Query)
 				payload := graphql.Do(graphql.Params{
 					Schema:        schema,
 					RequestString: msg.Payload.Query,

@@ -1332,6 +1332,7 @@ export default Vue.extend({
           ...this.getItemData(itemIndex)
         }]
       })
+      this.$forceUpdate()
     },
     removeOption(evt, itemIndex, optionIndex) {
       evt.preventDefault()
@@ -1343,6 +1344,7 @@ export default Vue.extend({
           ...this.getItemData(itemIndex)
         }]
       })
+      this.$forceUpdate()
     }
   }
 })
