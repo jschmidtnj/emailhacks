@@ -164,7 +164,9 @@ module.exports = {
         // You need to pass a `wsEndpoint` for this to work
         websocketsOnly: false,
         tokenName: 'mail-pear-apollo-token',
-        wsEndpoint: `ws://${apiurl.split(/https?:\/\//g)[1]}/subscriptions`
+        wsEndpoint: `${production ? 'wss' : 'ws'}://${
+          apiurl.split(/https?:\/\//g)[1]
+        }/subscriptions`
       }
     }
   },
