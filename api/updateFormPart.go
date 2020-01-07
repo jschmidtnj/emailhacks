@@ -114,6 +114,8 @@ func updateForm(formIDString string) error {
 		for _, fileUpdate := range filesUpdate {
 			index := int(fileUpdate["index"].(float64))
 			delete(fileUpdate, "index")
+			delete(fileUpdate, "fileIndex")
+			delete(fileUpdate, "itemIndex")
 			action := fileUpdate["updateAction"].(string)
 			delete(fileUpdate, "updateAction")
 			if action == validUpdateMapActions[0] {
@@ -122,7 +124,9 @@ func updateForm(formIDString string) error {
 			} else {
 				if action == validUpdateMapActions[1] {
 					// remove
-					files = append(files[:index], files[index+1:]...)
+					if index >= 0 && index < len(files) {
+						files = append(files[:index], files[index+1:]...)
+					}
 				} else if action == validUpdateMapActions[2] {
 					// set to value
 					files[index] = fileUpdate

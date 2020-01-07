@@ -487,6 +487,7 @@ const clone = (obj) => {
     }
   })
 }
+
 const arrayMove = (arr, from, to) => {
   if (to >= arr.length) {
     let k = to - arr.length + 1;
@@ -838,9 +839,6 @@ export default Vue.extend({
         })
       }
       if (checkDefined(updateData.files)) {
-        console.log('constructor:')
-        console.log(updateData.files.constructor === Array)
-        console.log(updateData.files.constructor)
         foundUpdate = true
         updateData.files.forEach(file => {
           const itemIndex = file.itemIndex
@@ -850,8 +848,11 @@ export default Vue.extend({
           delete file.fileIndex
           delete file.updateAction
           if (updateAction === 'add') {
-            while (this.items[itemIndex].files.length < this.fileIndex + 1) {
-              this.items[itemIndex].files.push(clone(defaultItem))
+            while (this.items[itemIndex].files.length < fileIndex) {
+              this.items[itemIndex].files.push(clone(defaultFile))
+            }
+            if (typeof this.items[itemIndex].files[fileIndex] === 'number') {
+              this.items[itemIndex].files[fileIndex] = clone(defaultFile)
             }
             for (const key in file) {
               this.items[itemIndex].files[fileIndex][key] = file[key]
@@ -861,10 +862,19 @@ export default Vue.extend({
               this.items[itemIndex].files[fileIndex][key] = file[key]
             }
           } else if (updateAction === 'remove') {
+            if (!this.items[itemIndex]) {
+              return
+            }
             if (this.items[itemIndex].files.length === 1) {
               this.items[itemIndex].files[0] = clone(defaultFile)
             } else {
               this.items[itemIndex].files.splice(fileIndex, 1)
+            }
+          }
+          if (updateAction === 'add' || updateAction === 'set') {
+            this.items[itemIndex].files[fileIndex].uploaded = true
+            if (this.checkImageType(file.type) || this.checkVideoType(file.type)) {
+              this.items[itemIndex].files[fileIndex].src = this.getFileURL(itemIndex, fileIndex)
             }
           }
         })

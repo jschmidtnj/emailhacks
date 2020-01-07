@@ -239,7 +239,7 @@ export default Vue.extend({
     deleteProject(project) {
       this.$apollo.mutate({mutation: gql`
         mutation deleteProject($id: String!){deleteProject(id: $id){id} }
-        `, variables: {id: this.projectId}})
+        `, variables: {id: project.id}})
         .then(({ data }) => {
           this.items.splice(this.items.indexOf(project), 1)
           this.$toasted.global.success({

@@ -619,10 +619,6 @@ var formMutationFields = graphql.Fields{
 					}
 				}
 				newUpdateData["files"] = files
-				for i, _ := range files {
-					delete(files[i], "fileIndex")
-					delete(files[i], "itemIndex")
-				}
 				if updateData["files"] != nil {
 					currentFileUpdates, err := interfaceListToMapList(updateData["files"].([]interface{}))
 					if err != nil {
