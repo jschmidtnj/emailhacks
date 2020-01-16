@@ -162,8 +162,6 @@ func register(c *gin.Context) {
 		"emailverified": false,
 		"type":          userType,
 		"updated":       now.Unix(),
-		"forms":         bson.A{},
-		"projects":      bson.A{},
 		"categories":    bson.A{},
 		"tags":          bson.A{},
 	})

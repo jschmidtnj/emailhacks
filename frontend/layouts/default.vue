@@ -62,7 +62,19 @@ export default Vue.extend({
     }
   },
   mounted() {
+    this.checkLoggedIn()
     this.interval = setInterval(() => {
+      this.checkLoggedIn()
+    }, checkLoggedInInterval)
+  },
+  beforeDestroy() {
+    if (this.interval) {
+      clearInterval(this.interval)
+    }
+  },
+  methods: {
+    checkLoggedIn() {
+      console.log('check data')
       this.$store
         .dispatch('auth/checkLoggedIn')
         .then((loggedIn) => {
@@ -85,11 +97,6 @@ export default Vue.extend({
             })
           })
         })
-    }, checkLoggedInInterval)
-  },
-  beforeDestroy() {
-    if (this.interval) {
-      clearInterval(this.interval)
     }
   }
 })

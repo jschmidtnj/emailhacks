@@ -9,13 +9,14 @@ import Vue from 'vue'
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({
+  name: 'Home',
   data() {
     return {}
   },
   // @ts-ignore
   head() {
     const title = 'Home'
-    const description = 'email 2.0'
+    const description = 'mail pear - email reimagined'
     const image = `${seo.url}/icon.png`
     return {
       title,

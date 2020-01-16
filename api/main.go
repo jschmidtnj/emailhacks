@@ -19,7 +19,6 @@ import (
 
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -30,8 +29,6 @@ import (
 )
 
 var jwtSecret []byte
-
-var tokenExpiration int
 
 var sendgridAPIKey string
 
@@ -63,11 +60,13 @@ var storageClient *storage.Client
 
 var storageBucket *storage.BucketHandle
 
+var storageAccessID string
+
+var storagePrivateKey []byte
+
 var logger *zap.Logger
 
 var redisClient *redis.Client
-
-var cacheTime time.Duration
 
 var validHexcode *regexp.Regexp
 
@@ -158,13 +157,6 @@ func setupCloseHandler() {
 	}()
 }
 
-func setupMessageQueueWorker() {
-	err := queueFactory.StartConsumers(ctxMessageQueue)
-	if err != nil {
-		logger.Fatal("cannot start queue consumer: " + err.Error())
-	}
-}
-
 func main() {
 	initAddRemoveAccessScript()
 	// "./logs"
@@ -196,10 +188,6 @@ func main() {
 		logger.Fatal("Error loading .env file")
 	}
 	jwtSecret = []byte(os.Getenv("SECRET"))
-	tokenExpiration, err = strconv.Atoi(os.Getenv("TOKENEXPIRATION"))
-	if err != nil {
-		logger.Fatal(err.Error())
-	}
 	sendgridAPIKey = os.Getenv("SENDGRIDAPIKEY")
 	serviceEmail = os.Getenv("SERVICEEMAIL")
 	jwtIssuer = os.Getenv("JWTISSUER")
@@ -236,8 +224,7 @@ func main() {
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
-	bucketName := os.Getenv("STORAGEBUCKETNAME")
-	storageBucket = storageClient.Bucket(bucketName)
+	storageBucket = storageClient.Bucket(storageBucketName)
 	gcpprojectid, ok := storageconfigjson["project_id"].(string)
 	if !ok {
 		logger.Fatal("could not cast gcp project id to string")
@@ -245,13 +232,17 @@ func main() {
 	if err := storageBucket.Create(ctxStorage, gcpprojectid, nil); err != nil {
 		logger.Info("error creating storage bucket: " + err.Error())
 	}
+	storagePrivateKeyString, ok := storageconfigjson["private_key"].(string)
+	if !ok {
+		logger.Fatal("cannot cast private key to string")
+	}
+	storagePrivateKey = []byte(storagePrivateKeyString)
+	storageAccessID, ok = storageconfigjson["client_email"].(string)
+	if !ok {
+		logger.Fatal("cannot cast storage access id to string")
+	}
 	redisAddress := os.Getenv("REDISADDRESS")
 	redisPassword := os.Getenv("REDISPASSWORD")
-	cacheSeconds, err := strconv.Atoi(os.Getenv("CACHETIME"))
-	if err != nil {
-		logger.Fatal(err.Error())
-	}
-	cacheTime = time.Duration(cacheSeconds) * time.Second
 	redisClient = redis.NewClient(&redis.Options{
 		Addr:     redisAddress,
 		Password: redisPassword,
@@ -276,7 +267,11 @@ func main() {
 		},
 	})
 	setupCloseHandler()
-	setupMessageQueueWorker()
+	// setup message queue worker
+	err = queueFactory.StartConsumers(ctxMessageQueue)
+	if err != nil {
+		logger.Fatal("cannot start queue consumer: " + err.Error())
+	}
 	validHexcode, err = regexp.Compile(hexRegex)
 	if err != nil {
 		logger.Fatal(err.Error())

@@ -14,6 +14,16 @@ import (
 
 func changeFormProject(formIDString string, oldProjectIDString string, newProjectIDString string) error {
 	if len(oldProjectIDString) > 0 {
+		script := elastic.NewScriptInline("ctx.forms-=1").Lang("painless")
+		_, err := elasticClient.Update().
+			Index(projectElasticIndex).
+			Type(projectElasticType).
+			Id(oldProjectIDString).
+			Script(script).
+			Do(ctxElastic)
+		if err != nil {
+			return err
+		}
 		projectID, err := primitive.ObjectIDFromHex(oldProjectIDString)
 		if err != nil {
 			return err
@@ -21,8 +31,8 @@ func changeFormProject(formIDString string, oldProjectIDString string, newProjec
 		_, err = projectCollection.UpdateOne(ctxMongo, bson.M{
 			"_id": projectID,
 		}, bson.M{
-			"$pull": bson.M{
-				"forms": formIDString,
+			"$dec": bson.M{
+				"forms": 1,
 			},
 		})
 		if err != nil {
@@ -30,6 +40,16 @@ func changeFormProject(formIDString string, oldProjectIDString string, newProjec
 		}
 	}
 	if len(newProjectIDString) > 0 {
+		script := elastic.NewScriptInline("ctx.forms+=1").Lang("painless")
+		_, err := elasticClient.Update().
+			Index(projectElasticIndex).
+			Type(projectElasticType).
+			Id(newProjectIDString).
+			Script(script).
+			Do(ctxElastic)
+		if err != nil {
+			return err
+		}
 		projectID, err := primitive.ObjectIDFromHex(newProjectIDString)
 		if err != nil {
 			return err
@@ -37,8 +57,8 @@ func changeFormProject(formIDString string, oldProjectIDString string, newProjec
 		_, err = projectCollection.UpdateOne(ctxMongo, bson.M{
 			"_id": projectID,
 		}, bson.M{
-			"$addToSet": bson.M{
-				"forms": formIDString,
+			"$inc": bson.M{
+				"forms": 1,
 			},
 		})
 		if err != nil {
@@ -179,12 +199,13 @@ var formMutationFields = graphql.Fields{
 				"type": editAccessLevel[0],
 			}}
 			formData := bson.M{
-				"updated":  now.Unix(),
-				"project":  project,
-				"name":     name,
-				"items":    items,
-				"multiple": multiple,
-				"views":    0,
+				"updated":   now.Unix(),
+				"project":   project,
+				"name":      name,
+				"items":     items,
+				"multiple":  multiple,
+				"views":     0,
+				"responses": 0,
 				"access": bson.M{
 					userIDString: bson.M{
 						"type":       userAccess[0]["type"].(string),

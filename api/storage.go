@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"time"
 
 	json "github.com/json-iterator/go"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -483,29 +484,115 @@ func getFile(c *gin.Context) {
 		handleError("error getting post id from query", http.StatusBadRequest, response)
 		return
 	}
+	postIDObj, err := primitive.ObjectIDFromHex(postid)
+	if err != nil {
+		handleError("invalid post id: "+err.Error(), http.StatusBadRequest, response)
+		return
+	}
 	fileid := request.URL.Query().Get("fileid")
 	if fileid == "" {
 		handleError("no file id", http.StatusBadRequest, response)
 		return
 	}
-	var fileobj *storage.ObjectHandle
+	requestType := request.URL.Query().Get("requestType")
+	if requestType == "" {
+		handleError("error getting request type from query", http.StatusBadRequest, response)
+		return
+	}
+	if requestType != "original" && requestType != "placeholder" && requestType != "blur" {
+		handleError("invalid request type given", http.StatusBadRequest, response)
+		return
+	}
+	fileType := request.URL.Query().Get("fileType")
+	if fileType == "" {
+		handleError("error getting file type from query", http.StatusBadRequest, response)
+		return
+	}
+	updateToken := request.URL.Query().Get("updateToken")
 	if posttype == formType {
-		fileobj = storageBucket.Object(formFileIndex + "/" + postid + "/" + fileid + originalPath)
+		if updateToken != "" {
+			accessToken := getAuthToken(request)
+			_, err := checkFormAccess(postIDObj, accessToken, viewAccessLevel, false, false)
+			if err != nil {
+				handleError("no project access: "+err.Error(), http.StatusUnauthorized, response)
+				return
+			}
+		} else {
+			tokenFormIDString, _, _, err := getUpdateClaimsData(updateToken, editAccessLevel)
+			if err != nil {
+				handleError("invalid update token: "+err.Error(), http.StatusUnauthorized, response)
+				return
+			}
+			if tokenFormIDString != postid {
+				handleError("update token for wrong form: "+err.Error(), http.StatusUnauthorized, response)
+				return
+			}
+		}
+	}
+	var filepath string
+	var fileIndex string
+	if posttype == formType {
+		fileIndex = formFileIndex
 	} else {
-		fileobj = storageBucket.Object(blogFileIndex + "/" + postid + "/" + fileid + originalPath)
+		fileIndex = blogFileIndex
 	}
-	filereader, err := fileobj.NewReader(ctxStorage)
-	if err != nil {
-		handleError("error reading file: "+err.Error(), http.StatusBadRequest, response)
-		return
+	var addPlaceholderPath string
+	if fileType == "image/gif" {
+		addPlaceholderPath = placeholderPath
 	}
-	defer filereader.Close()
-	filebuffer := new(bytes.Buffer)
-	if bytesread, err := filebuffer.ReadFrom(filereader); err != nil {
-		handleError("error reading to buffer: num bytes: "+strconv.FormatInt(bytesread, 10)+", "+err.Error(), http.StatusBadRequest, response)
-		return
+	switch requestType {
+	case "original":
+		filepath = fileIndex + "/" + postid + "/" + fileid + originalPath
+		break
+	case "placeholder":
+		filepath = fileIndex + "/" + postid + "/" + fileid + addPlaceholderPath + originalPath
+		break
+	case "blur":
+		filepath = fileIndex + "/" + postid + "/" + fileid + addPlaceholderPath + blurPath
+		break
 	}
-	contentType := filereader.Attrs.ContentType
-	response.Header().Set("Content-Type", contentType)
-	response.Write(filebuffer.Bytes())
+	if requestType == "file" {
+		var fileobj *storage.ObjectHandle
+		fileobj = storageBucket.Object(filepath)
+		filereader, err := fileobj.NewReader(ctxStorage)
+		if err != nil {
+			handleError("error reading file: "+err.Error(), http.StatusBadRequest, response)
+			return
+		}
+		defer filereader.Close()
+		filebuffer := new(bytes.Buffer)
+		if bytesread, err := filebuffer.ReadFrom(filereader); err != nil {
+			handleError("error reading to buffer: num bytes: "+strconv.FormatInt(bytesread, 10)+", "+err.Error(), http.StatusBadRequest, response)
+			return
+		}
+		contentType := filereader.Attrs.ContentType
+		response.Header().Set("Content-Type", contentType)
+		response.Write(filebuffer.Bytes())
+	} else {
+		fileUrl, err := getSignedURL(filepath, validAccessTypes[2])
+		if err != nil {
+			handleError(err.Error(), http.StatusBadRequest, response)
+			return
+		}
+		response.Header().Set("Content-Type", "application/json")
+		response.Write([]byte(`{"url":"` + fileUrl + `"}`))
+	}
+}
+
+func getSignedURL(path string, accessType string) (string, error) {
+	var accessMethod string
+	if accessType == validAccessTypes[2] {
+		// view
+		accessMethod = "GET"
+	} else {
+		// edit
+		accessMethod = "PUT"
+	}
+	// form
+	return storage.SignedURL(storageBucketName, path, &storage.SignedURLOptions{
+		Expires:        time.Now().Add(time.Minute * time.Duration(storageAccessTime)),
+		Method:         accessMethod,
+		GoogleAccessID: storageAccessID,
+		PrivateKey:     storagePrivateKey,
+	})
 }

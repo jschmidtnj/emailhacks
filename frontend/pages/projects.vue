@@ -188,7 +188,7 @@ export default Vue.extend({
   // @ts-ignore
   head() {
     const title = 'Search Projects'
-    const description = 'search for projects, by name, views, etc'
+    const description = 'search for projects'
     const image = `${seo.url}/icon.png`
     return {
       title,

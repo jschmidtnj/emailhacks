@@ -31,7 +31,7 @@ var ProjectType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 			Type: graphql.String,
 		},
 		"forms": &graphql.Field{
-			Type: graphql.NewList(graphql.String),
+			Type: graphql.Int,
 		},
 		"access": &graphql.Field{
 			Type: graphql.NewList(AccessType),
@@ -115,7 +115,7 @@ func checkProjectAccess(projectID primitive.ObjectID, accessToken string, necess
 		}
 		// if public just break
 		publicAccess := projectData["public"].(string)
-		if findInArray(publicAccess, viewAccessLevel) {
+		if findInArray(publicAccess, necessaryAccess) {
 			break
 		}
 		// next check if logged in

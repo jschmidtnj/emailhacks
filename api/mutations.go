@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/graphql-go/graphql"
 
@@ -11,7 +10,7 @@ import (
 )
 
 func getFormattedGQLData(itemData map[string]interface{}, changedAccess []map[string]interface{}, userIDString string) ([]map[string]interface{}, []string, []string, error) {
-	if itemData["access"] == nil {
+	if itemData["access"] == nil || len(userIDString) == 0 {
 		return []map[string]interface{}{}, []string{}, []string{}, nil
 	}
 	userData := itemData["access"].(map[string]bson.M)[userIDString]
@@ -32,18 +31,18 @@ func getFormattedGQLData(itemData map[string]interface{}, changedAccess []map[st
 	newAccessMap := itemData["access"].(map[string]bson.M)
 	if changedAccess != nil {
 		for _, accessUser := range changedAccess {
-			currentUserId := accessUser["id"].(string)
-			if newAccessMap[currentUserId] != nil {
+			currentUserID := accessUser["id"].(string)
+			if newAccessMap[currentUserID] != nil {
 				if accessUser["type"].(string) == noAccessLevel {
-					delete(newAccessMap, currentUserId)
+					delete(newAccessMap, currentUserID)
 				}
 			} else {
-				newAccessMap[currentUserId] = bson.M{
+				newAccessMap[currentUserID] = bson.M{
 					"type": accessUser["type"].(string),
 				}
 			}
-			delete(newAccessMap[currentUserId], "categories")
-			delete(newAccessMap[currentUserId], "tags")
+			delete(newAccessMap[currentUserID], "categories")
+			delete(newAccessMap[currentUserID], "tags")
 		}
 	}
 	newAccess := make([]map[string]interface{}, len(newAccessMap))
@@ -119,24 +118,6 @@ func deleteForm(formID primitive.ObjectID, formData bson.M, formatDate bool, use
 		formData["access"] = access
 		formData["categories"] = categories
 		formData["tags"] = tags
-		for _, accessUserData := range access {
-			accessUserID, err := primitive.ObjectIDFromHex(accessUserData["id"].(string))
-			if err != nil {
-				return nil, err
-			}
-			_, err = userCollection.UpdateOne(ctxMongo, bson.M{
-				"_id": accessUserID,
-			}, bson.M{
-				"$pull": bson.M{
-					"forms": bson.M{
-						"id": formIDString,
-					},
-				},
-			})
-			if err != nil {
-				return nil, err
-			}
-		}
 	}
 	_, err := elasticClient.Delete().
 		Index(formElasticIndex).
@@ -210,7 +191,6 @@ func changeUserAccessData(itemID primitive.ObjectID, itemType string, userIDStri
 			return nil, err
 		}
 	}
-	itemIDString := itemID.Hex()
 	itemUpdateData := bson.M{
 		"$set": bson.M{
 			"access": bson.M{},
@@ -223,18 +203,9 @@ func changeUserAccessData(itemID primitive.ObjectID, itemType string, userIDStri
 		},
 		"$upsert": true,
 	}
-	var userItemsIndex string
-	if itemType == formType {
-		userItemsIndex = "forms"
-	} else {
-		userItemsIndex = "projects"
-	}
 	for _, accessUser := range access {
-		var changedCurrentUser = false
 		currentUserIDString := accessUser["id"].(string)
-		accountUpdateData := bson.M{}
 		if accessUser["type"] != nil || currentUserIDString == userIDString {
-			changedCurrentUser = true
 			if accessUser["type"] != nil && accessUser["type"].(string) != noAccessLevel {
 				itemUpdateData["$set"].(bson.M)["access"].(bson.M)[currentUserIDString] = bson.M{
 					"type": accessUser["type"].(string),
@@ -245,18 +216,9 @@ func changeUserAccessData(itemID primitive.ObjectID, itemType string, userIDStri
 						"tags":       bson.A{},
 					}
 				}
-				accountUpdateData["$addToSet"] = bson.M{
-					userItemsIndex: bson.M{
-						"id":   itemIDString,
-						"type": accessUser["type"],
-					},
-				}
 			} else if currentUserIDString != userIDString {
 				itemUpdateData["$unset"].(bson.M)["access"] = bson.M{
 					currentUserIDString: 1,
-				}
-				accountUpdateData["$pull"] = bson.M{
-					fmt.Sprintf("%s.id", userItemsIndex): itemIDString,
 				}
 			}
 			if currentUserIDString == userIDString {
@@ -264,18 +226,6 @@ func changeUserAccessData(itemID primitive.ObjectID, itemType string, userIDStri
 					"categories": categories,
 					"tags":       tags,
 				}
-			}
-		}
-		if changedCurrentUser {
-			currentUserID, err := primitive.ObjectIDFromHex(currentUserIDString)
-			if err != nil {
-				return nil, err
-			}
-			_, err = userCollection.UpdateOne(ctxMongo, bson.M{
-				"_id": currentUserID,
-			}, accountUpdateData)
-			if err != nil {
-				return nil, err
 			}
 		}
 	}
@@ -294,7 +244,6 @@ func changeUserProjectAccess(projectID primitive.ObjectID, access []map[string]i
 			return err
 		}
 	}
-	projectIDString := projectID.Hex()
 	for _, accessUser := range access {
 		projectUpdateData := bson.M{}
 		if accessUser["type"] != noAccessLevel {
@@ -309,36 +258,9 @@ func changeUserProjectAccess(projectID primitive.ObjectID, access []map[string]i
 				"access.id": accessUser["id"],
 			}
 		}
-		_, err := formCollection.UpdateOne(ctxMongo, bson.M{
+		_, err := projectCollection.UpdateOne(ctxMongo, bson.M{
 			"_id": projectID,
 		}, projectUpdateData)
-		if err != nil {
-			return err
-		}
-		userIDString, ok := accessUser["id"].(string)
-		if !ok {
-			return errors.New("cannot cast user id to string")
-		}
-		userID, err := primitive.ObjectIDFromHex(userIDString)
-		if err != nil {
-			return err
-		}
-		accountUpdateData := bson.M{}
-		if accessUser["type"] != noAccessLevel {
-			accountUpdateData["$addToSet"] = bson.M{
-				"projects": bson.M{
-					"id":   projectIDString,
-					"type": accessUser["type"],
-				},
-			}
-		} else {
-			accountUpdateData["$pull"] = bson.M{
-				"forms.id": projectIDString,
-			}
-		}
-		_, err = userCollection.UpdateOne(ctxMongo, bson.M{
-			"_id": userID,
-		}, accountUpdateData)
 		if err != nil {
 			return err
 		}

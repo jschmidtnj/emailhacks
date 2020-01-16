@@ -213,6 +213,15 @@ var FileType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 		"type": &graphql.Field{
 			Type: graphql.String,
 		},
+		"originalSrc": &graphql.Field{
+			Type: graphql.String,
+		},
+		"blurSrc": &graphql.Field{
+			Type: graphql.String,
+		},
+		"placeholderSrc": &graphql.Field{
+			Type: graphql.String,
+		},
 	},
 })
 

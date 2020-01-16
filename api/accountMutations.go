@@ -2,8 +2,10 @@ package main
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/graphql-go/graphql"
+	"github.com/olivere/elastic/v7"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -19,6 +21,30 @@ func deleteAccount(idstring string, formatDate bool) (interface{}, error) {
 	defer cursor.Close(ctxMongo)
 	if err != nil {
 		return nil, err
+	}
+	// delete all projects that this user is admin of
+	sourceContext := elastic.NewFetchSourceContext(true).Include("id")
+	mustQueries := []elastic.Query{
+		elastic.NewTermsQuery(fmt.Sprintf("access.%s.type", id), editAccessLevel[0]),
+	}
+	query := elastic.NewBoolQuery().Must(mustQueries...)
+	searchResult, err := elasticClient.Search().
+		Index(projectElasticIndex).
+		Query(query).
+		Pretty(isDebug()).
+		FetchSourceContext(sourceContext).
+		Do(ctxElastic)
+	if err != nil {
+		return nil, err
+	}
+	for _, hit := range searchResult.Hits.Hits {
+		projectID, err := primitive.ObjectIDFromHex(hit.Id)
+		if err != nil {
+			return nil, err
+		}
+		if err = deleteProject(projectID); err != nil {
+			return nil, err
+		}
 	}
 	var userData map[string]interface{}
 	var foundstuff = false

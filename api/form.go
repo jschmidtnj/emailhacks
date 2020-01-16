@@ -21,6 +21,9 @@ var FormType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 		"id": &graphql.Field{
 			Type: graphql.String,
 		},
+		"responses": &graphql.Field{
+			Type: graphql.Int,
+		},
 		"created": &graphql.Field{
 			Type: graphql.String,
 		},
@@ -186,7 +189,7 @@ func checkFormAccess(formID primitive.ObjectID, accessToken string, necessaryAcc
 	}
 	// if public just break
 	var publicAccess = formData["public"].(string)
-	if findInArray(publicAccess, viewAccessLevel) {
+	if findInArray(publicAccess, necessaryAccess) {
 		return formData, nil
 	}
 	// next check if logged in

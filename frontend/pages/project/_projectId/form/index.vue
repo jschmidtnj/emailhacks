@@ -13,11 +13,38 @@ import Vue from 'vue'
 import gql from 'graphql-tag'
 import Create from '~/components/secure/form/Create.vue'
 import { defaultItemName } from '~/assets/config'
+const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({
   name: 'NewForm',
   layout: 'secure',
   components: {
     Create
+  },
+  head() {
+    const title = 'New Form'
+    const description = 'create a form'
+    const image = `${seo.url}/icon.png`
+    return {
+      title,
+      meta: [
+        { property: 'og:title', content: title },
+        { property: 'og:description', content: description },
+        {
+          property: 'og:image',
+          content: image
+        },
+        { name: 'twitter:title', content: title },
+        {
+          name: 'twitter:description',
+          content: description
+        },
+        {
+          name: 'twitter:image',
+          content: image
+        },
+        { hid: 'description', name: 'description', content: description }
+      ]
+    }
   },
   data() {
     return {

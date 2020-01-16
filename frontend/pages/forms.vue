@@ -21,7 +21,7 @@ export default Vue.extend({
   // @ts-ignore
   head() {
     const title = 'Search Forms'
-    const description = 'search for forms, by name, views, etc'
+    const description = 'search for forms'
     const image = `${seo.url}/icon.png`
     return {
       title,

@@ -255,18 +255,12 @@ var projectQueryFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			views, ok := projectData["views"].(int32)
-			if !ok {
-				return nil, errors.New("cannot convert views to int")
-			}
-			newViews := int(views) + 1
+			script := elastic.NewScriptInline("ctx.views+=1").Lang("painless")
 			_, err = elasticClient.Update().
 				Index(projectElasticIndex).
 				Type(projectElasticType).
 				Id(projectIDString).
-				Doc(bson.M{
-					"views": newViews,
-				}).
+				Script(script).
 				Do(ctxElastic)
 			if err != nil {
 				return nil, err

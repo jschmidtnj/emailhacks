@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/graphql-go/graphql"
+	json "github.com/json-iterator/go"
 	"github.com/olivere/elastic/v7"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -86,7 +87,7 @@ var projectMutationFields = graphql.Fields{
 			projectData := bson.M{
 				"updated": now.Unix(),
 				"name":    name,
-				"forms":   bson.A{},
+				"forms":   0,
 				"views":   0,
 				"access": bson.M{
 					userIDString: bson.M{
@@ -384,59 +385,71 @@ var projectMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
+			projectData["access"] = access
 			projectData["categories"] = categories
 			projectData["tags"] = tags
-			for _, accessUserData := range access {
-				accessUserID, err := primitive.ObjectIDFromHex(accessUserData["id"].(string))
-				if err != nil {
-					return nil, err
-				}
-				_, err = userCollection.UpdateOne(ctxMongo, bson.M{
-					"_id": accessUserID,
-				}, bson.M{
-					"$pull": bson.M{
-						"projects": bson.M{
-							"id": projectIDString,
-						},
-					},
-				})
-				if err != nil {
-					return nil, err
-				}
-			}
-			formsPrimitive, ok := projectData["forms"].(primitive.A)
-			if !ok {
-				return nil, errors.New("problem casting forms to array")
-			}
-			for _, formIDInterface := range formsPrimitive {
-				formIDString, ok := formIDInterface.(string)
-				if !ok {
-					return nil, errors.New("cannot cast form id to string")
-				}
-				formID, err := primitive.ObjectIDFromHex(formIDString)
-				if err != nil {
-					return nil, err
-				}
-				_, err = deleteForm(formID, nil, formatDate, userIDString)
-				if err != nil {
-					return nil, err
-				}
-			}
-			_, err = elasticClient.Delete().
-				Index(projectElasticIndex).
-				Type(projectElasticType).
-				Id(projectIDString).
-				Do(ctxElastic)
-			if err != nil {
-				return nil, err
-			}
-			_, err = projectCollection.DeleteOne(ctxMongo, bson.M{
-				"_id": projectID,
-			})
-			if err != nil {
+			if err = deleteProject(projectID); err != nil {
 				return nil, err
 			}
 			return projectData, nil
 		},
 	},
+}
+
+func deleteProject(projectID primitive.ObjectID) error {
+	sourceContext := elastic.NewFetchSourceContext(true).Include("id", "project")
+	projectIDString := projectID.Hex()
+	mustQueries := []elastic.Query{
+		elastic.NewTermsQuery("project", projectIDString),
+	}
+	query := elastic.NewBoolQuery().Must(mustQueries...)
+	searchResult, err := elasticClient.Search().
+		Index(formElasticIndex).
+		Query(query).
+		Pretty(isDebug()).
+		FetchSourceContext(sourceContext).
+		Do(ctxElastic)
+	if err != nil {
+		return err
+	}
+	for _, hit := range searchResult.Hits.Hits {
+		formIDString := hit.Id
+		formID, err := primitive.ObjectIDFromHex(formIDString)
+		if err != nil {
+			return err
+		}
+		if hit.Source == nil {
+			return errors.New("no hit source found")
+		}
+		var formData map[string]interface{}
+		err = json.Unmarshal(hit.Source, &formData)
+		if err != nil {
+			return err
+		}
+		project, ok := formData["project"].(string)
+		if !ok {
+			return errors.New("cannot cast project to string")
+		}
+		if err = changeFormProject(formIDString, project, ""); err != nil {
+			return err
+		}
+		if _, err = deleteForm(formID, nil, false, ""); err != nil {
+			return err
+		}
+	}
+	_, err = elasticClient.Delete().
+		Index(projectElasticIndex).
+		Type(projectElasticType).
+		Id(projectIDString).
+		Do(ctxElastic)
+	if err != nil {
+		return err
+	}
+	_, err = projectCollection.DeleteOne(ctxMongo, bson.M{
+		"_id": projectID,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }

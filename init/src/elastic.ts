@@ -71,6 +71,9 @@ export const formMappings = {
     views: {
       type: 'integer'
     },
+    responses: {
+      type: 'integer'
+    },
     public: {
       type: 'keyword'
     },
@@ -97,7 +100,7 @@ export const projectMappings = {
       type: 'text'
     },
     forms: {
-      type: 'keyword'
+      type: 'integer'
     },
     access: {
       type: 'object'

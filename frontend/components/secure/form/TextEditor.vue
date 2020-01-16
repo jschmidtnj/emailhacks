@@ -179,6 +179,7 @@ import Emoji from '~/components/secure/form/Emoji'
 // turns out the tooltip doesn't want to work:
 // https://github.com/Human-Connection/Human-Connection/pull/2258
 // currently looking for alternatives
+// look into mathjax for math editing: https://www.npmjs.com/package/vue-mathjax
 export default Vue.extend({
   components: {
     EditorMenuBar,

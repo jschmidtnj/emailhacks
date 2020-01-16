@@ -1,6 +1,8 @@
 package main
 
-import ()
+import (
+	"time"
+)
 
 var mainDatabase = "website"
 
@@ -159,3 +161,11 @@ var validUpdateMapActions = []string{
 }
 
 var autosaveTime = 3 // seconds
+
+var storageAccessTime = 5 // minutes
+
+// more configuration params
+
+var tokenExpiration = 3 // hours
+var storageBucketName = "emailhacks"
+var cacheTime = time.Duration(3600) * time.Second

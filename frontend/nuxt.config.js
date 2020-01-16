@@ -13,6 +13,10 @@ module.exports = {
 
   globalName: name,
 
+  server: {
+    port: 8080 // default: 3000
+  },
+
   env: {
     seoconfig: process.env.SEOCONFIG,
     githuburl: pkg.repository.url,
