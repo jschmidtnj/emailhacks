@@ -122,6 +122,34 @@ export const projectMappings = {
   }
 }
 
+export const responseMappings = {
+  properties: {
+    views: {
+      type: 'integer'
+    },
+    user: {
+      type: 'keyword'
+    },
+    form: {
+      type: 'keyword'
+    },
+    project: {
+      type: 'keyword'
+    },
+    created: {
+      type: 'date',
+      format: 'epoch_millis'
+    },
+    updated: {
+      type: 'date',
+      format: 'epoch_millis'
+    },
+    items: {
+      type: 'nested'
+    }
+  }
+}
+
 const addRemoveAccessScript = `
 for (int i = 0; i < access.length; i++) {
   bool cont = true;

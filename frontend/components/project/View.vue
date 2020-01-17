@@ -22,7 +22,7 @@
 <script lang="js">
 import Vue from 'vue'
 import gql from 'graphql-tag'
-import FormList from '~/components/secure/form/FormList.vue'
+import FormList from '~/components/form/FormList.vue'
 import { defaultItemName, noneAccessType } from '~/assets/config'
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)

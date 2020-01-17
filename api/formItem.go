@@ -6,9 +6,9 @@ import (
 	"github.com/graphql-go/graphql"
 )
 
-// UpdateItemResponseType response for item update
-var UpdateItemResponseType = graphql.NewObject(graphql.ObjectConfig{
-	Name: "UpdateItemResponse",
+// UpdateFormFormItemType response for item update
+var UpdateFormFormItemType = graphql.NewObject(graphql.ObjectConfig{
+	Name: "UpdateFormItem",
 	Fields: graphql.Fields{
 		"question": &graphql.Field{
 			Type: graphql.String,
@@ -40,9 +40,9 @@ var UpdateItemResponseType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-// UpdateItemInputType - type of graphql input
-var UpdateItemInputType = graphql.NewInputObject(graphql.InputObjectConfig{
-	Name: "UpdateItemInput",
+// UpdateFormItemInputType - type of graphql input
+var UpdateFormItemInputType = graphql.NewInputObject(graphql.InputObjectConfig{
+	Name: "UpdateFormItemInput",
 	Fields: graphql.InputObjectConfigFieldMap{
 		"updateAction": &graphql.InputObjectFieldConfig{
 			Type: graphql.String,
@@ -74,9 +74,9 @@ var UpdateItemInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 	},
 })
 
-// ItemType graphql question object
-var ItemType = graphql.NewObject(graphql.ObjectConfig{
-	Name: "Item",
+// FormItemType graphql question object
+var FormItemType = graphql.NewObject(graphql.ObjectConfig{
+	Name: "FormItem",
 	Fields: graphql.Fields{
 		"question": &graphql.Field{
 			Type: graphql.String,
@@ -100,9 +100,9 @@ var ItemType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-// ItemInputType - type of graphql input
-var ItemInputType = graphql.NewInputObject(graphql.InputObjectConfig{
-	Name: "ItemInput",
+// FormItemInputType - type of graphql input
+var FormItemInputType = graphql.NewInputObject(graphql.InputObjectConfig{
+	Name: "FormItemInput",
 	Fields: graphql.InputObjectConfigFieldMap{
 		"question": &graphql.InputObjectFieldConfig{
 			Type: graphql.String,
@@ -125,18 +125,22 @@ var ItemInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 	},
 })
 
-func checkItemObjCreate(itemObj map[string]interface{}) error {
+func checkFormItemObjCreate(itemObj map[string]interface{}) error {
 	if itemObj["question"] == nil {
-		return errors.New("no name field given")
+		return errors.New("no question field given")
 	}
 	if _, ok := itemObj["question"].(string); !ok {
-		return errors.New("problem casting id to string")
+		return errors.New("problem casting question to string")
 	}
 	if itemObj["type"] == nil {
 		return errors.New("no type field given")
 	}
-	if _, ok := itemObj["type"].(string); !ok {
-		return errors.New("problem casting name to string")
+	itemType, ok := itemObj["type"].(string)
+	if !ok {
+		return errors.New("problem casting type to string")
+	}
+	if !findInArray(itemType, validFormItemTypes) {
+		return errors.New("invalid type for form item found")
 	}
 	if itemObj["options"] == nil {
 		return errors.New("no options field given")
@@ -160,24 +164,32 @@ func checkItemObjCreate(itemObj map[string]interface{}) error {
 	if _, ok := itemObj["required"].(bool); !ok {
 		return errors.New("problem casting required to boolean")
 	}
-	if itemObj["file"] == nil {
-		return errors.New("no file field given")
+	if itemObj["files"] == nil {
+		return errors.New("no files field given")
 	}
-	if _, ok := itemObj["file"].(string); !ok {
-		return errors.New("problem casting file to string")
+	filesArray, ok := itemObj["files"].([]interface{})
+	if !ok {
+		return errors.New("problem casting files to interface array")
+	}
+	if _, err := interfaceListToIntList(filesArray); err != nil {
+		return errors.New("problem casting files to int array")
 	}
 	return nil
 }
 
-func checkItemObjUpdate(itemObj map[string]interface{}) error {
+func checkFormItemObjUpdate(itemObj map[string]interface{}) error {
 	if itemObj["question"] != nil {
 		if _, ok := itemObj["question"].(string); !ok {
-			return errors.New("problem casting id to string")
+			return errors.New("problem casting question to string")
 		}
 	}
 	if itemObj["type"] != nil {
-		if _, ok := itemObj["type"].(string); !ok {
-			return errors.New("problem casting name to string")
+		itemType, ok := itemObj["type"].(string)
+		if !ok {
+			return errors.New("problem casting type to string")
+		}
+		if !findInArray(itemType, validFormItemTypes) {
+			return errors.New("invalid type for form item found")
 		}
 	}
 	if itemObj["options"] != nil {
@@ -200,15 +212,19 @@ func checkItemObjUpdate(itemObj map[string]interface{}) error {
 			return errors.New("problem casting required to boolean")
 		}
 	}
-	if itemObj["file"] != nil {
-		if _, ok := itemObj["file"].(string); !ok {
-			return errors.New("problem casting file to string")
+	if itemObj["files"] != nil {
+		filesArray, ok := itemObj["files"].([]interface{})
+		if !ok {
+			return errors.New("problem casting files to interface array")
+		}
+		if _, err := interfaceListToIntList(filesArray); err != nil {
+			return errors.New("problem casting files to int array")
 		}
 	}
 	return nil
 }
 
-func checkItemObjUpdatePart(itemObj map[string]interface{}) error {
+func checkFormItemObjUpdatePart(itemObj map[string]interface{}) error {
 	if itemObj["updateAction"] == nil {
 		return errors.New("no update action given")
 	}
@@ -241,8 +257,12 @@ func checkItemObjUpdatePart(itemObj map[string]interface{}) error {
 		}
 	}
 	if itemObj["type"] != nil {
-		if _, ok := itemObj["type"].(string); !ok {
-			return errors.New("problem casting name to string")
+		itemType, ok := itemObj["type"].(string)
+		if !ok {
+			return errors.New("problem casting type to string")
+		}
+		if !findInArray(itemType, validFormItemTypes) {
+			return errors.New("invalid type for form item found")
 		}
 	}
 	if itemObj["options"] != nil {
@@ -265,9 +285,13 @@ func checkItemObjUpdatePart(itemObj map[string]interface{}) error {
 			return errors.New("problem casting required to boolean")
 		}
 	}
-	if itemObj["file"] != nil {
-		if _, ok := itemObj["file"].(string); !ok {
-			return errors.New("problem casting file to string")
+	if itemObj["files"] != nil {
+		filesArray, ok := itemObj["files"].([]interface{})
+		if !ok {
+			return errors.New("problem casting files to interface array")
+		}
+		if _, err := interfaceListToIntList(filesArray); err != nil {
+			return errors.New("problem casting files to int array")
 		}
 	}
 	return nil

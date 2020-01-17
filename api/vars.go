@@ -8,6 +8,8 @@ var mainDatabase = "website"
 
 var userMongoName = "users"
 
+var responseMongoName = "responses"
+
 var formMongoName = "forms"
 
 var projectMongoName = "projects"
@@ -16,13 +18,15 @@ var blogMongoName = "blogs"
 
 var shortLinkMongoName = "shortlink"
 
-var tokenKey = "token"
+type key string
 
-var getTokenKey = "misc"
+const tokenKey key = "token"
 
-var dataKey = "data"
+const getTokenKey key = "misc"
 
-var getConnectionIDKey = "connection"
+const dataKey key = "data"
+
+const getConnectionIDKey key = "connection"
 
 var graphiQL = false
 
@@ -38,10 +42,13 @@ var formType = "form"
 
 var projectType = "project"
 
+var responseType = "response"
+
 var blogType = "blog"
 
-var validTypes = []string{
+var validStorageTypes = []string{
 	formType,
+	responseType,
 	blogType,
 }
 
@@ -60,10 +67,12 @@ var validAccessTypes = []string{
 	"admin",
 	"edit",
 	"view",
+	"shared",
 	"none",
 }
 
-var noAccessLevel = validAccessTypes[3]
+var sharedAccessLevel = validAccessTypes[3]
+var noAccessLevel = validAccessTypes[4]
 
 var editAccessLevel = []string{
 	validAccessTypes[0],
@@ -74,11 +83,16 @@ var viewAccessLevel = []string{
 	validAccessTypes[0],
 	validAccessTypes[1],
 	validAccessTypes[2],
+	validAccessTypes[3],
 }
 
 var formElasticIndex = "forms"
 
 var formElasticType = "form"
+
+var responseElasticIndex = "responses"
+
+var responseElasticType = "response"
 
 var projectElasticIndex = "projects"
 
@@ -89,6 +103,8 @@ var blogElasticIndex = "blogs"
 var blogElasticType = "blog"
 
 var formFileIndex = "formfiles"
+
+var responseFileIndex = "responsefiles"
 
 var blogFileIndex = "blogfiles"
 
@@ -111,6 +127,10 @@ var formSearchFields = []string{
 
 var projectSearchFields = []string{
 	"name",
+}
+
+var responseSearchFields = []string{
+	"items",
 }
 
 // all valid file types for attachments
@@ -158,6 +178,43 @@ var validUpdateMapActions = []string{
 	"add",
 	"remove",
 	"set",
+}
+
+var validFormItemTypes = []string{
+	"radio",
+	"checkbox",
+	"short",
+	"text",
+	"redgreen",
+	"fileupload",
+	"fileattachment",
+	"media",
+}
+
+var validResponseItemTypes = []string{
+	validFormItemTypes[0],
+	validFormItemTypes[1],
+	validFormItemTypes[2],
+	validFormItemTypes[4],
+	validFormItemTypes[5],
+}
+
+var itemTypesRequireOptions = []string{
+	validFormItemTypes[0],
+	validFormItemTypes[1],
+	validFormItemTypes[4],
+}
+
+var itemTypesAllowMultipleOptions = []string{
+	validFormItemTypes[1],
+}
+
+var itemTypesText = []string{
+	validFormItemTypes[2],
+}
+
+var itemTypesFile = []string{
+	validFormItemTypes[5],
 }
 
 var autosaveTime = 3 // seconds

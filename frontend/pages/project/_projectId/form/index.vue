@@ -11,7 +11,7 @@
 <script lang="js">
 import Vue from 'vue'
 import gql from 'graphql-tag'
-import Create from '~/components/secure/form/Create.vue'
+import Create from '~/components/form/Create.vue'
 import { defaultItemName } from '~/assets/config'
 const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({

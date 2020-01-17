@@ -11,7 +11,7 @@
 <script lang="js">
 import Vue from 'vue'
 import gql from 'graphql-tag'
-import ViewProject from '~/components/secure/project/View.vue'
+import ViewProject from '~/components/project/View.vue'
 import { defaultItemName } from '~/assets/config'
 const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({

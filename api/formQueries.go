@@ -69,6 +69,7 @@ var formQueryFields = graphql.Fields{
 				return nil, errors.New("cannot cast user id to string")
 			}
 			var foundProject = false
+			var sharedDirect = false
 			var project string
 			if params.Args["project"] != nil {
 				project, ok = params.Args["project"].(string)
@@ -81,10 +82,11 @@ var formQueryFields = graphql.Fields{
 					if err != nil {
 						return nil, err
 					}
-					_, err = checkProjectAccess(projectID, accessToken, viewAccessLevel, false, false)
+					_, accessType, err := checkProjectAccess(projectID, accessToken, "", viewAccessLevel, false, false)
 					if err != nil {
 						return nil, err
 					}
+					sharedDirect = accessType == sharedAccessLevel
 				}
 			}
 			var formatDate = false
@@ -164,10 +166,10 @@ var formQueryFields = graphql.Fields{
 					startIndex = 0
 				}
 				mustQueries := make([]elastic.Query, numtags+len(categories)+startIndex)
-				if foundProject {
+				if foundProject && !sharedDirect {
 					mustQueries[0] = elastic.NewTermQuery("project", project)
 				} else if !showEverything {
-					// get all shared directly forms (not in a project)
+					// get all forms user has shared access to
 					mustQueries[0] = elastic.NewTermsQuery(fmt.Sprintf("access.%s.type", userIDString), stringListToInterfaceList(viewAccessLevel)...)
 				}
 				for i, tag := range tags {
@@ -224,7 +226,7 @@ var formQueryFields = graphql.Fields{
 					}
 					formData["id"] = id.Hex()
 					delete(formData, "_id")
-					access, tags, categories, err := getFormattedGQLData(formData, nil, userIDString)
+					access, tags, categories, err := getFormattedAccessGQLData(formData, nil, userIDString)
 					if err != nil {
 						return nil, err
 					}
@@ -336,7 +338,7 @@ var formQueryFields = graphql.Fields{
 				formData["categories"] = []string{}
 				formData["tags"] = []string{}
 			} else {
-				access, tags, categories, err := getFormattedGQLData(formData, nil, userIDString)
+				access, tags, categories, err := getFormattedAccessGQLData(formData, nil, userIDString)
 				if err != nil {
 					return nil, err
 				}
@@ -348,7 +350,8 @@ var formQueryFields = graphql.Fields{
 			if !ok {
 				return nil, errors.New("cannot cast responses to int")
 			}
-			if needEditAccess && responses > 0 {
+			var deleteResponses = needEditAccess && responses > 0
+			if deleteResponses {
 				// delete all previous responses (if there are any)
 				if err = deleteAllResponses(formID); err != nil {
 					return nil, err
@@ -426,17 +429,27 @@ var formQueryFields = graphql.Fields{
 				}
 				formData["updatesAccessToken"] = tokenString
 			}
-			_, err = formCollection.UpdateOne(ctxMongo, bson.M{
-				"_id": formID,
-			}, bson.M{
+			updateDBData := bson.M{
 				"$inc": bson.M{
 					"views": 1,
 				},
-			})
+			}
+			var elasticUpdateScript string
+			if deleteResponses {
+				elasticUpdateScript = "ctx.views+=1; ctx.responses=0;"
+				updateDBData["$set"] = bson.M{
+					"responses": 0,
+				}
+			} else {
+				elasticUpdateScript = "ctx.views+=1;"
+			}
+			_, err = formCollection.UpdateOne(ctxMongo, bson.M{
+				"_id": formID,
+			}, updateDBData)
 			if err != nil {
 				return nil, err
 			}
-			script := elastic.NewScriptInline("ctx.views+=1").Lang("painless")
+			script := elastic.NewScriptInline(elasticUpdateScript).Lang("painless")
 			_, err = elasticClient.Update().
 				Index(formElasticIndex).
 				Type(formElasticType).
@@ -453,34 +466,31 @@ var formQueryFields = graphql.Fields{
 
 func deleteAllResponses(formID primitive.ObjectID) error {
 	formIDString := formID.Hex()
-	// TODO - create deleteResponse
-	/*
-		sourceContext := elastic.NewFetchSourceContext(true).Include("id")
-		mustQueries := []elastic.Query{
-			elastic.NewTermsQuery("form", formIDString),
-		}
-		query := elastic.NewBoolQuery().Must(mustQueries...)
-		searchResult, err := elasticClient.Search().
-			Index(formElasticIndex).
-			Query(query).
-			Pretty(isDebug()).
-			FetchSourceContext(sourceContext).
-			Do(ctxElastic)
+	sourceContext := elastic.NewFetchSourceContext(true).Include("id")
+	mustQueries := []elastic.Query{
+		elastic.NewTermsQuery("form", formIDString),
+	}
+	query := elastic.NewBoolQuery().Must(mustQueries...)
+	searchResult, err := elasticClient.Search().
+		Index(formElasticIndex).
+		Query(query).
+		Pretty(isDebug()).
+		FetchSourceContext(sourceContext).
+		Do(ctxElastic)
+	if err != nil {
+		return err
+	}
+	for _, hit := range searchResult.Hits.Hits {
+		responseIDString := hit.Id
+		responseID, err := primitive.ObjectIDFromHex(responseIDString)
 		if err != nil {
 			return err
 		}
-		for _, hit := range searchResult.Hits.Hits {
-			responseIDString := hit.Id
-			responseID, err := primitive.ObjectIDFromHex(responseIDString)
-			if err != nil {
-				return err
-			}
-			if _, err = deleteResponse(responseID); err != nil {
-				return err
-			}
+		if err = deleteResponse(responseID, nil); err != nil {
+			return err
 		}
-	*/
-	_, err := elasticClient.Update().
+	}
+	_, err = elasticClient.Update().
 		Index(formElasticIndex).
 		Type(formElasticType).
 		Id(formIDString).

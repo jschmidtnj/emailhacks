@@ -49,11 +49,15 @@ func writeGenericFile(file io.Reader, filetype string, posttype string, fileidDe
 	io.Copy(&filebuffer, file)
 	defer filebuffer.Reset()
 	var fileobj *storage.ObjectHandle
+	var fileIndex string
 	if posttype == formType {
-		fileobj = storageBucket.Object(formFileIndex + "/" + postid + "/" + fileidDecoded + originalPath)
+		fileIndex = formFileIndex
+	} else if posttype == responseType {
+		fileIndex = responseFileIndex
 	} else {
-		fileobj = storageBucket.Object(blogFileIndex + "/" + postid + "/" + fileidDecoded + originalPath)
+		fileIndex = blogFileIndex
 	}
+	fileobj = storageBucket.Object(fileIndex + "/" + postid + "/" + fileidDecoded + originalPath)
 	filewriter := fileobj.NewWriter(ctxStorage)
 	filewriter.ContentType = filetype
 	filewriter.Metadata = map[string]string{}
@@ -86,13 +90,16 @@ func writeJpeg(file io.Reader, filetype string, posttype string, fileidDecoded s
 	}
 	var originalImageObj *storage.ObjectHandle
 	var blurredImageObj *storage.ObjectHandle
+	var fileIndex string
 	if posttype == formType {
-		originalImageObj = storageBucket.Object(formFileIndex + "/" + postid + "/" + fileidDecoded + originalPath)
-		blurredImageObj = storageBucket.Object(formFileIndex + "/" + postid + "/" + fileidDecoded + blurPath)
+		fileIndex = formFileIndex
+	} else if posttype == responseType {
+		fileIndex = responseFileIndex
 	} else {
-		originalImageObj = storageBucket.Object(blogFileIndex + "/" + postid + "/" + fileidDecoded + originalPath)
-		blurredImageObj = storageBucket.Object(blogFileIndex + "/" + postid + "/" + fileidDecoded + blurPath)
+		fileIndex = blogFileIndex
 	}
+	originalImageObj = storageBucket.Object(fileIndex + "/" + postid + "/" + fileidDecoded + originalPath)
+	blurredImageObj = storageBucket.Object(fileIndex + "/" + postid + "/" + fileidDecoded + blurPath)
 	originalImageWriter := originalImageObj.NewWriter(ctxStorage)
 	originalImageWriter.ContentType = filetype
 	originalImageWriter.Metadata = map[string]string{}
@@ -130,13 +137,16 @@ func writePng(file io.Reader, filetype string, posttype string, fileidDecoded st
 	}
 	var originalImageObj *storage.ObjectHandle
 	var blurredImageObj *storage.ObjectHandle
+	var fileIndex string
 	if posttype == formType {
-		originalImageObj = storageBucket.Object(formFileIndex + "/" + postid + "/" + fileidDecoded + originalPath)
-		blurredImageObj = storageBucket.Object(formFileIndex + "/" + postid + "/" + fileidDecoded + blurPath)
+		fileIndex = formFileIndex
+	} else if posttype == responseType {
+		fileIndex = responseFileIndex
 	} else {
-		originalImageObj = storageBucket.Object(blogFileIndex + "/" + postid + "/" + fileidDecoded + originalPath)
-		blurredImageObj = storageBucket.Object(blogFileIndex + "/" + postid + "/" + fileidDecoded + blurPath)
+		fileIndex = blogFileIndex
 	}
+	originalImageObj = storageBucket.Object(fileIndex + "/" + postid + "/" + fileidDecoded + originalPath)
+	blurredImageObj = storageBucket.Object(fileIndex + "/" + postid + "/" + fileidDecoded + blurPath)
 	originalImageWriter := originalImageObj.NewWriter(ctxStorage)
 	originalImageWriter.ContentType = filetype
 	originalImageWriter.Metadata = map[string]string{}
@@ -208,15 +218,17 @@ func writeGif(file io.Reader, filetype string, posttype string, fileidDecoded st
 	var originalGifObj *storage.ObjectHandle
 	var originalImageObj *storage.ObjectHandle
 	var blurredImageObj *storage.ObjectHandle
+	var fileIndex string
 	if posttype == formType {
-		originalGifObj = storageBucket.Object(formFileIndex + "/" + postid + "/" + fileidDecoded + originalPath)
-		originalImageObj = storageBucket.Object(formFileIndex + "/" + postid + "/" + fileidDecoded + placeholderPath + originalPath)
-		blurredImageObj = storageBucket.Object(formFileIndex + "/" + postid + "/" + fileidDecoded + placeholderPath + blurPath)
+		fileIndex = formFileIndex
+	} else if posttype == responseType {
+		fileIndex = responseFileIndex
 	} else {
-		originalGifObj = storageBucket.Object(blogFileIndex + "/" + postid + "/" + fileidDecoded + originalPath)
-		originalImageObj = storageBucket.Object(blogFileIndex + "/" + postid + "/" + fileidDecoded + placeholderPath + originalPath)
-		blurredImageObj = storageBucket.Object(blogFileIndex + "/" + postid + "/" + fileidDecoded + placeholderPath + blurPath)
+		fileIndex = blogFileIndex
 	}
+	originalGifObj = storageBucket.Object(fileIndex + "/" + postid + "/" + fileidDecoded + originalPath)
+	originalImageObj = storageBucket.Object(fileIndex + "/" + postid + "/" + fileidDecoded + placeholderPath + originalPath)
+	blurredImageObj = storageBucket.Object(fileIndex + "/" + postid + "/" + fileidDecoded + placeholderPath + blurPath)
 	originalGifWriter := originalGifObj.NewWriter(ctxStorage)
 	originalGifWriter.ContentType = filetype
 	originalGifWriter.Metadata = map[string]string{}
@@ -268,7 +280,7 @@ func writeFile(c *gin.Context) {
 		handleError("error getting post type from query", http.StatusBadRequest, response)
 		return
 	}
-	if !findInArray(posttype, validTypes) {
+	if !findInArray(posttype, validStorageTypes) {
 		handleError("invalid posttype in query", http.StatusBadRequest, response)
 		return
 	}
@@ -391,7 +403,7 @@ func deleteFiles(c *gin.Context) {
 		handleError("unable to cast posttype to string", http.StatusBadRequest, response)
 		return
 	}
-	if !findInArray(posttype, validTypes) {
+	if !findInArray(posttype, validStorageTypes) {
 		handleError("invalid posttype in body", http.StatusBadRequest, response)
 		return
 	}
@@ -425,11 +437,15 @@ func deleteFiles(c *gin.Context) {
 			return
 		}
 		var fileobj *storage.ObjectHandle
+		var fileIndex string
 		if posttype == formType {
-			fileobj = storageBucket.Object(formFileIndex + "/" + postid + "/" + fileid + originalPath)
+			fileIndex = formFileIndex
+		} else if posttype == responseType {
+			fileIndex = responseFileIndex
 		} else {
-			fileobj = storageBucket.Object(blogFileIndex + "/" + postid + "/" + fileid + originalPath)
+			fileIndex = blogFileIndex
 		}
+		fileobj = storageBucket.Object(fileIndex + "/" + postid + "/" + fileid + originalPath)
 		fileobjattributes, err := fileobj.Attrs(ctxStorage)
 		if err != nil {
 			handleError(err.Error(), http.StatusBadRequest, response)
@@ -448,11 +464,15 @@ func deleteFiles(c *gin.Context) {
 			return
 		}
 		if hasblur {
+			var fileIndex string
 			if posttype == formType {
-				fileobj = storageBucket.Object(formFileIndex + "/" + postid + "/" + fileid + blurPath)
+				fileIndex = formFileIndex
+			} else if posttype == responseType {
+				fileIndex = responseFileIndex
 			} else {
-				fileobj = storageBucket.Object(blogFileIndex + "/" + postid + "/" + fileid + blurPath)
+				fileIndex = blogFileIndex
 			}
+			fileobj = storageBucket.Object(fileIndex + "/" + postid + "/" + fileid + blurPath)
 			if err := fileobj.Delete(ctxStorage); err != nil {
 				handleError("error deleting blur file: "+err.Error(), http.StatusBadRequest, response)
 				return
@@ -475,7 +495,7 @@ func getFile(c *gin.Context) {
 		handleError("error getting posttype from query", http.StatusBadRequest, response)
 		return
 	}
-	if !findInArray(posttype, validTypes) {
+	if !findInArray(posttype, validStorageTypes) {
 		handleError("invalid posttype in query", http.StatusBadRequest, response)
 		return
 	}
@@ -533,6 +553,8 @@ func getFile(c *gin.Context) {
 	var fileIndex string
 	if posttype == formType {
 		fileIndex = formFileIndex
+	} else if posttype == responseType {
+		fileIndex = responseFileIndex
 	} else {
 		fileIndex = blogFileIndex
 	}
@@ -569,13 +591,13 @@ func getFile(c *gin.Context) {
 		response.Header().Set("Content-Type", contentType)
 		response.Write(filebuffer.Bytes())
 	} else {
-		fileUrl, err := getSignedURL(filepath, validAccessTypes[2])
+		fileURL, err := getSignedURL(filepath, validAccessTypes[2])
 		if err != nil {
 			handleError(err.Error(), http.StatusBadRequest, response)
 			return
 		}
 		response.Header().Set("Content-Type", "application/json")
-		response.Write([]byte(`{"url":"` + fileUrl + `"}`))
+		response.Write([]byte(`{"url":"` + fileURL + `"}`))
 	}
 }
 

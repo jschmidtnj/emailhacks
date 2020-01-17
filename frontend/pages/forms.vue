@@ -6,7 +6,7 @@
 
 <script lang="js">
 import Vue from 'vue'
-import FormList from '~/components/secure/form/FormList.vue'
+import FormList from '~/components/form/FormList.vue'
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({

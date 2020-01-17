@@ -1,7 +1,7 @@
 import express = require('express')
 import bodyParser = require('body-parser')
 import { codes, adminconfig, mongoconfig } from './config'
-import { initializeElasticMappings, blogMappings, formMappings, projectMappings } from './elastic'
+import { initializeElasticMappings, blogMappings, formMappings, projectMappings, responseMappings } from './elastic'
 import * as mongodb from 'mongodb'
 
 // indexname must match mongodb name
@@ -11,6 +11,8 @@ const formIndexName = 'forms'
 const formDocType = 'form'
 const projectIndexName = 'projects'
 const projectDocType = 'project'
+const responseIndexName = 'responses'
+const responseDocType = 'response'
 
 const MongoClient = mongodb.MongoClient
 const ObjectID = mongodb.ObjectID
@@ -91,9 +93,16 @@ adminApp.post('/initializeElastic', (req, res) => {
     initializeElasticMappings(blogIndexName, blogDocType, blogMappings).then(res1 => {
       initializeElasticMappings(formIndexName, formDocType, formMappings).then(res2 => {
         initializeElasticMappings(projectIndexName, projectDocType, projectMappings).then(res3 => {
-          res.json({
-            message: `res1: ${res1}, res2: ${res2}, res3: ${res3}`
-          }).status(codes.success)
+          initializeElasticMappings(responseIndexName, responseDocType, responseMappings).then(res4 => {
+            res.json({
+              message: `res1: ${res1}, res2: ${res2}, res3: ${res3}, res4: ${res4}`
+            }).status(codes.success)
+          }).catch(err => {
+            res.json({
+              message: `response init failed: ${err}`
+            })
+              .status(codes.error)
+          })
         }).catch(err => {
           res.json({
             message: `project init failed: ${err}`

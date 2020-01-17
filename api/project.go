@@ -92,60 +92,69 @@ func processProjectFromDB(projectData bson.M, formatDate bool, updated bool) (bs
 	return projectData, nil
 }
 
-func checkProjectAccess(projectID primitive.ObjectID, accessToken string, necessaryAccess []string, formatDate bool, updated bool) (map[string]interface{}, error) {
+func checkProjectAccess(projectID primitive.ObjectID, accessToken string, otherUserIDString string, necessaryAccess []string, formatDate bool, updated bool) (map[string]interface{}, string, error) {
 	projectDataCursor, err := projectCollection.Find(ctxMongo, bson.M{
 		"_id": projectID,
 	})
 	defer projectDataCursor.Close(ctxMongo)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	var projectData map[string]interface{}
 	var foundProject = false
+	var accessType string
 	for projectDataCursor.Next(ctxMongo) {
 		foundProject = true
 		projectPrimitive := &bson.D{}
 		err = projectDataCursor.Decode(projectPrimitive)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		projectData, err = processProjectFromDB(projectPrimitive.Map(), formatDate, updated)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		// if public just break
 		publicAccess := projectData["public"].(string)
 		if findInArray(publicAccess, necessaryAccess) {
 			break
 		}
-		// next check if logged in
-		claims, err := getTokenData(accessToken)
-		if err != nil {
-			return nil, err
+		var userIDString string
+		if len(otherUserIDString) == 0 {
+			// next check if logged in
+			claims, err := getTokenData(accessToken)
+			if err != nil {
+				return nil, "", err
+			}
+			// admin can do anything
+			if claims["type"] == adminType {
+				break
+			}
+			userIDString = claims["id"].(string)
+		} else {
+			userIDString = otherUserIDString
 		}
-		// admin can do anything
-		if claims["type"] == adminType {
-			break
-		}
-		userIDString := claims["id"].(string)
 		var foundUser = false
 		access := projectData["access"].(map[string]primitive.M)
-		for currentUserID, _ := range access {
+		for currentUserID, accessVal := range access {
 			if currentUserID == userIDString {
-				foundUser = true
+				accessType = accessVal["type"].(string)
+				if findInArray(accessType, necessaryAccess) {
+					foundUser = true
+				}
 				break
 			}
 		}
 		if !foundUser {
 			// check if user has access to project directly
-			return nil, errors.New("user not authorized to access project")
+			return nil, "", errors.New("user not authorized to access project")
 		}
 		break
 	}
 	if !foundProject {
-		return nil, errors.New("project not found with given id")
+		return nil, "", errors.New("project not found with given id")
 	}
-	return projectData, nil
+	return projectData, accessType, nil
 }
 
 /**

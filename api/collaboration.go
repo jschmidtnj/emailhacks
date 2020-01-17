@@ -37,7 +37,7 @@ func getUpdateClaimsData(accessToken string, accessLevel []string) (string, stri
 	}
 	formIDString, ok := claims["formid"].(string)
 	if !ok {
-		return "", "", "", errors.New("cannot cast user id to string")
+		return "", "", "", errors.New("cannot cast form id to string")
 	}
 	_, err = primitive.ObjectIDFromHex(formIDString)
 	if err != nil {

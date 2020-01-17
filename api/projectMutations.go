@@ -96,7 +96,7 @@ var projectMutationFields = graphql.Fields{
 						"tags":       tags,
 					},
 				},
-				"public": validAccessTypes[3],
+				"public": noAccessLevel,
 			}
 			projectCreateRes, err := projectCollection.InsertOne(ctxMongo, projectData)
 			if err != nil {
@@ -184,7 +184,7 @@ var projectMutationFields = graphql.Fields{
 					return nil, errors.New("problem casting format date to boolean")
 				}
 			}
-			projectData, err := checkProjectAccess(projectID, accessToken, editAccessLevel, formatDate, true)
+			projectData, _, err := checkProjectAccess(projectID, accessToken, "", editAccessLevel, formatDate, true)
 			if err != nil {
 				return nil, err
 			}
@@ -240,7 +240,7 @@ var projectMutationFields = graphql.Fields{
 			if updateDataDB["$set"] == nil {
 				updateDataDB["$set"] = bson.M{}
 			}
-			newAccess, oldTags, oldCategories, err := getFormattedGQLData(projectData, access, userIDString)
+			newAccess, oldTags, oldCategories, err := getFormattedAccessGQLData(projectData, access, userIDString)
 			if err != nil {
 				return nil, err
 			}
@@ -377,11 +377,11 @@ var projectMutationFields = graphql.Fields{
 					return nil, errors.New("problem casting format date to boolean")
 				}
 			}
-			projectData, err := checkProjectAccess(projectID, accessToken, editAccessLevel, formatDate, false)
+			projectData, _, err := checkProjectAccess(projectID, accessToken, "", editAccessLevel, formatDate, false)
 			if err != nil {
 				return nil, err
 			}
-			access, tags, categories, err := getFormattedGQLData(projectData, nil, userIDString)
+			access, tags, categories, err := getFormattedAccessGQLData(projectData, nil, userIDString)
 			if err != nil {
 				return nil, err
 			}
@@ -430,7 +430,7 @@ func deleteProject(projectID primitive.ObjectID) error {
 		if !ok {
 			return errors.New("cannot cast project to string")
 		}
-		if err = changeFormProject(formIDString, project, ""); err != nil {
+		if err = changeFormProject(formIDString, project, "", ""); err != nil {
 			return err
 		}
 		if _, err = deleteForm(formID, nil, false, ""); err != nil {

@@ -187,7 +187,7 @@ var projectQueryFields = graphql.Fields{
 					}
 					projectData["id"] = id.Hex()
 					delete(projectData, "_id")
-					access, tags, categories, err := getFormattedGQLData(projectData, nil, userIDString)
+					access, tags, categories, err := getFormattedAccessGQLData(projectData, nil, userIDString)
 					if err != nil {
 						return nil, err
 					}
@@ -234,8 +234,8 @@ var projectQueryFields = graphql.Fields{
 					return nil, errors.New("problem casting format date to boolean")
 				}
 			}
-			projectData, err := checkProjectAccess(projectID, accessToken, editAccessLevel, formatDate, false)
-			access, tags, categories, err := getFormattedGQLData(projectData, nil, userIDString)
+			projectData, _, err := checkProjectAccess(projectID, accessToken, "", editAccessLevel, formatDate, false)
+			access, tags, categories, err := getFormattedAccessGQLData(projectData, nil, userIDString)
 			if err != nil {
 				return nil, err
 			}

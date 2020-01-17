@@ -37,7 +37,7 @@ var FormType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 			Type: graphql.String,
 		},
 		"items": &graphql.Field{
-			Type: graphql.NewList(ItemType),
+			Type: graphql.NewList(FormItemType),
 		},
 		"multiple": &graphql.Field{
 			Type: graphql.Boolean,
@@ -77,7 +77,7 @@ var FormUpdateType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 			Type: graphql.String,
 		},
 		"items": &graphql.Field{
-			Type: graphql.NewList(UpdateItemResponseType),
+			Type: graphql.NewList(UpdateFormFormItemType),
 		},
 		"multiple": &graphql.Field{
 			Type: graphql.Boolean,
@@ -203,7 +203,7 @@ func checkFormAccess(formID primitive.ObjectID, accessToken string, necessaryAcc
 	}
 	var userIDString = claims["id"].(string)
 	access := formData["access"].(map[string]primitive.M)
-	for currentUserID, _ := range access {
+	for currentUserID := range access {
 		if currentUserID == userIDString {
 			return formData, nil
 		}
@@ -217,7 +217,7 @@ func checkFormAccess(formID primitive.ObjectID, accessToken string, necessaryAcc
 	if err != nil {
 		return nil, err
 	}
-	_, err = checkProjectAccess(projectID, accessToken, necessaryAccess, false, false)
+	_, _, err = checkProjectAccess(projectID, accessToken, "", necessaryAccess, false, false)
 	if err == nil {
 		return formData, nil
 	}

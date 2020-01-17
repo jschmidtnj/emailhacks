@@ -10,7 +10,7 @@
 
 <script lang="js">
 import Vue from 'vue'
-import ViewContent from '~/components/secure/form/View.vue'
+import ViewContent from '~/components/form/View.vue'
 const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({
   name: 'ViewForm',

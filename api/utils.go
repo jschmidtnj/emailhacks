@@ -30,6 +30,18 @@ func interfaceListToStringList(interfaceList []interface{}) ([]string, error) {
 	return result, nil
 }
 
+func interfaceListToIntList(interfaceList []interface{}) ([]int, error) {
+	result := make([]int, len(interfaceList))
+	for i, item := range interfaceList {
+		itemStr, ok := item.(int)
+		if !ok {
+			return nil, errors.New("item in list cannot be cast to int")
+		}
+		result[i] = itemStr
+	}
+	return result, nil
+}
+
 func interfaceListToMapList(interfaceList []interface{}) ([]map[string]interface{}, error) {
 	result := make([]map[string]interface{}, len(interfaceList))
 	for i, item := range interfaceList {

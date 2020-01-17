@@ -337,8 +337,8 @@
                                     checkVideoType(item.files[0].type)
                                 "
                                 :ref="`video-source-${index}-${0}`"
-                                :type="blog.files[index].type"
-                                :src="blog.files[index].src"
+                                :type="item.files[0].type"
+                                :src="item.files[0].src"
                                 controls
                                 autoplay
                                 class="mb-2 sampleimage"
@@ -420,7 +420,7 @@
           </b-col>
         </b-row>
       </b-container>
-      <b-modal ref="submit-content" hide-footer size="xl" title="Preview">
+      <b-modal ref="submit-content-modal" hide-footer size="xl" title="Preview">
         <view-content
           :form-id="formId"
           :project-id="projectId"
@@ -435,9 +435,9 @@
 <script lang="js">
 import Vue from 'vue'
 import gql from 'graphql-tag'
-import TextEditor from '~/components/secure/form/TextEditor.vue'
+import TextEditor from '~/components/form/TextEditor.vue'
 import PageLoading from '~/components/PageLoading.vue'
-import ViewContent from '~/components/secure/form/View.vue'
+import ViewContent from '~/components/form/View.vue'
 import { validfiles, validDisplayFiles, autosaveInterval } from '~/assets/config'
 import { clone, arrayMove, checkDefined } from '~/assets/utils'
 const objectType = 'form'
@@ -622,7 +622,7 @@ export default Vue.extend({
     submit(evt) {
       evt.preventDefault()
       console.log('submit!')
-      this.$refs['submit-content'].show()
+      this.$refs['submit-content-modal'].show()
     },
     getFileData(itemIndex, fileIndex) {
       return {

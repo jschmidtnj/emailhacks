@@ -9,7 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func getFormattedGQLData(itemData map[string]interface{}, changedAccess []map[string]interface{}, userIDString string) ([]map[string]interface{}, []string, []string, error) {
+func getFormattedAccessGQLData(itemData map[string]interface{}, changedAccess []map[string]interface{}, userIDString string) ([]map[string]interface{}, []string, []string, error) {
 	if itemData["access"] == nil || len(userIDString) == 0 {
 		return []map[string]interface{}{}, []string{}, []string{}, nil
 	}
@@ -101,90 +101,6 @@ func checkAccessObj(accessObj map[string]interface{}) error {
 	return nil
 }
 
-func deleteForm(formID primitive.ObjectID, formData bson.M, formatDate bool, userIDString string) (map[string]interface{}, error) {
-	formIDString := formID.Hex()
-	if !justDeleteElastic {
-		if formData == nil {
-			var err error
-			formData, err = getForm(formID, formatDate, false)
-			if err != nil {
-				return nil, err
-			}
-		}
-		access, tags, categories, err := getFormattedGQLData(formData, nil, userIDString)
-		if err != nil {
-			return nil, err
-		}
-		formData["access"] = access
-		formData["categories"] = categories
-		formData["tags"] = tags
-	}
-	_, err := elasticClient.Delete().
-		Index(formElasticIndex).
-		Type(formElasticType).
-		Id(formIDString).
-		Do(ctxElastic)
-	if err != nil {
-		return nil, err
-	}
-	if !justDeleteElastic {
-		_, err = formCollection.DeleteOne(ctxMongo, bson.M{
-			"_id": formID,
-		})
-		if err != nil {
-			return nil, err
-		}
-		primativefiles, ok := formData["files"].(primitive.A)
-		if !ok {
-			return nil, errors.New("cannot convert files to primitive")
-		}
-		for _, primativefile := range primativefiles {
-			filedatadoc, ok := primativefile.(primitive.D)
-			if !ok {
-				return nil, errors.New("cannot convert file to primitive doc")
-			}
-			filedata := filedatadoc.Map()
-			fileid, ok := filedata["id"].(string)
-			if !ok {
-				return nil, errors.New("cannot convert file id to string")
-			}
-			filetype, ok := filedata["type"].(string)
-			if !ok {
-				return nil, errors.New("cannot convert file type to string")
-			}
-			fileobj := storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + originalPath)
-			if err := fileobj.Delete(ctxStorage); err != nil {
-				return nil, err
-			}
-			if filetype == "image/gif" {
-				fileobj = storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + placeholderPath + originalPath)
-				blurobj := storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + placeholderPath + blurPath)
-				if err := fileobj.Delete(ctxStorage); err != nil {
-					return nil, err
-				}
-				if err := blurobj.Delete(ctxStorage); err != nil {
-					return nil, err
-				}
-			} else {
-				var hasblur = false
-				for _, blurtype := range haveblur {
-					if blurtype == filetype {
-						hasblur = true
-						break
-					}
-				}
-				if hasblur {
-					fileobj = storageBucket.Object(formFileIndex + "/" + formIDString + "/" + fileid + blurPath)
-					if err := fileobj.Delete(ctxStorage); err != nil {
-						return nil, err
-					}
-				}
-			}
-		}
-	}
-	return formData, nil
-}
-
 func changeUserAccessData(itemID primitive.ObjectID, itemType string, userIDString string, categories []string, tags []string, access []map[string]interface{}) (primitive.M, error) {
 	for _, accessUser := range access {
 		if err := checkAccessObj(accessUser); err != nil {
@@ -272,6 +188,9 @@ func rootMutation() *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: "Mutation",
 		Fields: graphql.Fields{
+			"addResponse":    responseMutationFields["addResponse"],
+			"updateResponse": responseMutationFields["updateResponse"],
+			"deleteResponse": responseMutationFields["deleteResponse"],
 			"addForm":        formMutationFields["addForm"],
 			"updateForm":     formMutationFields["updateForm"],
 			"updateFormPart": formMutationFields["updateFormPart"],

@@ -42,6 +42,8 @@ var ctxMongo context.Context
 
 var userCollection *mongo.Collection
 
+var responseCollection *mongo.Collection
+
 var formCollection *mongo.Collection
 
 var projectCollection *mongo.Collection
@@ -202,6 +204,7 @@ func main() {
 		logger.Fatal(err.Error())
 	}
 	userCollection = mongoClient.Database(mainDatabase).Collection(userMongoName)
+	responseCollection = mongoClient.Database(mainDatabase).Collection(responseMongoName)
 	formCollection = mongoClient.Database(mainDatabase).Collection(formMongoName)
 	projectCollection = mongoClient.Database(mainDatabase).Collection(projectMongoName)
 	blogCollection = mongoClient.Database(mainDatabase).Collection(blogMongoName)
@@ -332,6 +335,8 @@ func main() {
 	router.GET("/getFile", getFile)
 	router.PUT("/writeFile", writeFile)
 	router.DELETE("/deleteFiles", deleteFiles)
+	router.POST("/addResponse", addResponseHandler)
+	router.GET("/countResponses", countResponses)
 	router.GET("/countForms", countForms)
 	router.GET("/countProjects", countProjects)
 	router.GET("/countBlogs", countBlogs)

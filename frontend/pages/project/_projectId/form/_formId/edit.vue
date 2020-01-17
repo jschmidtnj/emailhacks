@@ -11,7 +11,7 @@
 
 <script lang="js">
 import Vue from 'vue'
-import Create from '~/components/secure/form/Create.vue'
+import Create from '~/components/form/Create.vue'
 const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({
   name: 'EditForm',
