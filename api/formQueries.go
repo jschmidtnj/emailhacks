@@ -52,9 +52,6 @@ var formQueryFields = graphql.Fields{
 			"tags": &graphql.ArgumentConfig{
 				Type: graphql.NewList(graphql.String),
 			},
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			// see this: https://github.com/olivere/elastic/issues/483
@@ -82,19 +79,11 @@ var formQueryFields = graphql.Fields{
 					if err != nil {
 						return nil, err
 					}
-					_, accessType, err := checkProjectAccess(projectID, accessToken, "", viewAccessLevel, false, false)
+					_, accessType, err := checkProjectAccess(projectID, accessToken, "", viewAccessLevel, false)
 					if err != nil {
 						return nil, err
 					}
 					sharedDirect = accessType == sharedAccessLevel
-				}
-			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				var ok bool
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
 				}
 			}
 			if params.Args["perpage"] == nil {
@@ -209,21 +198,7 @@ var formQueryFields = graphql.Fields{
 						return nil, err
 					}
 					createdTimestamp := objectidTimestamp(id)
-					if formatDate {
-						formData["created"] = createdTimestamp.Format(dateFormat)
-					} else {
-						formData["created"] = createdTimestamp.Unix()
-					}
-					updatedInt, ok := formData["updated"].(float64)
-					if !ok {
-						return nil, errors.New("cannot cast updated time to float")
-					}
-					updatedTimestamp := intTimestamp(int64(updatedInt))
-					if formatDate {
-						formData["updated"] = updatedTimestamp.Format(dateFormat)
-					} else {
-						formData["updated"] = updatedTimestamp.Unix()
-					}
+					formData["created"] = createdTimestamp.Unix()
 					formData["id"] = id.Hex()
 					delete(formData, "_id")
 					access, tags, categories, err := getFormattedAccessGQLData(formData, nil, userIDString)
@@ -246,9 +221,6 @@ var formQueryFields = graphql.Fields{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
 			"editAccessToken": &graphql.ArgumentConfig{
 				Type: graphql.Boolean,
 			}, // true if need edit access, false if need just view access
@@ -267,14 +239,6 @@ var formQueryFields = graphql.Fields{
 			formID, err := primitive.ObjectIDFromHex(formIDString)
 			if err != nil {
 				return nil, err
-			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				var ok bool
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
 			}
 			var getFormUpdateToken = false
 			var getFileOriginal = false
@@ -354,55 +318,46 @@ var formQueryFields = graphql.Fields{
 					}
 				}
 			}
-			var formData map[string]interface{}
+			var formData *Form
 			if !useAccessToken {
-				formData, err = checkFormAccess(formID, accessToken, necessaryAccessLevel, formatDate, false)
+				formData, err = checkFormAccess(formID, accessToken, necessaryAccessLevel, false)
 				if err != nil {
 					return nil, err
 				}
 			} else {
-				formData, err = getForm(formID, formatDate, false)
+				formData, err = getForm(formID, false)
 				if err != nil {
 					return nil, err
 				}
 			}
 			if len(userIDString) == 0 {
-				formData["access"] = map[string]interface{}{}
-				formData["categories"] = []string{}
-				formData["tags"] = []string{}
+				formData.Access = map[string]interface{}{}
+				formData.Categories = []string{}
+				formData.Tags = []string{}
 			} else {
 				access, tags, categories, err := getFormattedAccessGQLData(formData, nil, userIDString)
 				if err != nil {
 					return nil, err
 				}
-				formData["access"] = access
-				formData["categories"] = categories
-				formData["tags"] = tags
+				formData.Access = access
+				formData.Categories = categories
+				formData.Tags = tags
 			}
-			responses, ok := formData["responses"].(int32)
-			if !ok {
-				return nil, errors.New("cannot cast responses to int")
-			}
-			var deleteResponses = needEditAccess && responses > 0
+			var deleteResponses = needEditAccess && formData.Responses > 0
 			if deleteResponses {
 				// delete all previous responses (if there are any)
 				if err = deleteAllResponses(formID); err != nil {
 					return nil, err
 				}
-				formData["responses"] = 0
+				formData.Responses = 0
 			}
 			if getFileOriginal || getFileBlur || getFilePlaceholder {
-				thefiles, ok := formData["files"].(bson.A)
-				if !ok {
-					return nil, errors.New("cannot convert files to bson array")
-				}
-				for i, file := range thefiles {
-					fileObj := file.(bson.M)
-					fileid := fileObj["id"].(string)
-					filetype := fileObj["type"].(string)
+				for i, _ := range formData.Files {
+					filetype := formData.Files[i].Type
+					fileID := formData.Files[i].ID
 					if getFileOriginal {
-						filepath := formFileIndex + "/" + formIDString + "/" + fileid + originalPath
-						fileObj["originalSrc"], err = getSignedURL(filepath, validAccessTypes[2])
+						filepath := formFileIndex + "/" + formIDString + "/" + fileID + originalPath
+						formData.Files[i].OriginalSrc, err = getSignedURL(filepath, validAccessTypes[2])
 						if err != nil {
 							return nil, err
 						}
@@ -413,21 +368,20 @@ var formQueryFields = graphql.Fields{
 							addPlaceholderPath = placeholderPath
 						}
 						if getFileBlur {
-							filepath := formFileIndex + "/" + formIDString + "/" + fileid + addPlaceholderPath + blurPath
-							fileObj["blurSrc"], err = getSignedURL(filepath, validAccessTypes[2])
+							filepath := formFileIndex + "/" + formIDString + "/" + fileID + addPlaceholderPath + blurPath
+							formData.Files[i].BlurSrc, err = getSignedURL(filepath, validAccessTypes[2])
 							if err != nil {
 								return nil, err
 							}
 						}
 						if getFilePlaceholder {
-							filepath := formFileIndex + "/" + formIDString + "/" + fileid + addPlaceholderPath + originalPath
-							fileObj["placeholderSrc"], err = getSignedURL(filepath, validAccessTypes[2])
+							filepath := formFileIndex + "/" + formIDString + "/" + fileID + addPlaceholderPath + originalPath
+							formData.Files[i].PlaceholderSrc, err = getSignedURL(filepath, validAccessTypes[2])
 							if err != nil {
 								return nil, err
 							}
 						}
 					}
-					thefiles[i] = fileObj
 				}
 			}
 			if getFormUpdateToken {
@@ -452,7 +406,7 @@ var formQueryFields = graphql.Fields{
 				if err != nil {
 					return nil, err
 				}
-				formData["updatesAccessToken"] = tokenString
+				formData.UpdatesAccessToken = tokenString
 			}
 			updateDBData := bson.M{
 				"$inc": bson.M{

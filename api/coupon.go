@@ -12,7 +12,7 @@ import (
 
 // CouponType coupon object for discounts
 var CouponType = graphql.NewObject(graphql.ObjectConfig{
-	Name: "Product",
+	Name: "Coupon",
 	Fields: graphql.Fields{
 		"id": &graphql.Field{
 			Type: graphql.String,

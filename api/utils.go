@@ -79,7 +79,11 @@ func findInArray(thetype string, arr []string) bool {
 	return false
 }
 
-func moveArray(arr []interface{}, from int, to int) error {
+func moveArray(arrInterface interface{}, from int, to int) error {
+	arr, ok := arrInterface.([]interface{})
+	if !ok {
+		return errors.New("cannot convert interface to array")
+	}
 	if from > len(arr)-1 || from < 0 || to > len(arr)-1 || to < 0 {
 		return errors.New("array index out of bounds")
 	}

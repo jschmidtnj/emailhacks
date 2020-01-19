@@ -5,6 +5,7 @@ import (
 	"time"
 
 	json "github.com/json-iterator/go"
+	"github.com/mitchellh/mapstructure"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -25,7 +26,7 @@ func updateForm(formIDString string) error {
 	if err != nil {
 		return err
 	}
-	formData, err := getForm(formID, false, false)
+	formData, err := getForm(formID, false)
 	if err != nil {
 		return err
 	}
@@ -58,41 +59,41 @@ func updateForm(formIDString string) error {
 		if err != nil {
 			return err
 		}
-		items, ok := formData["items"].(primitive.A)
-		if !ok {
-			return errors.New("cannot cast items to array")
-		}
 		for _, itemUpdate := range itemsUpdate {
 			action := itemUpdate["updateAction"].(string)
 			delete(itemUpdate, "updateAction")
+			var itemObj *FormItem
+			if err = mapstructure.Decode(itemUpdate, &itemObj); err != nil {
+				return err
+			}
 			if action == validUpdateArrayActions[0] {
 				// add
-				items = append(items, itemUpdate)
+				formData.Items = append(formData.Items, itemObj)
 			} else {
 				index := int(itemUpdate["index"].(float64))
 				delete(itemUpdate, "index")
-				if index >= len(items) || index < 0 {
+				if index >= len(formData.Items) || index < 0 {
 					continue
 				}
 				if action == validUpdateArrayActions[1] {
 					// remove
-					items = append(items[:index], items[index+1:]...)
+					formData.Items = append(formData.Items[:index], formData.Items[index+1:]...)
 				} else if action == validUpdateArrayActions[2] {
 					// move to new index
 					newIndex := int(itemUpdate["newIndex"].(float64))
 					delete(itemUpdate, "newIndex")
-					err = moveArray(items, index, newIndex)
+					err = moveArray(formData.Items, index, newIndex)
 					if err != nil {
 						logger.Info(err.Error())
 					}
 				} else if action == validUpdateArrayActions[3] {
 					// set index to value
-					items[index] = itemUpdate
+					formData.Items[index] = itemObj
 				}
 			}
 		}
-		updateDataDB["$set"].(bson.M)["items"] = items
-		updateDataElastic["items"] = items
+		updateDataDB["$set"].(bson.M)["items"] = formData.Items
+		updateDataElastic["items"] = formData.Items
 	}
 	if savedUpdateDataObj["public"] != nil {
 		public, ok := savedUpdateDataObj["public"].(string)
@@ -111,10 +112,6 @@ func updateForm(formIDString string) error {
 		if err != nil {
 			return err
 		}
-		files, ok := formData["files"].(primitive.A)
-		if !ok {
-			return errors.New("cannot cast files to array")
-		}
 		for _, fileUpdate := range filesUpdate {
 			index := int(fileUpdate["index"].(float64))
 			delete(fileUpdate, "index")
@@ -122,23 +119,27 @@ func updateForm(formIDString string) error {
 			delete(fileUpdate, "itemIndex")
 			action := fileUpdate["updateAction"].(string)
 			delete(fileUpdate, "updateAction")
+			var fileObj *File
+			if err = mapstructure.Decode(fileUpdate, &fileObj); err != nil {
+				return err
+			}
 			if action == validUpdateMapActions[0] {
 				// add
-				files = append(files, fileUpdate)
+				formData.Files = append(formData.Files, fileObj)
 			} else {
 				if action == validUpdateMapActions[1] {
 					// remove
-					if index >= 0 && index < len(files) {
-						files = append(files[:index], files[index+1:]...)
+					if index >= 0 && index < len(formData.Files) {
+						formData.Files = append(formData.Files[:index], formData.Files[index+1:]...)
 					}
 				} else if action == validUpdateMapActions[2] {
 					// set to value
-					files[index] = fileUpdate
+					formData.Files[index] = fileObj
 				}
 			}
 		}
-		updateDataDB["$set"].(bson.M)["files"] = files
-		updateDataElastic["files"] = files
+		updateDataDB["$set"].(bson.M)["files"] = formData.Files
+		updateDataElastic["files"] = formData.Files
 	}
 	updateDataElastic["updated"] = time.Now().Unix()
 	delete(updateDataElastic, "created")

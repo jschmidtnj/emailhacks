@@ -20,9 +20,6 @@ var projectMutationFields = graphql.Fields{
 			"name": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
 			"categories": &graphql.ArgumentConfig{
 				Type: graphql.NewList(graphql.String),
 			},
@@ -83,13 +80,6 @@ var projectMutationFields = graphql.Fields{
 			if params.Args["categories"] == nil {
 				return nil, errors.New("categories not provided")
 			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
-			}
 			name, ok := params.Args["name"].(string)
 			if !ok {
 				return nil, errors.New("problem casting name to string")
@@ -149,10 +139,6 @@ var projectMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			if formatDate {
-				projectData["created"] = now.Format(dateFormat)
-				projectData["updated"] = now.Format(dateFormat)
-			}
 			projectData["id"] = projectIDString
 			delete(projectData["access"].(bson.M), userIDString)
 			projectData["access"] = userAccess
@@ -208,15 +194,7 @@ var projectMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				var ok bool
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
-			}
-			projectData, _, err := checkProjectAccess(projectID, accessToken, "", editAccessLevel, formatDate, true)
+			projectData, _, err := checkProjectAccess(projectID, accessToken, "", editAccessLevel, true)
 			if err != nil {
 				return nil, err
 			}
@@ -402,14 +380,7 @@ var projectMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
-			}
-			projectData, _, err := checkProjectAccess(projectID, accessToken, "", editAccessLevel, formatDate, false)
+			projectData, _, err := checkProjectAccess(projectID, accessToken, "", editAccessLevel, false)
 			if err != nil {
 				return nil, err
 			}
@@ -465,7 +436,7 @@ func deleteProject(projectID primitive.ObjectID) error {
 		if err = changeFormProject(formIDString, project, "", ""); err != nil {
 			return err
 		}
-		if _, err = deleteForm(formID, nil, false, ""); err != nil {
+		if _, err = deleteForm(formID, nil, ""); err != nil {
 			return err
 		}
 	}

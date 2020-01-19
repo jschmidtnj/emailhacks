@@ -335,7 +335,10 @@ func verifyEmail(c *gin.Context) {
 	}
 	var decodedToken map[string]interface{}
 	if claims, success := token.Claims.(jwt.MapClaims); success && token.Valid {
-		mapstructure.Decode(claims, &decodedToken)
+		if err = mapstructure.Decode(claims, &decodedToken); err != nil {
+			handleError(err.Error(), http.StatusBadRequest, response)
+			return
+		}
 	} else {
 		handleError("invalid token", http.StatusBadRequest, response)
 		return
@@ -470,7 +473,10 @@ func resetPassword(c *gin.Context) {
 	}
 	var decodedToken map[string]interface{}
 	if claims, success := token.Claims.(jwt.MapClaims); success && token.Valid {
-		mapstructure.Decode(claims, &decodedToken)
+		if err = mapstructure.Decode(claims, &decodedToken); err != nil {
+			handleError(err.Error(), http.StatusBadRequest, response)
+			return
+		}
 	} else {
 		handleError("invalid token", http.StatusBadRequest, response)
 		return

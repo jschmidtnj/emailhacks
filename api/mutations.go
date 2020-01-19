@@ -9,11 +9,11 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func getFormattedAccessGQLData(itemData map[string]interface{}, changedAccess []map[string]interface{}, userIDString string) ([]map[string]interface{}, []string, []string, error) {
-	if itemData["access"] == nil || len(userIDString) == 0 {
-		return []map[string]interface{}{}, []string{}, []string{}, nil
+func getFormattedAccessGQLData(currentAccess interface{}, changedAccess []map[string]interface{}, userIDString string) ([]*Access, []string, []string, error) {
+	if currentAccess == nil || len(userIDString) == 0 {
+		return []*Access{}, []string{}, []string{}, nil
 	}
-	userData := itemData["access"].(map[string]bson.M)[userIDString]
+	userData := currentAccess.(map[string]bson.M)[userIDString]
 	tags := []string{}
 	categories := []string{}
 	if userData != nil {
@@ -28,7 +28,7 @@ func getFormattedAccessGQLData(itemData map[string]interface{}, changedAccess []
 			return nil, nil, nil, err
 		}
 	}
-	newAccessMap := itemData["access"].(map[string]bson.M)
+	newAccessMap := make(map[string]*Access, len(currentAccess.(map[string]bson.M)))
 	if changedAccess != nil {
 		for _, accessUser := range changedAccess {
 			currentUserID := accessUser["id"].(string)
@@ -37,20 +37,18 @@ func getFormattedAccessGQLData(itemData map[string]interface{}, changedAccess []
 					delete(newAccessMap, currentUserID)
 				}
 			} else {
-				newAccessMap[currentUserID] = bson.M{
-					"type": accessUser["type"].(string),
+				newAccessMap[currentUserID] = &Access{
+					Type: accessUser["type"].(string),
 				}
 			}
-			delete(newAccessMap[currentUserID], "categories")
-			delete(newAccessMap[currentUserID], "tags")
 		}
 	}
-	newAccess := make([]map[string]interface{}, len(newAccessMap))
+	newAccess := make([]*Access, len(newAccessMap))
 	var i = 0
 	for id, accessElem := range newAccessMap {
-		newAccess[i] = bson.M{
-			"id":   id,
-			"type": accessElem["type"],
+		newAccess[i] = &Access{
+			ID:   id,
+			Type: accessElem.Type,
 		}
 		i++
 	}

@@ -60,6 +60,7 @@ require (
 	github.com/sqs/goreturns v0.0.0-20181028201513-538ac6014518 // indirect
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stripe/stripe-go v68.11.0+incompatible
+	github.com/tdewolff/minify/v2 v2.7.2
 	github.com/tidwall/pretty v1.0.0 // indirect
 	github.com/uudashr/gopkgs v2.0.1+incompatible // indirect
 	github.com/vmihailenco/taskq/v2 v2.2.3

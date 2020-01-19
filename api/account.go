@@ -77,13 +77,9 @@ var PublicAccountType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-func processUserFromDB(userData bson.M, formatDate bool, updated bool) (bson.M, error) {
+func processUserFromDB(userData bson.M, updated bool) (bson.M, error) {
 	id := userData["_id"].(primitive.ObjectID)
-	if formatDate {
-		userData["created"] = objectidTimestamp(id).Format(dateFormat)
-	} else {
-		userData["created"] = objectidTimestamp(id).Unix()
-	}
+	userData["created"] = objectidTimestamp(id).Unix()
 	var updatedTimestamp time.Time
 	if updated {
 		updatedTimestamp = time.Now()
@@ -94,11 +90,7 @@ func processUserFromDB(userData bson.M, formatDate bool, updated bool) (bson.M, 
 		}
 		updatedTimestamp = intTimestamp(updatedInt)
 	}
-	if formatDate {
-		userData["updated"] = updatedTimestamp.Format(dateFormat)
-	} else {
-		userData["updated"] = updatedTimestamp.Unix()
-	}
+	userData["updated"] = updatedTimestamp.Unix()
 	userData["id"] = id.Hex()
 	delete(userData, "_id")
 	categoriesArray, ok := userData["categories"].(primitive.A)
@@ -128,7 +120,7 @@ func processUserFromDB(userData bson.M, formatDate bool, updated bool) (bson.M, 
 	return userData, nil
 }
 
-func getAccount(accountID primitive.ObjectID, formatDate bool, updated bool) (map[string]interface{}, error) {
+func getAccount(accountID primitive.ObjectID, updated bool) (map[string]interface{}, error) {
 	userDataCursor, err := formCollection.Find(ctxMongo, bson.M{
 		"_id": accountID,
 	})
@@ -145,7 +137,7 @@ func getAccount(accountID primitive.ObjectID, formatDate bool, updated bool) (ma
 		if err != nil {
 			return nil, err
 		}
-		userData, err = processUserFromDB(userPrimitive.Map(), formatDate, updated)
+		userData, err = processUserFromDB(userPrimitive.Map(), updated)
 		if err != nil {
 			return nil, err
 		}

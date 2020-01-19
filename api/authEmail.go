@@ -46,6 +46,7 @@ func sendEmailVerification(email string) (*rest.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+	// TODO - replace this with a template in source here
 	doc.Find("#verify").SetAttr("href", websiteURL+"/login?verify=true&token="+tokenString)
 	template, err := doc.Html()
 	request := sendgrid.GetRequest(sendgridAPIKey, sendgridAPIPath+"/mail/send", sendgridAPIUrl)

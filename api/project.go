@@ -54,13 +54,9 @@ var ProjectType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-func processProjectFromDB(projectData bson.M, formatDate bool, updated bool) (bson.M, error) {
+func processProjectFromDB(projectData bson.M, updated bool) (bson.M, error) {
 	id := projectData["_id"].(primitive.ObjectID)
-	if formatDate {
-		projectData["created"] = objectidTimestamp(id).Format(dateFormat)
-	} else {
-		projectData["created"] = objectidTimestamp(id).Unix()
-	}
+	projectData["created"] = objectidTimestamp(id).Unix()
 	var updatedTimestamp time.Time
 	if updated {
 		updatedTimestamp = time.Now()
@@ -71,11 +67,7 @@ func processProjectFromDB(projectData bson.M, formatDate bool, updated bool) (bs
 		}
 		updatedTimestamp = intTimestamp(updatedInt)
 	}
-	if formatDate {
-		projectData["updated"] = updatedTimestamp.Format(dateFormat)
-	} else {
-		projectData["updated"] = updatedTimestamp.Unix()
-	}
+	projectData["updated"] = updatedTimestamp.Unix()
 	projectData["id"] = id.Hex()
 	delete(projectData, "_id")
 	accessPrimitiveDoc, ok := projectData["access"].(primitive.D)
@@ -95,7 +87,7 @@ func processProjectFromDB(projectData bson.M, formatDate bool, updated bool) (bs
 	return projectData, nil
 }
 
-func checkProjectAccess(projectID primitive.ObjectID, accessToken string, otherUserIDString string, necessaryAccess []string, formatDate bool, updated bool) (map[string]interface{}, string, error) {
+func checkProjectAccess(projectID primitive.ObjectID, accessToken string, otherUserIDString string, necessaryAccess []string, updated bool) (map[string]interface{}, string, error) {
 	projectDataCursor, err := projectCollection.Find(ctxMongo, bson.M{
 		"_id": projectID,
 	})
@@ -113,7 +105,7 @@ func checkProjectAccess(projectID primitive.ObjectID, accessToken string, otherU
 		if err != nil {
 			return nil, "", err
 		}
-		projectData, err = processProjectFromDB(projectPrimitive.Map(), formatDate, updated)
+		projectData, err = processProjectFromDB(projectPrimitive.Map(), updated)
 		if err != nil {
 			return nil, "", err
 		}

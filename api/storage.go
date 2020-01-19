@@ -321,7 +321,7 @@ func writeFile(c *gin.Context) {
 	}
 	defer file.Close()
 	if posttype == responseType || posttype == formType {
-		userData, err := getAccount(ownerID, false, false)
+		userData, err := getAccount(ownerID, false)
 		if err != nil {
 			handleError(err.Error(), http.StatusBadRequest, response)
 			return
@@ -438,7 +438,7 @@ func deleteFiles(c *gin.Context) {
 		return
 	}
 	if posttype == formType {
-		_, err = checkFormAccess(postIDObj, authToken, editAccessLevel, false, false)
+		_, err = checkFormAccess(postIDObj, authToken, editAccessLevel, false)
 		if err != nil {
 			handleError(err.Error(), http.StatusBadRequest, response)
 			return
@@ -573,30 +573,30 @@ func validateStorageEditRequest(request *http.Request, postID primitive.ObjectID
 			if posttype == blogType {
 				return primitive.NilObjectID, errors.New("you need to be admin to edit blogs")
 			} else if posttype == formType {
-				formData, err := checkFormAccess(postID, accessToken, editAccessLevel, false, false)
+				formData, err := checkFormAccess(postID, accessToken, editAccessLevel, false)
 				if err != nil {
 					return primitive.NilObjectID, err
 				}
-				ownerString = formData["owner"].(string)
+				ownerString = formData.Owner
 			} else if posttype == responseType {
-				responseData, err := checkResponseAccess(postID, accessToken, editAccessLevel, false, false)
+				responseData, err := checkResponseAccess(postID, accessToken, editAccessLevel, false)
 				if err != nil {
 					return primitive.NilObjectID, err
 				}
 				ownerString = responseData["owner"].(string)
 			}
 		} else if posttype == responseType {
-			responseData, err := getResponse(postID, false, false)
+			responseData, err := getResponse(postID, false)
 			if err != nil {
 				return primitive.NilObjectID, err
 			}
 			ownerString = responseData["owner"].(string)
 		} else if posttype == formType {
-			formData, err := getForm(postID, false, false)
+			formData, err := getForm(postID, false)
 			if err != nil {
 				return primitive.NilObjectID, err
 			}
-			ownerString = formData["owner"].(string)
+			ownerString = formData.Owner
 		}
 	}
 	ownerID, err := primitive.ObjectIDFromHex(ownerString)
@@ -655,7 +655,7 @@ func getFile(c *gin.Context) {
 	if posttype == formType {
 		if updateToken == "" {
 			accessToken := getAuthToken(request)
-			_, err := checkFormAccess(postIDObj, accessToken, viewAccessLevel, false, false)
+			_, err := checkFormAccess(postIDObj, accessToken, viewAccessLevel, false)
 			if err != nil {
 				handleError("no form access: "+err.Error(), http.StatusUnauthorized, response)
 				return
@@ -674,7 +674,7 @@ func getFile(c *gin.Context) {
 	} else if posttype == responseType {
 		if updateToken == "" {
 			accessToken := getAuthToken(request)
-			_, err := checkResponseAccess(postIDObj, accessToken, viewAccessLevel, false, false)
+			_, err := checkResponseAccess(postIDObj, accessToken, viewAccessLevel, false)
 			if err != nil {
 				handleError("no response access: "+err.Error(), http.StatusUnauthorized, response)
 				return

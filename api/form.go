@@ -14,6 +14,26 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// Form type
+type Form struct {
+	ID                 string      `json:"id"`
+	Owner              string      `json:"owner"`
+	Responses          int         `json:"responses"`
+	Created            int64       `json:"created"`
+	Updated            int64       `json:"updated"`
+	Project            string      `json:"project"`
+	Name               string      `json:"name"`
+	Items              []*FormItem `json:"items"`
+	Multiple           bool        `json:"multiple"`
+	Access             interface{} `json:"access"`
+	Public             string      `json:"public"`
+	Views              int         `json:"Views"`
+	Tags               []string    `json:"tags"`
+	Categories         []string    `json:"categories"`
+	Files              []*File     `json:"files"`
+	UpdatesAccessToken string      `json:"updatesAccessToken"`
+}
+
 // FormType form type object for user forms graphql
 var FormType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "Form",
@@ -91,13 +111,9 @@ var FormUpdateType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-func processFormFromDB(formData bson.M, formatDate bool, updated bool) (bson.M, error) {
+func processFormFromDB(formData bson.M, updated bool) (bson.M, error) {
 	id := formData["_id"].(primitive.ObjectID)
-	if formatDate {
-		formData["created"] = objectidTimestamp(id).Format(dateFormat)
-	} else {
-		formData["created"] = objectidTimestamp(id).Unix()
-	}
+	formData["created"] = objectidTimestamp(id).Unix()
 	var updatedTimestamp time.Time
 	if updated {
 		updatedTimestamp = time.Now()
@@ -108,11 +124,7 @@ func processFormFromDB(formData bson.M, formatDate bool, updated bool) (bson.M, 
 		}
 		updatedTimestamp = intTimestamp(updatedInt)
 	}
-	if formatDate {
-		formData["updated"] = updatedTimestamp.Format(dateFormat)
-	} else {
-		formData["updated"] = updatedTimestamp.Unix()
-	}
+	formData["updated"] = updatedTimestamp.Unix()
 	formData["id"] = id.Hex()
 	delete(formData, "_id")
 	fileArray, ok := formData["files"].(primitive.A)
@@ -156,44 +168,27 @@ func processFormFromDB(formData bson.M, formatDate bool, updated bool) (bson.M, 
 	return formData, nil
 }
 
-func getForm(formID primitive.ObjectID, formatDate bool, updated bool) (map[string]interface{}, error) {
-	formDataCursor, err := formCollection.Find(ctxMongo, bson.M{
+func getForm(formID primitive.ObjectID, updated bool) (*Form, error) {
+	var form Form
+	err := formCollection.FindOne(ctxMongo, bson.M{
 		"_id": formID,
-	})
-	defer formDataCursor.Close(ctxMongo)
+	}).Decode(&form)
 	if err != nil {
 		return nil, err
 	}
-	var formData map[string]interface{}
-	var foundForm = false
-	for formDataCursor.Next(ctxMongo) {
-		foundForm = true
-		formPrimitive := &bson.D{}
-		err = formDataCursor.Decode(formPrimitive)
-		if err != nil {
-			return nil, err
-		}
-		formData, err = processFormFromDB(formPrimitive.Map(), formatDate, updated)
-		if err != nil {
-			return nil, err
-		}
-		break
-	}
-	if !foundForm {
-		return nil, errors.New("form not found with given id")
-	}
-	return formData, nil
+	form.Created = objectidTimestamp(formID).Unix()
+	form.ID = formID.Hex()
+	return &form, nil
 }
 
-func checkFormAccess(formID primitive.ObjectID, accessToken string, necessaryAccess []string, formatDate bool, updated bool) (map[string]interface{}, error) {
-	formData, err := getForm(formID, formatDate, updated)
+func checkFormAccess(formID primitive.ObjectID, accessToken string, necessaryAccess []string, updated bool) (*Form, error) {
+	form, err := getForm(formID, updated)
 	if err != nil {
 		return nil, err
 	}
 	// if public just break
-	var publicAccess = formData["public"].(string)
-	if findInArray(publicAccess, necessaryAccess) {
-		return formData, nil
+	if findInArray(form.Public, necessaryAccess) {
+		return form, nil
 	}
 	// next check if logged in
 	claims, err := getTokenData(accessToken)
@@ -201,28 +196,23 @@ func checkFormAccess(formID primitive.ObjectID, accessToken string, necessaryAcc
 		return nil, err
 	}
 	// admin can do anything
-	if claims["type"] == adminType {
-		return formData, nil
+	if claims["type"].(string) == adminType {
+		return form, nil
 	}
 	var userIDString = claims["id"].(string)
-	access := formData["access"].(map[string]primitive.M)
-	for currentUserID := range access {
+	for currentUserID := range form.Access.(bson.M) {
 		if currentUserID == userIDString {
-			return formData, nil
+			return form, nil
 		}
 	}
 	// check if user has access to project directly
-	projectIDString, ok := formData["project"].(string)
-	if !ok {
-		return nil, errors.New("cannot cast project id to string")
-	}
-	projectID, err := primitive.ObjectIDFromHex(projectIDString)
+	projectID, err := primitive.ObjectIDFromHex(form.Project)
 	if err != nil {
 		return nil, err
 	}
-	_, _, err = checkProjectAccess(projectID, accessToken, "", necessaryAccess, false, false)
+	_, _, err = checkProjectAccess(projectID, accessToken, "", necessaryAccess, false)
 	if err == nil {
-		return formData, nil
+		return form, nil
 	}
 	return nil, errors.New("user not authorized to access form")
 }

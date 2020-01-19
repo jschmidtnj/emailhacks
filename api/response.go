@@ -53,13 +53,9 @@ var ResponseType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-func processResponseFromDB(responseData bson.M, formatDate bool, updated bool) (bson.M, error) {
+func processResponseFromDB(responseData bson.M, updated bool) (bson.M, error) {
 	id := responseData["_id"].(primitive.ObjectID)
-	if formatDate {
-		responseData["created"] = objectidTimestamp(id).Format(dateFormat)
-	} else {
-		responseData["created"] = objectidTimestamp(id).Unix()
-	}
+	responseData["created"] = objectidTimestamp(id).Unix()
 	var updatedTimestamp time.Time
 	if updated {
 		updatedTimestamp = time.Now()
@@ -70,11 +66,7 @@ func processResponseFromDB(responseData bson.M, formatDate bool, updated bool) (
 		}
 		updatedTimestamp = intTimestamp(updatedInt)
 	}
-	if formatDate {
-		responseData["updated"] = updatedTimestamp.Format(dateFormat)
-	} else {
-		responseData["updated"] = updatedTimestamp.Unix()
-	}
+	responseData["updated"] = updatedTimestamp.Unix()
 	responseData["id"] = id.Hex()
 	delete(responseData, "_id")
 	itemsArray, ok := responseData["item"].(primitive.A)
@@ -92,7 +84,7 @@ func processResponseFromDB(responseData bson.M, formatDate bool, updated bool) (
 	return responseData, nil
 }
 
-func getResponse(responseID primitive.ObjectID, formatDate bool, updated bool) (map[string]interface{}, error) {
+func getResponse(responseID primitive.ObjectID, updated bool) (map[string]interface{}, error) {
 	responseDataCursor, err := responseCollection.Find(ctxMongo, bson.M{
 		"_id": responseID,
 	})
@@ -109,7 +101,7 @@ func getResponse(responseID primitive.ObjectID, formatDate bool, updated bool) (
 		if err != nil {
 			return nil, err
 		}
-		responseData, err = processResponseFromDB(responsePrimitive.Map(), formatDate, updated)
+		responseData, err = processResponseFromDB(responsePrimitive.Map(), updated)
 		if err != nil {
 			return nil, err
 		}
@@ -121,8 +113,8 @@ func getResponse(responseID primitive.ObjectID, formatDate bool, updated bool) (
 	return responseData, nil
 }
 
-func checkResponseAccess(responseID primitive.ObjectID, accessToken string, necessaryAccess []string, formatDate bool, updated bool) (map[string]interface{}, error) {
-	responseData, err := getResponse(responseID, formatDate, updated)
+func checkResponseAccess(responseID primitive.ObjectID, accessToken string, necessaryAccess []string, updated bool) (map[string]interface{}, error) {
+	responseData, err := getResponse(responseID, updated)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +144,7 @@ func checkResponseAccess(responseID primitive.ObjectID, accessToken string, nece
 	if err != nil {
 		return nil, err
 	}
-	_, err = checkFormAccess(formID, accessToken, necessaryAccess, false, false)
+	_, err = checkFormAccess(formID, accessToken, necessaryAccess, false)
 	if err == nil {
 		return responseData, nil
 	}

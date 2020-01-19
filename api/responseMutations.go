@@ -148,22 +148,11 @@ var responseMutationFields = graphql.Fields{
 			"items": &graphql.ArgumentConfig{
 				Type: graphql.NewList(ResponseItemInputType),
 			},
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
 			"files": &graphql.ArgumentConfig{
 				Type: graphql.NewList(FileInputType),
 			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				var ok bool
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
-			}
 			formIDString, ok := params.Args["id"].(string)
 			if !ok {
 				return nil, errors.New("unable to cast form id to string")
@@ -214,15 +203,12 @@ var responseMutationFields = graphql.Fields{
 				if err != nil {
 					return nil, err
 				}
-				formData, err := checkFormAccess(formID, accessToken, viewAccessLevel, false, false)
+				formData, err := checkFormAccess(formID, accessToken, viewAccessLevel, false)
 				if err != nil {
 					return nil, err
 				}
-				ownerIDString, ok = formData["owner"].(string)
-				if !ok {
-					return nil, errors.New("cannot cast owner to string")
-				}
-				projectID, err = primitive.ObjectIDFromHex(formData["project"].(string))
+				ownerIDString = formData.Owner
+				projectID, err = primitive.ObjectIDFromHex(formData.Project)
 				if err != nil {
 					return nil, err
 				}
@@ -258,7 +244,7 @@ var responseMutationFields = graphql.Fields{
 					continue
 				}
 			}
-			responseData, err := addResponse(itemsInterface, filesInterface, formID, projectID, ownerID, userID, formatDate)
+			responseData, err := addResponse(itemsInterface, filesInterface, formID, projectID, ownerID, userID)
 			if err != nil {
 				return nil, err
 			}
@@ -311,14 +297,6 @@ var responseMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				var ok bool
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
-			}
 			var useAccessToken = false
 			if params.Args["accessToken"] != nil {
 				useAccessToken = true
@@ -341,13 +319,13 @@ var responseMutationFields = graphql.Fields{
 				if tokenResponseIDString != responseIDString {
 					return nil, errors.New("token response id does not match given form id")
 				}
-				responseData, err = getResponse(responseID, formatDate, true)
+				responseData, err = getResponse(responseID, true)
 				if err != nil {
 					return nil, err
 				}
 			} else {
 				accessToken = params.Context.Value(tokenKey).(string)
-				responseData, err = checkResponseAccess(responseID, accessToken, editAccessLevel, formatDate, true)
+				responseData, err = checkResponseAccess(responseID, accessToken, editAccessLevel, true)
 				if err != nil {
 					return nil, err
 				}
@@ -466,14 +444,7 @@ var responseMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
-			}
-			responseData, err := checkResponseAccess(responseID, accessToken, editAccessLevel, formatDate, false)
+			responseData, err := checkResponseAccess(responseID, accessToken, editAccessLevel, false)
 			if err != nil {
 				return nil, err
 			}
@@ -517,7 +488,6 @@ var responseMutationFields = graphql.Fields{
  * @apiParam {String} accessToken Token for authentication
  * @apiParam {Array} items Item objects
  * @apiParam {Array} files File objects
- * @apiParam {Boolean} formatDate Format the date with output
  * @apiSuccess {Object} data Response data
  */
 func addResponseHandler(c *gin.Context) {
@@ -536,15 +506,6 @@ func addResponseHandler(c *gin.Context) {
 	err = json.Unmarshal(body, &responsedata)
 	if err != nil {
 		handleError("error parsing request body: "+err.Error(), http.StatusBadRequest, response)
-		return
-	}
-	if responsedata["formatDate"] == nil {
-		handleError("no format date provided", http.StatusBadRequest, response)
-		return
-	}
-	formatDate, ok := responsedata["formatDate"].(bool)
-	if !ok {
-		handleError("format date cannot be cast to bool", http.StatusBadRequest, response)
 		return
 	}
 	if responsedata["id"] == nil {
@@ -608,7 +569,7 @@ func addResponseHandler(c *gin.Context) {
 		handleError("problem casting files to interface array", http.StatusBadRequest, response)
 		return
 	}
-	responseData, err := addResponse(itemsInterface, filesInterface, formID, projectID, ownerID, userID, formatDate)
+	responseData, err := addResponse(itemsInterface, filesInterface, formID, projectID, ownerID, userID)
 	if err != nil {
 		handleError(err.Error(), http.StatusBadRequest, response)
 		return
@@ -622,7 +583,7 @@ func addResponseHandler(c *gin.Context) {
 	response.Write(responseDataBytes)
 }
 
-func addResponse(itemsInterface []interface{}, filesInterface []interface{}, formID primitive.ObjectID, projectID primitive.ObjectID, ownerID primitive.ObjectID, userID primitive.ObjectID, formatDate bool) (map[string]interface{}, error) {
+func addResponse(itemsInterface []interface{}, filesInterface []interface{}, formID primitive.ObjectID, projectID primitive.ObjectID, ownerID primitive.ObjectID, userID primitive.ObjectID) (map[string]interface{}, error) {
 	items, err := interfaceListToMapList(itemsInterface)
 	if err != nil {
 		return nil, err
@@ -691,10 +652,6 @@ func addResponse(itemsInterface []interface{}, filesInterface []interface{}, for
 	if err != nil {
 		return nil, err
 	}
-	if formatDate {
-		responseData["created"] = now.Format(dateFormat)
-		responseData["updated"] = now.Format(dateFormat)
-	}
 	responseData["id"] = responseIDString
 	return responseData, nil
 }
@@ -703,7 +660,7 @@ func deleteResponse(responseID primitive.ObjectID, responseData bson.M) error {
 	if !justDeleteElastic {
 		var err error
 		if responseData == nil {
-			responseData, err = getForm(responseID, false, false)
+			responseData, err = getResponse(responseID, false)
 			if err != nil {
 				return err
 			}
@@ -777,11 +734,11 @@ func deleteResponse(responseID primitive.ObjectID, responseData bson.M) error {
 }
 
 func validateResponseItems(formID primitive.ObjectID, responseItems []map[string]interface{}) error {
-	formData, err := getForm(formID, false, false)
+	formData, err := getForm(formID, false)
 	if err != nil {
 		return err
 	}
-	formItems := formData["items"].(primitive.A)
+	formItems := formData.Items
 	responseItemIndexes := map[int]bool{}
 	for _, responseItem := range responseItems {
 		formIndex, _ := responseItem["formIndex"].(int)
@@ -791,12 +748,12 @@ func validateResponseItems(formID primitive.ObjectID, responseItems []map[string
 		if _, ok := responseItemIndexes[formIndex]; ok {
 			return errors.New("cannot have duplicate form index")
 		}
-		formItemObj := formItems[formIndex].(primitive.M)
-		questionType := formItemObj["type"].(string)
+		formItemObj := formItems[formIndex]
+		questionType := formItemObj.Type
 		if !findInArray(questionType, validResponseItemTypes) {
 			return errors.New("invalid type for response item found")
 		}
-		questionRequired := formItemObj["required"].(bool)
+		questionRequired := formItemObj.Required
 		if findInArray(questionType, itemTypesRequireOptions) {
 			selectedOptions, err := interfaceListToStringList(responseItem["options"].([]interface{}))
 			if err != nil {
@@ -805,7 +762,7 @@ func validateResponseItems(formID primitive.ObjectID, responseItems []map[string
 			if !findInArray(questionType, itemTypesAllowMultipleOptions) && len(selectedOptions) > 0 {
 				return errors.New("cannot select multiple options")
 			}
-			questionOptions, err := interfaceListToStringList(formItemObj["options"].([]interface{}))
+			questionOptions := formItemObj.Options
 			if err != nil {
 				return errors.New("problem casting question options to string array")
 			}
@@ -833,7 +790,7 @@ func validateResponseItems(formID primitive.ObjectID, responseItems []map[string
 		responseItemIndexes[formIndex] = true
 	}
 	for i, formItem := range formItems {
-		if formItem.(primitive.M)["required"].(bool) {
+		if formItem.Required {
 			if _, ok := responseItemIndexes[i]; !ok {
 				return errors.New("required item not found")
 			}

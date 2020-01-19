@@ -149,7 +149,7 @@ func getProduct(productID primitive.ObjectID, useCache bool) (map[string]interfa
 }
 
 // user purchase a product
-func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDString string, couponAmount int, interval string, cardToken string, formatDate bool) (map[string]interface{}, error) {
+func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDString string, couponAmount int, interval string, cardToken string) (map[string]interface{}, error) {
 	productData, err := getProduct(productID, !isDebug())
 	if err != nil {
 		return nil, err
@@ -178,7 +178,7 @@ func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDS
 	if !foundPlan {
 		return nil, errors.New("could not find plan")
 	}
-	userData, err := getAccount(userID, formatDate, true)
+	userData, err := getAccount(userID, true)
 	if err != nil {
 		return nil, err
 	}

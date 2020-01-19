@@ -38,8 +38,6 @@ var graphqlPlayground = true
 
 var sitemapTimeFormat = "2006-01-02T15:04:05Z07:00"
 
-var dateFormat = "Mon Jan _2 15:04:05 2006"
-
 var hexRegex = "(^#[0-9A-F]{6}$)|(^#[0-9A-F]{8}$)"
 
 var formType = "form"
@@ -74,8 +72,8 @@ var validAccessTypes = []string{
 	"none",
 }
 
-var sharedAccessLevel = validAccessTypes[3]
-var noAccessLevel = validAccessTypes[4]
+var sharedAccessLevel = validAccessTypes[2]
+var noAccessLevel = validAccessTypes[3]
 
 var editAccessLevel = []string{
 	validAccessTypes[0],

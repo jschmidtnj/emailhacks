@@ -74,6 +74,16 @@ var UpdateFormItemInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 	},
 })
 
+// FormItem form struct
+type FormItem struct {
+	Question string   `json:"question"`
+	Type     string   `json:"type"`
+	Options  []string `json:"options"`
+	Text     string   `json:"text"`
+	Required bool     `json:"required"`
+	Files    []int    `json:"files"`
+}
+
 // FormItemType graphql question object
 var FormItemType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "FormItem",

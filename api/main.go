@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"regexp"
+	"strconv"
 	"sync"
 
 	"cloud.google.com/go/storage"
@@ -15,6 +16,13 @@ import (
 	json "github.com/json-iterator/go"
 	"github.com/olivere/elastic/v7"
 	"github.com/stripe/stripe-go/client"
+	"github.com/tdewolff/minify/v2"
+	minifyCSS "github.com/tdewolff/minify/v2/css"
+	minifyHTML "github.com/tdewolff/minify/v2/html"
+	minifyJS "github.com/tdewolff/minify/v2/js"
+	minifyJSON "github.com/tdewolff/minify/v2/json"
+	minifySVG "github.com/tdewolff/minify/v2/svg"
+	minifyXML "github.com/tdewolff/minify/v2/xml"
 	"github.com/vmihailenco/taskq/v2"
 	"github.com/vmihailenco/taskq/v2/redisq"
 
@@ -102,6 +110,8 @@ var saveFormTask *taskq.Task
 var connections sync.Map
 
 var stripeClient *client.API
+
+var minifier *minify.M
 
 /**
  * @api {get} /hello Test rest request
@@ -294,6 +304,18 @@ func main() {
 	stripeKey := os.Getenv("STRIPEKEY")
 	stripeClient = &client.API{}
 	stripeClient.Init(stripeKey, nil)
+	balance, err := stripeClient.Balance.Get(nil)
+	if err != nil {
+		logger.Fatal(err.Error())
+	}
+	logger.Info("current balance: " + strconv.FormatInt(balance.Available[0].Value, 10))
+	minifier = minify.New()
+	minifier.AddFunc("text/css", minifyCSS.Minify)
+	minifier.AddFunc("text/html", minifyHTML.Minify)
+	minifier.AddFunc("image/svg+xml", minifySVG.Minify)
+	minifier.AddFuncRegexp(regexp.MustCompile("^(application|text)/(x-)?(java|ecma)script$"), minifyJS.Minify)
+	minifier.AddFuncRegexp(regexp.MustCompile("[/+]json$"), minifyJSON.Minify)
+	minifier.AddFuncRegexp(regexp.MustCompile("[/+]xml$"), minifyXML.Minify)
 	port := ":" + os.Getenv("PORT")
 	schema, err = graphql.NewSchema(graphql.SchemaConfig{
 		Query:        rootQuery(),

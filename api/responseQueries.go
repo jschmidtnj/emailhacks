@@ -34,9 +34,6 @@ var responseQueryFields = graphql.Fields{
 			"form": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			accessToken := params.Context.Value(tokenKey).(string)
@@ -61,18 +58,10 @@ var responseQueryFields = graphql.Fields{
 					if err != nil {
 						return nil, err
 					}
-					_, err = checkFormAccess(formID, accessToken, viewAccessLevel, false, false)
+					_, err = checkFormAccess(formID, accessToken, viewAccessLevel, false)
 					if err != nil {
 						return nil, err
 					}
-				}
-			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				var ok bool
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
 				}
 			}
 			if params.Args["perpage"] == nil {
@@ -166,21 +155,7 @@ var responseQueryFields = graphql.Fields{
 						return nil, err
 					}
 					createdTimestamp := objectidTimestamp(id)
-					if formatDate {
-						responseData["created"] = createdTimestamp.Format(dateFormat)
-					} else {
-						responseData["created"] = createdTimestamp.Unix()
-					}
-					updatedInt, ok := responseData["updated"].(float64)
-					if !ok {
-						return nil, errors.New("cannot cast updated time to float")
-					}
-					updatedTimestamp := intTimestamp(int64(updatedInt))
-					if formatDate {
-						responseData["updated"] = updatedTimestamp.Format(dateFormat)
-					} else {
-						responseData["updated"] = updatedTimestamp.Unix()
-					}
+					responseData["created"] = createdTimestamp.Unix()
 					responseData["id"] = id.Hex()
 					delete(responseData, "_id")
 					responses[i] = responseData
@@ -196,9 +171,6 @@ var responseQueryFields = graphql.Fields{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			accessToken := params.Context.Value(tokenKey).(string)
@@ -210,15 +182,7 @@ var responseQueryFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				var ok bool
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
-			}
-			responseData, err := checkResponseAccess(responseID, accessToken, editAccessLevel, formatDate, false)
+			responseData, err := checkResponseAccess(responseID, accessToken, editAccessLevel, false)
 			if err != nil {
 				return nil, err
 			}

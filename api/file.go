@@ -194,6 +194,18 @@ var UpdateFileInputType = graphql.NewInputObject(
 	},
 )
 
+// File object for giving user access
+type File struct {
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Width          int    `json:"width"`
+	Height         int    `json:"height"`
+	Type           string `json:"type"`
+	OriginalSrc    string `json:"originalSrc"`
+	BlurSrc        string `json:"blurSrc"`
+	PlaceholderSrc string `json:"placeholderSrc"`
+}
+
 // FileType graphql image object
 var FileType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "File",

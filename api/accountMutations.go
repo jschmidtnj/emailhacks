@@ -9,7 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func deleteAccount(idstring string, formatDate bool) (interface{}, error) {
+func deleteAccount(idstring string) (interface{}, error) {
 	id, err := primitive.ObjectIDFromHex(idstring)
 	if err != nil {
 		return nil, err
@@ -52,11 +52,11 @@ func deleteAccount(idstring string, formatDate bool) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		if _, err = deleteForm(formID, nil, false, ""); err != nil {
+		if _, err = deleteForm(formID, nil, ""); err != nil {
 			return nil, err
 		}
 	}
-	userData, err := getAccount(id, formatDate, true)
+	userData, err := getAccount(id, true)
 	if err != nil {
 		return nil, err
 	}
@@ -81,11 +81,7 @@ var userMutationFields = graphql.Fields{
 	"cancelSubscription": &graphql.Field{
 		Type:        AccountType,
 		Description: "Purchase a Product",
-		Args: graphql.FieldConfigArgument{
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
-		},
+		Args:        graphql.FieldConfigArgument{},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			claims, err := getTokenData(params.Context.Value(tokenKey).(string))
 			if err != nil {
@@ -99,14 +95,7 @@ var userMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
-			}
-			userData, err := getAccount(id, formatDate, true)
+			userData, err := getAccount(id, true)
 			if err != nil {
 				return nil, err
 			}
@@ -145,9 +134,6 @@ var userMutationFields = graphql.Fields{
 			"coupon": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			claims, err := getTokenData(params.Context.Value(tokenKey).(string))
@@ -161,13 +147,6 @@ var userMutationFields = graphql.Fields{
 			id, err := primitive.ObjectIDFromHex(idString)
 			if err != nil {
 				return nil, err
-			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
 			}
 			if params.Args["product"] == nil {
 				return nil, errors.New("must specify a product id to purchase")
@@ -211,7 +190,7 @@ var userMutationFields = graphql.Fields{
 				couponIDString = couponData["id"].(string)
 				couponAmount = couponData["amount"].(int)
 			}
-			userData, err := purchase(id, productID, couponIDString, couponAmount, interval, cardToken, formatDate)
+			userData, err := purchase(id, productID, couponIDString, couponAmount, interval, cardToken)
 			if err != nil {
 				return nil, err
 			}
@@ -233,9 +212,6 @@ var userMutationFields = graphql.Fields{
 			"color": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			claims, err := getTokenData(params.Context.Value(tokenKey).(string))
@@ -249,13 +225,6 @@ var userMutationFields = graphql.Fields{
 			id, err := primitive.ObjectIDFromHex(idString)
 			if err != nil {
 				return nil, err
-			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
 			}
 			if params.Args["type"] == nil {
 				return nil, errors.New("must specify organization type")
@@ -294,7 +263,7 @@ var userMutationFields = graphql.Fields{
 					},
 				},
 			})
-			userData, err := getAccount(id, formatDate, true)
+			userData, err := getAccount(id, true)
 			if err != nil {
 				return nil, err
 			}
@@ -313,9 +282,6 @@ var userMutationFields = graphql.Fields{
 			"name": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			claims, err := getTokenData(params.Context.Value(tokenKey).(string))
@@ -329,13 +295,6 @@ var userMutationFields = graphql.Fields{
 			id, err := primitive.ObjectIDFromHex(idString)
 			if err != nil {
 				return nil, err
-			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
 			}
 			if params.Args["type"] == nil {
 				return nil, errors.New("must specify organization type")
@@ -363,7 +322,7 @@ var userMutationFields = graphql.Fields{
 					},
 				},
 			})
-			userData, err := getAccount(id, formatDate, true)
+			userData, err := getAccount(id, true)
 			if err != nil {
 				return nil, err
 			}
@@ -379,9 +338,6 @@ var userMutationFields = graphql.Fields{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			_, err := validateAdmin(params.Context.Value(tokenKey).(string))
@@ -395,24 +351,13 @@ var userMutationFields = graphql.Fields{
 			if !ok {
 				return nil, errors.New("cannot cast id to string")
 			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
-			}
-			return deleteAccount(idstring, formatDate)
+			return deleteAccount(idstring)
 		},
 	},
 	"deleteAccount": &graphql.Field{
 		Type:        AccountType,
 		Description: "Delete a User",
-		Args: graphql.FieldConfigArgument{
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
-		},
+		Args:        graphql.FieldConfigArgument{},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			claims, err := getTokenData(params.Context.Value(tokenKey).(string))
 			if err != nil {
@@ -422,14 +367,7 @@ var userMutationFields = graphql.Fields{
 			if !ok {
 				return nil, errors.New("cannot cast id to string")
 			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
-			}
-			return deleteAccount(idstring, formatDate)
+			return deleteAccount(idstring)
 		},
 	},
 }
