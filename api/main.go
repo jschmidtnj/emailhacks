@@ -14,6 +14,7 @@ import (
 	"github.com/joho/godotenv"
 	json "github.com/json-iterator/go"
 	"github.com/olivere/elastic/v7"
+	"github.com/stripe/stripe-go/client"
 	"github.com/vmihailenco/taskq/v2"
 	"github.com/vmihailenco/taskq/v2/redisq"
 
@@ -41,6 +42,8 @@ var mongoClient *mongo.Client
 var ctxMongo context.Context
 
 var userCollection *mongo.Collection
+
+var productCollection *mongo.Collection
 
 var responseCollection *mongo.Collection
 
@@ -95,6 +98,8 @@ var ctxMessageQueue context.Context
 var saveFormTask *taskq.Task
 
 var connections sync.Map
+
+var stripeClient *client.API
 
 /**
  * @api {get} /hello Test rest request
@@ -205,6 +210,7 @@ func main() {
 	}
 	userCollection = mongoClient.Database(mainDatabase).Collection(userMongoName)
 	responseCollection = mongoClient.Database(mainDatabase).Collection(responseMongoName)
+	productCollection = mongoClient.Database(mainDatabase).Collection(productMongoName)
 	formCollection = mongoClient.Database(mainDatabase).Collection(formMongoName)
 	projectCollection = mongoClient.Database(mainDatabase).Collection(projectMongoName)
 	blogCollection = mongoClient.Database(mainDatabase).Collection(blogMongoName)
@@ -282,6 +288,9 @@ func main() {
 	mainRecaptchaSecret = os.Getenv("MAINRECAPTCHASECRET")
 	shortlinkRecaptchaSecret = os.Getenv("SHORTLINKRECAPTCHASECRET")
 	shortlinkURL = os.Getenv("SHORTLINKURL")
+	stripeKey := os.Getenv("STRIPEKEY")
+	stripeClient = &client.API{}
+	stripeClient.Init(stripeKey, nil)
 	port := ":" + os.Getenv("PORT")
 	schema, err = graphql.NewSchema(graphql.SchemaConfig{
 		Query:        rootQuery(),

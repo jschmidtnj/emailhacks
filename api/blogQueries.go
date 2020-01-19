@@ -360,11 +360,11 @@ var blogQueryFields = graphql.Fields{
 					return nil, errors.New("cannot cast files to array")
 				}
 				for i, file := range fileArray {
-					primativeFile, ok := file.(primitive.D)
+					primitiveFile, ok := file.(primitive.D)
 					if !ok {
 						return nil, errors.New("cannot cast file to primitive D")
 					}
-					fileArray[i] = primativeFile.Map()
+					fileArray[i] = primitiveFile.Map()
 				}
 				blogData["files"] = fileArray
 				delete(blogData, "_id")

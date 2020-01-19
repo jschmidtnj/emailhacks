@@ -128,7 +128,7 @@ func checkFileObjUpdatePart(fileobj map[string]interface{}) error {
 }
 
 // UpdateFileType graphql file object
-var UpdateFileType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
+var UpdateFileType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "UpdateFile",
 	Fields: graphql.Fields{
 		"id": &graphql.Field{
@@ -195,7 +195,7 @@ var UpdateFileInputType = graphql.NewInputObject(
 )
 
 // FileType graphql image object
-var FileType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
+var FileType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "File",
 	Fields: graphql.Fields{
 		"id": &graphql.Field{

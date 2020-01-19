@@ -161,6 +161,25 @@ var formMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
+			maxForms, ok := claims["maxforms"].(int)
+			if !ok {
+				return nil, errors.New("cannot convert max forms to int")
+			}
+			mustQueries := []elastic.Query{
+				elastic.NewTermsQuery("owner", userIDString),
+			}
+			query := elastic.NewBoolQuery().Must(mustQueries...)
+			numFormsAlready, err := elasticClient.Count().
+				Type(formElasticType).
+				Query(query).
+				Pretty(false).
+				Do(ctxElastic)
+			if err != nil {
+				return nil, err
+			}
+			if numFormsAlready >= int64(maxForms) {
+				return nil, errors.New("you reached the maximum amount of forms")
+			}
 			if params.Args["project"] == nil {
 				return nil, errors.New("project not provided")
 			}
@@ -629,7 +648,7 @@ var formMutationFields = graphql.Fields{
 			if !ok {
 				return nil, errors.New("cannot cast update token to string")
 			}
-			tokenFormIDString, _, connectionIDString, err := getUpdateClaimsData(accessToken, editAccessLevel)
+			tokenFormIDString, _, connectionIDString, err := getFormUpdateClaimsData(accessToken, editAccessLevel)
 			if err != nil {
 				return nil, err
 			}
@@ -852,12 +871,12 @@ func deleteForm(formID primitive.ObjectID, formData bson.M, formatDate bool, use
 		if err != nil {
 			return nil, err
 		}
-		primativefiles, ok := formData["files"].(primitive.A)
+		primitivefiles, ok := formData["files"].(primitive.A)
 		if !ok {
 			return nil, errors.New("cannot convert files to primitive")
 		}
-		for _, primativefile := range primativefiles {
-			filedatadoc, ok := primativefile.(primitive.D)
+		for _, primitivefile := range primitivefiles {
+			filedatadoc, ok := primitivefile.(primitive.D)
 			if !ok {
 				return nil, errors.New("cannot convert file to primitive doc")
 			}

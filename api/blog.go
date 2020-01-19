@@ -11,7 +11,7 @@ import (
 )
 
 // BlogType graphql blog object
-var BlogType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
+var BlogType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "Post",
 	Fields: graphql.Fields{
 		"id": &graphql.Field{

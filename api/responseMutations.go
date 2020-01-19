@@ -6,15 +6,25 @@ import (
 	"net/http"
 	"time"
 
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/graphql-go/graphql"
+	"github.com/graphql-go/graphql/language/ast"
 	json "github.com/json-iterator/go"
 	"github.com/olivere/elastic/v7"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func getResponseAccessTokenData(accessToken string, accessLevel []string) (string, string, string, error) {
+type responseEditClaims struct {
+	ResponseID  string `json:"responseid"`
+	UserID      string `json:"userid"`
+	Type        string `json:"type"` // access type for response (view or edit)
+	FormOwnerID string `json:"formownerid"`
+	jwt.StandardClaims
+}
+
+func getResponseEditTokenData(accessToken string, accessLevel []string) (string, string, string, error) {
 	claims, err := getTokenData(accessToken)
 	if err != nil {
 		return "", "", "", err
@@ -40,23 +50,88 @@ func getResponseAccessTokenData(accessToken string, accessLevel []string) (strin
 	if err != nil {
 		return "", "", "", err
 	}
+	responseIDString, ok := claims["responseid"].(string)
+	if !ok {
+		return "", "", "", errors.New("cannot cast response id to string")
+	}
+	_, err = primitive.ObjectIDFromHex(responseIDString)
+	if err != nil {
+		return "", "", "", err
+	}
+	if claims["formownerid"] == nil {
+		return "", "", "", errors.New("cannot find user id")
+	}
+	formOwnerIDString, ok := claims["formownerid"].(string)
+	if !ok {
+		return "", "", "", errors.New("cannot cast form owner id to string")
+	}
+	_, err = primitive.ObjectIDFromHex(formOwnerIDString)
+	if err != nil {
+		return "", "", "", err
+	}
+	return responseIDString, formOwnerIDString, userIDString, nil
+}
+
+func getResponseAddTokenData(accessToken string, accessLevel []string) (string, string, string, string, error) {
+	claims, err := getTokenData(accessToken)
+	if err != nil {
+		return "", "", "", "", err
+	}
+	if claims["type"] == nil {
+		return "", "", "", "", errors.New("cannot find claims type")
+	}
+	claimsType, ok := claims["type"].(string)
+	if !ok {
+		return "", "", "", "", errors.New("cannot cast type to string")
+	}
+	if !findInArray(claimsType, accessLevel) {
+		return "", "", "", "", errors.New("invalid access level found for response")
+	}
+	if claims["userid"] == nil {
+		return "", "", "", "", errors.New("cannot find user id")
+	}
+	userIDString, ok := claims["userid"].(string)
+	if !ok {
+		return "", "", "", "", errors.New("cannot cast user id to string")
+	}
+	_, err = primitive.ObjectIDFromHex(userIDString)
+	if err != nil {
+		return "", "", "", "", err
+	}
+	if claims["formid"] == nil {
+		return "", "", "", "", errors.New("cannot find form id")
+	}
 	formIDString, ok := claims["formid"].(string)
 	if !ok {
-		return "", "", "", errors.New("cannot cast user id to string")
+		return "", "", "", "", errors.New("cannot cast user id to string")
 	}
 	_, err = primitive.ObjectIDFromHex(formIDString)
 	if err != nil {
-		return "", "", "", err
+		return "", "", "", "", err
+	}
+	if claims["projectid"] == nil {
+		return "", "", "", "", errors.New("cannot find project id")
 	}
 	projectIDString, ok := claims["projectid"].(string)
 	if !ok {
-		return "", "", "", errors.New("cannot cast project id to string")
+		return "", "", "", "", errors.New("cannot cast project id to string")
 	}
 	_, err = primitive.ObjectIDFromHex(projectIDString)
 	if err != nil {
-		return "", "", "", err
+		return "", "", "", "", err
 	}
-	return formIDString, projectIDString, userIDString, nil
+	if claims["owner"] == nil {
+		return "", "", "", "", errors.New("cannot find owner")
+	}
+	ownerIDString, ok := claims["owner"].(string)
+	if !ok {
+		return "", "", "", "", errors.New("cannot cast project id to string")
+	}
+	_, err = primitive.ObjectIDFromHex(ownerIDString)
+	if err != nil {
+		return "", "", "", "", err
+	}
+	return formIDString, projectIDString, ownerIDString, userIDString, nil
 }
 
 var responseMutationFields = graphql.Fields{
@@ -103,12 +178,17 @@ var responseMutationFields = graphql.Fields{
 			}
 			var projectID primitive.ObjectID
 			var userID primitive.ObjectID
+			var accessToken string
+			var userIDString string
+			var ownerIDString string
 			if useAccessToken {
-				accessToken, ok := params.Args["accessToken"].(string)
+				accessToken, ok = params.Args["accessToken"].(string)
 				if !ok {
 					return nil, errors.New("cannot cast access token to string")
 				}
-				tokenFormIDString, projectIDString, userIDString, err := getResponseAccessTokenData(accessToken, viewAccessLevel)
+				var tokenFormIDString string
+				var projectIDString string
+				tokenFormIDString, projectIDString, ownerIDString, userIDString, err = getResponseAddTokenData(accessToken, viewAccessLevel)
 				if err != nil {
 					return nil, err
 				}
@@ -121,12 +201,12 @@ var responseMutationFields = graphql.Fields{
 				}
 				userID, _ = primitive.ObjectIDFromHex(userIDString)
 			} else {
-				accessToken := params.Context.Value(tokenKey).(string)
+				accessToken = params.Context.Value(tokenKey).(string)
 				claims, err := getTokenData(accessToken)
 				if err != nil {
 					return nil, err
 				}
-				userIDString, ok := claims["id"].(string)
+				userIDString, ok = claims["id"].(string)
 				if !ok {
 					return nil, errors.New("cannot cast user id to string")
 				}
@@ -138,10 +218,18 @@ var responseMutationFields = graphql.Fields{
 				if err != nil {
 					return nil, err
 				}
+				ownerIDString, ok = formData["owner"].(string)
+				if !ok {
+					return nil, errors.New("cannot cast owner to string")
+				}
 				projectID, err = primitive.ObjectIDFromHex(formData["project"].(string))
 				if err != nil {
 					return nil, err
 				}
+			}
+			ownerID, err := primitive.ObjectIDFromHex(ownerIDString)
+			if err != nil {
+				return nil, err
 			}
 			if params.Args["items"] == nil {
 				return nil, errors.New("items was not provided")
@@ -157,9 +245,39 @@ var responseMutationFields = graphql.Fields{
 			if !ok {
 				return nil, errors.New("problem casting files to interface array")
 			}
-			responseData, err := addResponse(itemsInterface, filesInterface, formID, projectID, userID, formatDate)
+			var getResponseEditToken = false
+			fieldarray := params.Info.FieldASTs
+			fieldselections := fieldarray[0].SelectionSet.Selections
+			for _, field := range fieldselections {
+				fieldast, ok := field.(*ast.Field)
+				if !ok {
+					return nil, errors.New("field cannot be converted to *ast.FIeld")
+				}
+				if fieldast.Name.Value == "editAccessToken" {
+					getResponseEditToken = true
+					continue
+				}
+			}
+			responseData, err := addResponse(itemsInterface, filesInterface, formID, projectID, ownerID, userID, formatDate)
 			if err != nil {
 				return nil, err
+			}
+			if getResponseEditToken {
+				// return access token with current claims + project
+				token := jwt.NewWithClaims(jwt.SigningMethodHS256, responseEditClaims{
+					responseData["id"].(string),
+					userIDString,
+					validAccessTypes[0],
+					ownerIDString,
+					jwt.StandardClaims{
+						Issuer: jwtIssuer,
+					},
+				})
+				tokenString, err := token.SignedString(jwtSecret)
+				if err != nil {
+					return nil, err
+				}
+				responseData["editAccessToken"] = tokenString
 			}
 			return responseData, nil
 		},
@@ -177,9 +295,11 @@ var responseMutationFields = graphql.Fields{
 			"files": &graphql.ArgumentConfig{
 				Type: graphql.NewList(FileInputType),
 			},
+			"accessToken": &graphql.ArgumentConfig{
+				Type: graphql.String,
+			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-			accessToken := params.Context.Value(tokenKey).(string)
 			if params.Args["id"] == nil {
 				return nil, errors.New("response id not provided")
 			}
@@ -199,9 +319,38 @@ var responseMutationFields = graphql.Fields{
 					return nil, errors.New("problem casting format date to boolean")
 				}
 			}
-			responseData, err := checkResponseAccess(responseID, accessToken, editAccessLevel, formatDate, true)
-			if err != nil {
-				return nil, err
+			var useAccessToken = false
+			if params.Args["accessToken"] != nil {
+				useAccessToken = true
+			}
+			var accessToken string
+			var responseData map[string]interface{}
+			if useAccessToken {
+				accessToken, ok = params.Args["accessToken"].(string)
+				if !ok {
+					return nil, errors.New("cannot cast access token to string")
+				}
+				tokenResponseIDString, _, _, err := getResponseEditTokenData(accessToken, editAccessLevel)
+				if err != nil {
+					return nil, err
+				}
+				_, err = primitive.ObjectIDFromHex(tokenResponseIDString)
+				if err != nil {
+					return nil, err
+				}
+				if tokenResponseIDString != responseIDString {
+					return nil, errors.New("token response id does not match given form id")
+				}
+				responseData, err = getResponse(responseID, formatDate, true)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				accessToken = params.Context.Value(tokenKey).(string)
+				responseData, err = checkResponseAccess(responseID, accessToken, editAccessLevel, formatDate, true)
+				if err != nil {
+					return nil, err
+				}
 			}
 			updateDataDB := bson.M{}
 			updateDataElastic := bson.M{}
@@ -421,7 +570,12 @@ func addResponseHandler(c *gin.Context) {
 		handleError("cannot cast access token to string", http.StatusBadRequest, response)
 		return
 	}
-	tokenFormIDString, projectIDString, userIDString, err := getResponseAccessTokenData(accessToken, viewAccessLevel)
+	tokenFormIDString, projectIDString, ownerIDString, userIDString, err := getResponseAddTokenData(accessToken, viewAccessLevel)
+	if err != nil {
+		handleError(err.Error(), http.StatusBadRequest, response)
+		return
+	}
+	ownerID, err := primitive.ObjectIDFromHex(ownerIDString)
 	if err != nil {
 		handleError(err.Error(), http.StatusBadRequest, response)
 		return
@@ -454,7 +608,7 @@ func addResponseHandler(c *gin.Context) {
 		handleError("problem casting files to interface array", http.StatusBadRequest, response)
 		return
 	}
-	responseData, err := addResponse(itemsInterface, filesInterface, formID, projectID, userID, formatDate)
+	responseData, err := addResponse(itemsInterface, filesInterface, formID, projectID, ownerID, userID, formatDate)
 	if err != nil {
 		handleError(err.Error(), http.StatusBadRequest, response)
 		return
@@ -468,7 +622,7 @@ func addResponseHandler(c *gin.Context) {
 	response.Write(responseDataBytes)
 }
 
-func addResponse(itemsInterface []interface{}, filesInterface []interface{}, formID primitive.ObjectID, projectID primitive.ObjectID, userID primitive.ObjectID, formatDate bool) (map[string]interface{}, error) {
+func addResponse(itemsInterface []interface{}, filesInterface []interface{}, formID primitive.ObjectID, projectID primitive.ObjectID, ownerID primitive.ObjectID, userID primitive.ObjectID, formatDate bool) (map[string]interface{}, error) {
 	items, err := interfaceListToMapList(itemsInterface)
 	if err != nil {
 		return nil, err
@@ -499,6 +653,7 @@ func addResponse(itemsInterface []interface{}, filesInterface []interface{}, for
 		"items":   items,
 		"files":   files,
 		"views":   0,
+		"owner":   ownerID.Hex(),
 	}
 	responseCreateRes, err := responseCollection.InsertOne(ctxMongo, responseData)
 	if err != nil {
@@ -570,12 +725,12 @@ func deleteResponse(responseID primitive.ObjectID, responseData bson.M) error {
 		if err != nil {
 			return err
 		}
-		primativefiles, ok := responseData["files"].(primitive.A)
+		primitivefiles, ok := responseData["files"].(primitive.A)
 		if !ok {
 			return errors.New("cannot convert files to primitive")
 		}
-		for _, primativefile := range primativefiles {
-			filedatadoc, ok := primativefile.(primitive.D)
+		for _, primitivefile := range primitivefiles {
+			filedatadoc, ok := primitivefile.(primitive.D)
 			if !ok {
 				return errors.New("cannot convert file to primitive doc")
 			}

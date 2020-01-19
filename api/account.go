@@ -1,24 +1,29 @@
 package main
 
 import (
+	"errors"
+	"time"
+
 	"github.com/graphql-go/graphql"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// NameCountType type for a name and count of that object
-var NameCountType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
-	Name: "NameCount",
+// OrganizeType type for a name and count of that object
+var OrganizeType = graphql.NewObject(graphql.ObjectConfig{
+	Name: "Organize",
 	Fields: graphql.Fields{
 		"name": &graphql.Field{
 			Type: graphql.String,
 		},
-		"count": &graphql.Field{
-			Type: graphql.Int,
+		"color": &graphql.Field{
+			Type: graphql.String,
 		},
 	},
 })
 
 // AccountType account type object for user accounts graphql
-var AccountType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
+var AccountType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "Account",
 	Fields: graphql.Fields{
 		"id": &graphql.Field{
@@ -43,16 +48,24 @@ var AccountType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 			Type: graphql.String,
 		},
 		"categories": &graphql.Field{
-			Type: graphql.NewList(NameCountType),
+			Type: graphql.NewList(OrganizeType),
 		},
 		"tags": &graphql.Field{
-			Type: graphql.NewList(NameCountType),
+			Type: graphql.NewList(OrganizeType),
+		},
+		"plan": &graphql.Field{
+			Type:        graphql.String,
+			Description: "current plan",
+		},
+		"purchases": &graphql.Field{
+			Type:        graphql.NewList(graphql.String),
+			Description: "one-time purchases",
 		},
 	},
 })
 
 // PublicAccountType data publically available
-var PublicAccountType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
+var PublicAccountType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "PublicAccount",
 	Fields: graphql.Fields{
 		"id": &graphql.Field{
@@ -63,3 +76,83 @@ var PublicAccountType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 		},
 	},
 })
+
+func processUserFromDB(userData bson.M, formatDate bool, updated bool) (bson.M, error) {
+	id := userData["_id"].(primitive.ObjectID)
+	if formatDate {
+		userData["created"] = objectidTimestamp(id).Format(dateFormat)
+	} else {
+		userData["created"] = objectidTimestamp(id).Unix()
+	}
+	var updatedTimestamp time.Time
+	if updated {
+		updatedTimestamp = time.Now()
+	} else {
+		updatedInt, ok := userData["updated"].(int64)
+		if !ok {
+			return nil, errors.New("cannot cast updated time to int")
+		}
+		updatedTimestamp = intTimestamp(updatedInt)
+	}
+	if formatDate {
+		userData["updated"] = updatedTimestamp.Format(dateFormat)
+	} else {
+		userData["updated"] = updatedTimestamp.Unix()
+	}
+	userData["id"] = id.Hex()
+	delete(userData, "_id")
+	categoriesArray, ok := userData["categories"].(primitive.A)
+	if !ok {
+		return nil, errors.New("cannot cast categories to array")
+	}
+	for i, category := range categoriesArray {
+		primitiveCategory, ok := category.(primitive.D)
+		if !ok {
+			return nil, errors.New("cannot cast category to primitive D")
+		}
+		categoriesArray[i] = primitiveCategory.Map()
+	}
+	userData["categories"] = categoriesArray
+	tagsArray, ok := userData["tags"].(primitive.A)
+	if !ok {
+		return nil, errors.New("cannot cast tags to array")
+	}
+	for i, tag := range tagsArray {
+		primitiveTag, ok := tag.(primitive.D)
+		if !ok {
+			return nil, errors.New("cannot cast tag to primitive D")
+		}
+		tagsArray[i] = primitiveTag.Map()
+	}
+	userData["tags"] = tagsArray
+	return userData, nil
+}
+
+func getAccount(accountID primitive.ObjectID, formatDate bool, updated bool) (map[string]interface{}, error) {
+	userDataCursor, err := formCollection.Find(ctxMongo, bson.M{
+		"_id": accountID,
+	})
+	defer userDataCursor.Close(ctxMongo)
+	if err != nil {
+		return nil, err
+	}
+	var userData map[string]interface{}
+	var foundUser = false
+	for userDataCursor.Next(ctxMongo) {
+		foundUser = true
+		userPrimitive := &bson.D{}
+		err = userDataCursor.Decode(userPrimitive)
+		if err != nil {
+			return nil, err
+		}
+		userData, err = processUserFromDB(userPrimitive.Map(), formatDate, updated)
+		if err != nil {
+			return nil, err
+		}
+		break
+	}
+	if !foundUser {
+		return nil, errors.New("user not found with given id")
+	}
+	return userData, nil
+}

@@ -10,6 +10,8 @@ var userMongoName = "users"
 
 var responseMongoName = "responses"
 
+var productMongoName = "products"
+
 var formMongoName = "forms"
 
 var projectMongoName = "projects"
@@ -64,7 +66,6 @@ var adminType = "admin"
 var userType = "user"
 
 var validAccessTypes = []string{
-	"admin",
 	"edit",
 	"view",
 	"shared",
@@ -76,14 +77,12 @@ var noAccessLevel = validAccessTypes[4]
 
 var editAccessLevel = []string{
 	validAccessTypes[0],
-	validAccessTypes[1],
 }
 
 var viewAccessLevel = []string{
 	validAccessTypes[0],
 	validAccessTypes[1],
 	validAccessTypes[2],
-	validAccessTypes[3],
 }
 
 var formElasticIndex = "forms"
@@ -216,6 +215,18 @@ var itemTypesText = []string{
 var itemTypesFile = []string{
 	validFormItemTypes[5],
 }
+
+var validIntervals = []string{
+	"year",
+	"month",
+	"once",
+}
+
+var singlePurchase = validIntervals[2]
+
+var defaultPlanName = "free"
+
+var defaultCurrency = "usd"
 
 var autosaveTime = 3 // seconds
 

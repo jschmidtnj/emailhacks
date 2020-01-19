@@ -30,9 +30,12 @@ import (
 var numHashes = 12
 
 type loginClaims struct {
-	ID    string `json:"id"`
-	Email string `json:"email"`
-	Type  string `json:"type"`
+	ID          string `json:"id"`
+	Email       string `json:"email"`
+	Type        string `json:"type"`
+	MaxForms    int    `json:"maxforms"`
+	MaxProjects int    `json:"maxprojects"`
+	MaxStorage  int    `json:"maxstorage"`
 	jwt.StandardClaims
 }
 
@@ -157,13 +160,18 @@ func register(c *gin.Context) {
 	}
 	now := time.Now()
 	res, err := userCollection.InsertOne(ctxMongo, bson.M{
-		"email":         email,
-		"password":      string(passwordhashed),
-		"emailverified": false,
-		"type":          userType,
-		"updated":       now.Unix(),
-		"categories":    bson.A{},
-		"tags":          bson.A{},
+		"email":          email,
+		"password":       string(passwordhashed),
+		"emailverified":  false,
+		"type":           userType,
+		"updated":        now.Unix(),
+		"categories":     bson.A{},
+		"tags":           bson.A{},
+		"stripeid":       "",
+		"plan":           "",
+		"subscriptionid": "",
+		"purchases":      bson.A{},
+		"storage":        0,
 	})
 	if err != nil {
 		handleError("error inserting user to database: "+err.Error(), http.StatusBadRequest, response)
@@ -262,10 +270,18 @@ func loginEmailPassword(c *gin.Context) {
 		}
 		id := userData["_id"].(primitive.ObjectID).Hex()
 		expirationTime := time.Now().Add(time.Duration(tokenExpiration) * time.Hour)
+		productData, err := getProductFromUserData(userData)
+		if err != nil {
+			handleError(err.Error(), http.StatusUnauthorized, response)
+			return
+		}
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, loginClaims{
 			id,
 			userData["email"].(string),
 			userData["type"].(string),
+			productData["maxforms"].(int),
+			productData["maxprojects"].(int),
+			productData["maxstorage"].(int),
 			jwt.StandardClaims{
 				ExpiresAt: expirationTime.Unix(),
 				Issuer:    jwtIssuer,

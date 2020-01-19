@@ -15,10 +15,13 @@ import (
 )
 
 // FormType form type object for user forms graphql
-var FormType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
+var FormType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "Form",
 	Fields: graphql.Fields{
 		"id": &graphql.Field{
+			Type: graphql.String,
+		},
+		"owner": &graphql.Field{
 			Type: graphql.String,
 		},
 		"responses": &graphql.Field{
@@ -67,7 +70,7 @@ var FormType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 })
 
 // FormUpdateType form update response type
-var FormUpdateType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
+var FormUpdateType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "FormUpdate",
 	Fields: graphql.Fields{
 		"id": &graphql.Field{
@@ -117,11 +120,11 @@ func processFormFromDB(formData bson.M, formatDate bool, updated bool) (bson.M, 
 		return nil, errors.New("cannot cast files to array")
 	}
 	for i, file := range fileArray {
-		primativeFile, ok := file.(primitive.D)
+		primitiveFile, ok := file.(primitive.D)
 		if !ok {
 			return nil, errors.New("cannot cast file to primitive D")
 		}
-		fileArray[i] = primativeFile.Map()
+		fileArray[i] = primitiveFile.Map()
 	}
 	formData["files"] = fileArray
 	itemArray, ok := formData["items"].(primitive.A)
@@ -129,11 +132,11 @@ func processFormFromDB(formData bson.M, formatDate bool, updated bool) (bson.M, 
 		return nil, errors.New("cannot cast items to array")
 	}
 	for i, item := range itemArray {
-		primativeItem, ok := item.(primitive.D)
+		primitiveItem, ok := item.(primitive.D)
 		if !ok {
 			return nil, errors.New("cannot cast file to primitive D")
 		}
-		itemArray[i] = primativeItem.Map()
+		itemArray[i] = primitiveItem.Map()
 	}
 	formData["items"] = itemArray
 	accessPrimitiveDoc, ok := formData["access"].(primitive.D)
@@ -143,11 +146,11 @@ func processFormFromDB(formData bson.M, formatDate bool, updated bool) (bson.M, 
 	accessPrimitive := accessPrimitiveDoc.Map()
 	access := make(map[string]primitive.M, len(accessPrimitive))
 	for id, accessData := range accessPrimitive {
-		primativeAccessDoc, ok := accessData.(primitive.D)
+		primitiveAccessDoc, ok := accessData.(primitive.D)
 		if !ok {
 			return nil, errors.New("cannot cast access to primitive D")
 		}
-		access[id] = primativeAccessDoc.Map()
+		access[id] = primitiveAccessDoc.Map()
 	}
 	formData["access"] = access
 	return formData, nil

@@ -585,12 +585,12 @@ var blogMutationFields = graphql.Fields{
 					return nil, err
 				}
 			}
-			primativefiles, ok := blogData["files"].(primitive.A)
+			primitivefiles, ok := blogData["files"].(primitive.A)
 			if !ok {
 				return nil, errors.New("cannot convert files to primitive")
 			}
-			for _, primativefile := range primativefiles {
-				filedatadoc, ok := primativefile.(primitive.D)
+			for _, primitivefile := range primitivefiles {
+				filedatadoc, ok := primitivefile.(primitive.D)
 				if !ok {
 					return nil, errors.New("cannot convert file to primitive doc")
 				}

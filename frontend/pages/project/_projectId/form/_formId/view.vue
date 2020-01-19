@@ -4,6 +4,7 @@
       v-if="projectId && formId"
       :form-id="formId"
       :project-id="projectId"
+      :access-token="accessToken"
     />
   </b-container>
 </template>
@@ -46,10 +47,14 @@ export default Vue.extend({
   data() {
     return {
       projectId: null,
-      formId: null
+      formId: null,
+      accessToken: null
     }
   },
   mounted() {
+    if (this.$route.query.accessToken) {
+      this.accessToken = this.$route.query.accessToken
+    }
     if (this.$route.params && this.$route.params.projectId && this.$route.params.formId) {
       this.projectId = this.$route.params.projectId
       this.formId = this.$route.params.formId

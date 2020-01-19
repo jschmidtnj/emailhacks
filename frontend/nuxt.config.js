@@ -22,6 +22,7 @@ module.exports = {
     githuburl: pkg.repository.url,
     authconfig: process.env.AUTHCONFIG,
     apiurl: fullApiUrl,
+    stripeconfig: process.env.STRIPECONFIG,
     recaptchasitekey
   },
 
@@ -48,6 +49,10 @@ module.exports = {
     link: [{ rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }],
     __dangerouslyDisableSanitizers: ['script'],
     script: [
+      {
+        src: 'https://js.stripe.com/v3/',
+        defer: true
+      },
       {
         src: 'https://apis.google.com/js/api.js'
       },

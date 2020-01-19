@@ -43,6 +43,25 @@ var projectMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
+			maxProjects, ok := claims["maxprojects"].(int)
+			if !ok {
+				return nil, errors.New("cannot convert max projects to int")
+			}
+			mustQueries := []elastic.Query{
+				elastic.NewTermsQuery("owner", userIDString),
+			}
+			query := elastic.NewBoolQuery().Must(mustQueries...)
+			numProjectsAlready, err := elasticClient.Count().
+				Type(projectElasticType).
+				Query(query).
+				Pretty(false).
+				Do(ctxElastic)
+			if err != nil {
+				return nil, err
+			}
+			if numProjectsAlready >= int64(maxProjects) {
+				return nil, errors.New("you reached the maximum amount of projects")
+			}
 			if params.Args["name"] == nil {
 				return nil, errors.New("name not provided")
 			}
@@ -89,6 +108,7 @@ var projectMutationFields = graphql.Fields{
 				"name":    name,
 				"forms":   0,
 				"views":   0,
+				"owner":   userIDString,
 				"access": bson.M{
 					userIDString: bson.M{
 						"type":       userAccess[0]["type"].(string),

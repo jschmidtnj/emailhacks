@@ -14,7 +14,7 @@ import (
 )
 
 // ResponseType response to form
-var ResponseType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
+var ResponseType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "Response",
 	Fields: graphql.Fields{
 		"id": &graphql.Field{
@@ -22,6 +22,9 @@ var ResponseType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 		},
 		"views": &graphql.Field{
 			Type: graphql.Int,
+		},
+		"owner": &graphql.Field{
+			Type: graphql.String,
 		},
 		"user": &graphql.Field{
 			Type: graphql.String,
@@ -43,6 +46,9 @@ var ResponseType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 		},
 		"files": &graphql.Field{
 			Type: graphql.NewList(FileType),
+		},
+		"editAccessToken": &graphql.Field{
+			Type: graphql.String,
 		},
 	},
 })

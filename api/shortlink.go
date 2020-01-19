@@ -12,7 +12,7 @@ import (
 )
 
 // ShortLinkType account type object for user accounts graphql
-var ShortLinkType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
+var ShortLinkType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "ShortLink",
 	Fields: graphql.Fields{
 		"id": &graphql.Field{

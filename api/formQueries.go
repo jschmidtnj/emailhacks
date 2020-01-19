@@ -251,15 +251,12 @@ var formQueryFields = graphql.Fields{
 			},
 			"editAccessToken": &graphql.ArgumentConfig{
 				Type: graphql.Boolean,
+			}, // true if need edit access, false if need just view access
+			"accessToken": &graphql.ArgumentConfig{
+				Type: graphql.String,
 			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-			accessToken := params.Context.Value(tokenKey).(string)
-			var userIDString = ""
-			claims, err := getTokenData(accessToken)
-			if err == nil {
-				userIDString = claims["id"].(string)
-			}
 			if params.Args["id"] == nil {
 				return nil, errors.New("no id argument found")
 			}
@@ -320,18 +317,54 @@ var formQueryFields = graphql.Fields{
 			}
 			var necessaryAccessLevel = viewAccessLevel
 			var needEditAccess = false
-			if getFormUpdateToken && len(userIDString) != 0 && params.Args["editAccessToken"] != nil {
-				needEditAccess, ok = params.Args["editAccessToken"].(bool)
-				if !ok {
-					return nil, errors.New("cannot cast editAccessToken to bool")
+			accessToken := params.Context.Value(tokenKey).(string)
+			var userIDString = ""
+			var useAccessToken = false
+			if params.Args["accessToken"] != nil {
+				useAccessToken = true
+				if getFormUpdateToken && params.Args["editAccessToken"] != nil {
+					needEditAccess, ok = params.Args["editAccessToken"].(bool)
+					if !ok {
+						return nil, errors.New("cannot cast editAccessToken to bool")
+					}
+					if needEditAccess {
+						necessaryAccessLevel = editAccessLevel
+					}
 				}
-				if needEditAccess {
-					necessaryAccessLevel = editAccessLevel
+				var tokenFormIDString string
+				tokenFormIDString, _, _, userIDString, err = getResponseAddTokenData(accessToken, necessaryAccessLevel)
+				if err != nil {
+					return nil, err
+				}
+				if formIDString != tokenFormIDString {
+					return nil, errors.New("token form id does not match given form id")
+				}
+			} else {
+				claims, err := getTokenData(accessToken)
+				if err == nil {
+					userIDString = claims["id"].(string)
+				}
+				if getFormUpdateToken && len(userIDString) != 0 && params.Args["editAccessToken"] != nil {
+					needEditAccess, ok = params.Args["editAccessToken"].(bool)
+					if !ok {
+						return nil, errors.New("cannot cast editAccessToken to bool")
+					}
+					if needEditAccess {
+						necessaryAccessLevel = editAccessLevel
+					}
 				}
 			}
-			formData, err := checkFormAccess(formID, accessToken, necessaryAccessLevel, formatDate, false)
-			if err != nil {
-				return nil, err
+			var formData map[string]interface{}
+			if !useAccessToken {
+				formData, err = checkFormAccess(formID, accessToken, necessaryAccessLevel, formatDate, false)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				formData, err = getForm(formID, formatDate, false)
+				if err != nil {
+					return nil, err
+				}
 			}
 			if len(userIDString) == 0 {
 				formData["access"] = map[string]interface{}{}
@@ -399,14 +432,6 @@ var formQueryFields = graphql.Fields{
 			}
 			if getFormUpdateToken {
 				// return access token with current claims + project
-				var accessType string
-				_, err = validateAdmin(accessToken)
-				isAdmin := err == nil
-				if isAdmin {
-					accessType = validAccessTypes[0]
-				} else {
-					accessType = validAccessTypes[1]
-				}
 				expirationTime := time.Now().Add(time.Duration(tokenExpiration) * time.Hour)
 				uuid, err := uuid.NewRandom()
 				if err != nil {
@@ -417,7 +442,7 @@ var formQueryFields = graphql.Fields{
 					formIDString,
 					userIDString,
 					connectionIDString,
-					accessType,
+					validAccessTypes[0],
 					jwt.StandardClaims{
 						ExpiresAt: expirationTime.Unix(),
 						Issuer:    jwtIssuer,

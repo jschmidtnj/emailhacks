@@ -9,7 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func getUpdateClaimsData(accessToken string, accessLevel []string) (string, string, string, error) {
+func getFormUpdateClaimsData(accessToken string, accessLevel []string) (string, string, string, error) {
 	claims, err := getTokenData(accessToken)
 	if err != nil {
 		return "", "", "", err
@@ -105,7 +105,7 @@ var collaborationFields = graphql.Fields{
 				if !ok {
 					return nil, errors.New("cannot cast token to string")
 				}
-				tokenFormIDString, _, _, err := getUpdateClaimsData(updatesAccessTokenString, viewAccessLevel)
+				tokenFormIDString, _, _, err := getFormUpdateClaimsData(updatesAccessTokenString, viewAccessLevel)
 				if err != nil {
 					return nil, err
 				}

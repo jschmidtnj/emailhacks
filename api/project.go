@@ -15,13 +15,16 @@ import (
 )
 
 // ProjectType overarching project
-var ProjectType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
+var ProjectType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "Project",
 	Fields: graphql.Fields{
 		"id": &graphql.Field{
 			Type: graphql.String,
 		},
 		"name": &graphql.Field{
+			Type: graphql.String,
+		},
+		"owner": &graphql.Field{
 			Type: graphql.String,
 		},
 		"created": &graphql.Field{
@@ -82,11 +85,11 @@ func processProjectFromDB(projectData bson.M, formatDate bool, updated bool) (bs
 	accessPrimitive := accessPrimitiveDoc.Map()
 	access := make(map[string]primitive.M, len(accessPrimitive))
 	for id, accessData := range accessPrimitive {
-		primativeAccessDoc, ok := accessData.(primitive.D)
+		primitiveAccessDoc, ok := accessData.(primitive.D)
 		if !ok {
 			return nil, errors.New("cannot cast access to primitive D")
 		}
-		access[id] = primativeAccessDoc.Map()
+		access[id] = primitiveAccessDoc.Map()
 	}
 	projectData["access"] = access
 	return projectData, nil

@@ -191,6 +191,10 @@ export default Vue.extend({
       type: String,
       default: null
     },
+    accessToken: {
+      type: String,
+      default: null
+    },
     preview: {
       type: Boolean,
       default: false
@@ -208,14 +212,15 @@ export default Vue.extend({
       updatesAccessToken: null,
       connectionId: null,
       userIdResponse: null,
-      responseItems: []
+      responseItems: [],
+      editResponseAccessToken: null
     }
   },
   mounted() {
     if (this.formId) {
       this.$apollo.query({query: gql`
-        query form($id: String!){
-          form(id: $id, editAccessToken: false) {
+        query form($id: String!, $accessToken: String){
+          form(id: $id, editAccessToken: false, accessToken: $accessToken) {
             name
             items {
               question
@@ -235,7 +240,7 @@ export default Vue.extend({
             ${!this.responseId ? 'updatesAccessToken' : ''}
           }
         }
-        `, variables: {id: this.formId}})
+        `, variables: {id: this.formId, accessToken: this.accessToken}})
         .then(({ data }) => {
           console.log(data.form)
           this.name = data.form.name
@@ -549,7 +554,7 @@ export default Vue.extend({
           fileid: updateObj.files[fileIndex].id,
           requestType: 'original',
           fileType: updateObj.files[fileIndex].type,
-          updateToken: this.updatesAccessToken
+          updateToken: isResponse ? this.editResponseAccessToken : this.updatesAccessToken
         }
       }).then(res => {
         if (res.data.url) {
@@ -646,9 +651,9 @@ export default Vue.extend({
           responseCount++
         }
         this.$apollo.mutate({mutation: gql`
-          mutation updateResponse($id: String!, $project: String!, $name: String!, $items: [ItemInput!]!, $multiple: Boolean!, $files: [FileInput!]!, $tags: [String!]!, $categories: [String!]!)
-          {updateResponse(id: $id, items: $items, files: $files){id} }
-          `, variables: {id: this.responseId, items: uploadItems, files: uploadFiles}})
+          mutation updateResponse($accessToken: String, $id: String!, $project: String!, $name: String!, $items: [ItemInput!]!, $multiple: Boolean!, $files: [FileInput!]!, $tags: [String!]!, $categories: [String!]!)
+          {updateResponse(accessToken: $accessToken, id: $id, items: $items, files: $files){id} }
+          `, variables: {id: this.responseId, items: uploadItems, files: uploadFiles, updateToken: this.editResponseAccessToken}})
           .then(({ data }) => {
             console.log('submitted!')
           }).catch(err => {
@@ -673,7 +678,8 @@ export default Vue.extend({
                       fileObj.id
                     ],
                     postid: this.responseId,
-                    posttype: objectType
+                    posttype: objectType,
+                    updateToken: this.editResponseAccessToken
                   }
                 })
                 .then(res => {
@@ -706,7 +712,8 @@ export default Vue.extend({
                 params: {
                   posttype: objectType,
                   filetype: fileObj.file.type,
-                  postid: this.responseId
+                  postid: this.responseId,
+                  updateToken: this.editResponseAccessToken
                 },
                 headers: {
                   'Content-Type': 'multipart/form-data'
@@ -742,11 +749,12 @@ export default Vue.extend({
       }
       if (!this.responseId) {
         this.$apollo.mutate({mutation: gql`
-          mutation addResponse($id: String!, $project: String!, $name: String!, $items: [ItemInput!]!, $multiple: Boolean!, $files: [FileInput!]!, $tags: [String!]!, $categories: [String!]!)
-          {addResponse(id: $id, items: $items, files: $files){id} }
-          `, variables: {id: this.formId, items: [], files: []}})
+          mutation addResponse($accessToken: String, $id: String!, $project: String!, $name: String!, $items: [ItemInput!]!, $multiple: Boolean!, $files: [FileInput!]!, $tags: [String!]!, $categories: [String!]!)
+          {addResponse(accessToken: $accessToken, id: $id, items: $items, files: $files){id editAccessToken} }
+          `, variables: {accessToken: this.accessToken, id: this.formId, items: [], files: []}})
           .then(({ data }) => {
             this.responseId = data.addResponse.id
+            this.editResponseAccessToken = data.addResponse.editAccessToken
             history.replaceState({}, null, `/project/${this.projectId}/form/${this.formId}/response/${this.responseId}`)
             uploadFiles()
           }).catch(err => {

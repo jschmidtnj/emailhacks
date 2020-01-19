@@ -117,7 +117,7 @@ func subscriptionsHandler(c *gin.Context) {
 					return
 				}
 				updatesAccessTokenString := payload.Data.(map[string]interface{})["formUpdates"].(map[string]interface{})["id"].(string)
-				formIDString, _, connectionIDString, _ := getUpdateClaimsData(updatesAccessTokenString, editAccessLevel)
+				formIDString, _, connectionIDString, _ := getFormUpdateClaimsData(updatesAccessTokenString, editAccessLevel)
 				payload = graphql.Do(graphql.Params{
 					Schema:        schema,
 					RequestString: msg.Payload.Query,

@@ -62,6 +62,9 @@ export const formMappings = {
     items: {
       type: 'nested'
     },
+    owner: {
+      type: 'keyword'
+    },
     multiple: {
       type: 'boolean'
     },
@@ -101,6 +104,9 @@ export const projectMappings = {
     },
     forms: {
       type: 'integer'
+    },
+    owner: {
+      type: 'keyword'
     },
     access: {
       type: 'object'
