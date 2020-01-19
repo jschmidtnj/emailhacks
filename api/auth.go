@@ -30,12 +30,10 @@ import (
 var numHashes = 12
 
 type loginClaims struct {
-	ID          string `json:"id"`
-	Email       string `json:"email"`
-	Type        string `json:"type"`
-	MaxForms    int    `json:"maxforms"`
-	MaxProjects int    `json:"maxprojects"`
-	MaxStorage  int    `json:"maxstorage"`
+	ID    string `json:"id"`
+	Email string `json:"email"`
+	Type  string `json:"type"`
+	Plan  string `json:"plan"`
 	jwt.StandardClaims
 }
 
@@ -270,18 +268,11 @@ func loginEmailPassword(c *gin.Context) {
 		}
 		id := userData["_id"].(primitive.ObjectID).Hex()
 		expirationTime := time.Now().Add(time.Duration(tokenExpiration) * time.Hour)
-		productData, err := getProductFromUserData(userData)
-		if err != nil {
-			handleError(err.Error(), http.StatusUnauthorized, response)
-			return
-		}
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, loginClaims{
 			id,
 			userData["email"].(string),
 			userData["type"].(string),
-			productData["maxforms"].(int),
-			productData["maxprojects"].(int),
-			productData["maxstorage"].(int),
+			userData["plan"].(string),
 			jwt.StandardClaims{
 				ExpiresAt: expirationTime.Unix(),
 				Issuer:    jwtIssuer,

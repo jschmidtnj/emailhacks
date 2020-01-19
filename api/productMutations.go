@@ -295,7 +295,7 @@ var productMutationFields = graphql.Fields{
 		},
 	},
 	"deleteProduct": &graphql.Field{
-		Type:        ResponseType,
+		Type:        ProductType,
 		Description: "Delete a Product",
 		Args: graphql.FieldConfigArgument{
 			"id": &graphql.ArgumentConfig{

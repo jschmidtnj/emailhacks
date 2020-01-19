@@ -188,6 +188,11 @@ func rootMutation() *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: "Mutation",
 		Fields: graphql.Fields{
+			"addProduct":     productMutationFields["addProduct"],
+			"updateProduct":  productMutationFields["updateProduct"],
+			"deleteProduct":  productMutationFields["deleteProduct"],
+			"addCoupon":      couponMutationFields["addCoupon"],
+			"deleteCoupon":   couponMutationFields["deleteCoupon"],
 			"addResponse":    responseMutationFields["addResponse"],
 			"updateResponse": responseMutationFields["updateResponse"],
 			"deleteResponse": responseMutationFields["deleteResponse"],

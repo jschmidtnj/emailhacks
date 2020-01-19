@@ -68,9 +68,9 @@ var productQueryFields = graphql.Fields{
 			return products, nil
 		},
 	},
-	"project": &graphql.Field{
-		Type:        ProjectType,
-		Description: "Get a Project",
+	"product": &graphql.Field{
+		Type:        ProductType,
+		Description: "Get a Product",
 		Args: graphql.FieldConfigArgument{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,

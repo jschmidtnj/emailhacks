@@ -16,6 +16,8 @@
 <script lang="ts">
 import Vue from 'vue'
 import { Card, createToken } from 'vue-stripe-elements-plus'
+// TODO - call payment endpoints, save cart in store
+// log in again after payment is complete for different pass
 export default Vue.extend({
   name: 'Checkout',
   components: {

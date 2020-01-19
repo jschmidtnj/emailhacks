@@ -45,6 +45,8 @@ var userCollection *mongo.Collection
 
 var productCollection *mongo.Collection
 
+var couponCollection *mongo.Collection
+
 var responseCollection *mongo.Collection
 
 var formCollection *mongo.Collection
@@ -211,6 +213,7 @@ func main() {
 	userCollection = mongoClient.Database(mainDatabase).Collection(userMongoName)
 	responseCollection = mongoClient.Database(mainDatabase).Collection(responseMongoName)
 	productCollection = mongoClient.Database(mainDatabase).Collection(productMongoName)
+	couponCollection = mongoClient.Database(mainDatabase).Collection(couponMongoName)
 	formCollection = mongoClient.Database(mainDatabase).Collection(formMongoName)
 	projectCollection = mongoClient.Database(mainDatabase).Collection(projectMongoName)
 	blogCollection = mongoClient.Database(mainDatabase).Collection(blogMongoName)

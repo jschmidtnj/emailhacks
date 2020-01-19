@@ -161,7 +161,19 @@ var formMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			maxForms, ok := claims["maxforms"].(int)
+			planIDString, ok := claims["plan"].(string)
+			if !ok {
+				return nil, errors.New("cannot convert plan to string")
+			}
+			planID, err := primitive.ObjectIDFromHex(planIDString)
+			if err != nil {
+				return nil, err
+			}
+			productData, err := getProduct(planID, !isDebug())
+			if err != nil {
+				return nil, err
+			}
+			maxForms, ok := productData["maxforms"].(int)
 			if !ok {
 				return nil, errors.New("cannot convert max forms to int")
 			}

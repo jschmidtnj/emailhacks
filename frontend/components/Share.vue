@@ -1,6 +1,6 @@
 <template>
   <b-modal id="share-modal" v-if="shareType" title="BootstrapVue">
-    <p class="my-4">Share the form</p>
+    <p class="my-4">Share</p>
     <vue-tags-input
       v-model="tag"
       :tags="tags"
@@ -13,6 +13,7 @@
 import Vue from 'vue'
 import VueTagsInput from '@johmun/vue-tags-input'
 // TODO - get access and have the sharing endpoints enabled
+// check if user exists before sharing with them
 export default Vue.extend({
   name: 'Share',
   components: {

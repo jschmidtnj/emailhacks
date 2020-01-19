@@ -149,7 +149,7 @@ func getProduct(productID primitive.ObjectID, useCache bool) (map[string]interfa
 }
 
 // user purchase a product
-func purchase(userID primitive.ObjectID, productID primitive.ObjectID, interval string, cardToken string, formatDate bool) (map[string]interface{}, error) {
+func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDString string, couponAmount int, interval string, cardToken string, formatDate bool) (map[string]interface{}, error) {
 	productData, err := getProduct(productID, !isDebug())
 	if err != nil {
 		return nil, err
@@ -221,14 +221,18 @@ func purchase(userID primitive.ObjectID, productID primitive.ObjectID, interval 
 		"$addToSet": bson.M{},
 	}
 	if interval != singlePurchase {
-		stripeSubscription, err := stripeClient.Subscriptions.New(&stripe.SubscriptionParams{
+		subscriptionParams := &stripe.SubscriptionParams{
 			Customer:              &userStripeID,
 			BillingCycleAnchorNow: stripe.Bool(true),
 			Items: []*stripe.SubscriptionItemsParams{&stripe.SubscriptionItemsParams{
 				Plan: &planIDString,
 			},
 			},
-		})
+		}
+		if len(couponIDString) > 0 {
+			subscriptionParams.Coupon = &couponIDString
+		}
+		stripeSubscription, err := stripeClient.Subscriptions.New(subscriptionParams)
 		if err != nil {
 			return nil, err
 		}
@@ -236,11 +240,10 @@ func purchase(userID primitive.ObjectID, productID primitive.ObjectID, interval 
 		userUpdateData["$set"].(bson.M)["plan"] = newPlan
 		userUpdateData["$set"].(bson.M)["subscriptionid"] = stripeSubscription.ID
 	} else {
-		// TODO - use custom coupon amount
 		_, err := stripeClient.Charges.New(&stripe.ChargeParams{
 			Customer: &userStripeID,
 			Currency: &defaultCurrency,
-			Amount:   stripe.Int64(int64(amount)),
+			Amount:   stripe.Int64(int64(amount - couponAmount)),
 			Source: &stripe.SourceParams{
 				Token: &cardToken,
 			},

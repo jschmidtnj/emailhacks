@@ -12,6 +12,8 @@ var responseMongoName = "responses"
 
 var productMongoName = "products"
 
+var couponMongoName = "coupons"
+
 var formMongoName = "forms"
 
 var projectMongoName = "projects"
@@ -227,6 +229,9 @@ var singlePurchase = validIntervals[2]
 var defaultPlanName = "free"
 
 var defaultCurrency = "usd"
+
+// see https://stripe.com/docs/api/coupons/object for details
+var defaultCouponDuration = "repeating"
 
 var autosaveTime = 3 // seconds
 

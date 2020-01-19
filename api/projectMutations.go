@@ -43,7 +43,19 @@ var projectMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			maxProjects, ok := claims["maxprojects"].(int)
+			planIDString, ok := claims["plan"].(string)
+			if !ok {
+				return nil, errors.New("cannot convert plan to string")
+			}
+			planID, err := primitive.ObjectIDFromHex(planIDString)
+			if err != nil {
+				return nil, err
+			}
+			productData, err := getProduct(planID, !isDebug())
+			if err != nil {
+				return nil, err
+			}
+			maxProjects, ok := productData["maxprojects"].(int)
 			if !ok {
 				return nil, errors.New("cannot convert max projects to int")
 			}

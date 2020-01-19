@@ -142,6 +142,9 @@ var userMutationFields = graphql.Fields{
 			"cardToken": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
+			"coupon": &graphql.ArgumentConfig{
+				Type: graphql.String,
+			},
 			"formatDate": &graphql.ArgumentConfig{
 				Type: graphql.Boolean,
 			},
@@ -194,7 +197,21 @@ var userMutationFields = graphql.Fields{
 			if !findInArray(interval, validIntervals) {
 				return nil, errors.New("invalid product interval provided")
 			}
-			userData, err := purchase(id, productID, interval, cardToken, formatDate)
+			var couponIDString = ""
+			var couponAmount = 0
+			if params.Args["coupon"] != nil {
+				secret, ok := params.Args["coupon"].(string)
+				if !ok {
+					return nil, errors.New("cannot cast coupon to string")
+				}
+				couponData, err := checkCoupon(secret)
+				if err != nil {
+					return nil, err
+				}
+				couponIDString = couponData["id"].(string)
+				couponAmount = couponData["amount"].(int)
+			}
+			userData, err := purchase(id, productID, couponIDString, couponAmount, interval, cardToken, formatDate)
 			if err != nil {
 				return nil, err
 			}
