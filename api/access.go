@@ -17,6 +17,12 @@ var AccessInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 	},
 })
 
+// Access object for giving user access
+type Access struct {
+	ID   string `json:"id"`
+	Type string `json:"type"`
+}
+
 // AccessType - type of graphql input
 var AccessType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "Access",

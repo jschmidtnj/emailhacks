@@ -128,7 +128,7 @@ func checkFileObjUpdatePart(fileobj map[string]interface{}) error {
 }
 
 // UpdateFileType graphql file object
-var UpdateFileType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
+var UpdateFileType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "UpdateFile",
 	Fields: graphql.Fields{
 		"id": &graphql.Field{
@@ -194,8 +194,20 @@ var UpdateFileInputType = graphql.NewInputObject(
 	},
 )
 
+// File object for giving user access
+type File struct {
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Width          int64  `json:"width"`
+	Height         int64  `json:"height"`
+	Type           string `json:"type"`
+	OriginalSrc    string `json:"originalSrc"`
+	BlurSrc        string `json:"blurSrc"`
+	PlaceholderSrc string `json:"placeholderSrc"`
+}
+
 // FileType graphql image object
-var FileType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
+var FileType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "File",
 	Fields: graphql.Fields{
 		"id": &graphql.Field{
@@ -211,6 +223,15 @@ var FileType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 			Type: graphql.Int,
 		},
 		"type": &graphql.Field{
+			Type: graphql.String,
+		},
+		"originalSrc": &graphql.Field{
+			Type: graphql.String,
+		},
+		"blurSrc": &graphql.Field{
+			Type: graphql.String,
+		},
+		"placeholderSrc": &graphql.Field{
 			Type: graphql.String,
 		},
 	},

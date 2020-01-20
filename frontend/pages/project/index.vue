@@ -11,13 +11,40 @@
 <script lang="js">
 import Vue from 'vue'
 import gql from 'graphql-tag'
-import ViewProject from '~/components/secure/project/View.vue'
+import ViewProject from '~/components/project/View.vue'
 import { defaultItemName } from '~/assets/config'
+const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({
   name: 'NewProject',
   layout: 'secure',
   components: {
     ViewProject
+  },
+  head() {
+    const title = 'New Project'
+    const description = 'create a new project'
+    const image = `${seo.url}/icon.png`
+    return {
+      title,
+      meta: [
+        { property: 'og:title', content: title },
+        { property: 'og:description', content: description },
+        {
+          property: 'og:image',
+          content: image
+        },
+        { name: 'twitter:title', content: title },
+        {
+          name: 'twitter:description',
+          content: description
+        },
+        {
+          name: 'twitter:image',
+          content: image
+        },
+        { hid: 'description', name: 'description', content: description }
+      ]
+    }
   },
   data() {
     return {

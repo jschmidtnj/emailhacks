@@ -17,9 +17,6 @@ var blogQueryFields = graphql.Fields{
 		Type:        graphql.NewList(BlogType),
 		Description: "Get list of blogs",
 		Args: graphql.FieldConfigArgument{
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
 			"perpage": &graphql.ArgumentConfig{
 				Type: graphql.Int,
 			},
@@ -48,14 +45,6 @@ var blogQueryFields = graphql.Fields{
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			// see this: https://github.com/olivere/elastic/issues/483
 			// for potential fix to source issue (tried gave null pointer error)
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				var ok bool
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
-			}
 			if params.Args["perpage"] == nil {
 				return nil, errors.New("no perpage argument found")
 			}
@@ -191,20 +180,7 @@ var blogQueryFields = graphql.Fields{
 					if err != nil {
 						return nil, err
 					}
-					if formatDate {
-						blogData["created"] = objectidTimestamp(id).Format(dateFormat)
-					} else {
-						blogData["created"] = objectidTimestamp(id).Unix()
-					}
-					updatedInt, ok := blogData["updated"].(int64)
-					if !ok {
-						return nil, errors.New("cannot cast updated time to int")
-					}
-					if formatDate {
-						blogData["updated"] = intTimestamp(updatedInt).Format(dateFormat)
-					} else {
-						blogData["updated"] = intTimestamp(updatedInt).Unix()
-					}
+					blogData["created"] = objectidTimestamp(id).Unix()
 					blogData["id"] = id.Hex()
 					delete(blogData, "_id")
 					blogs[i] = blogData
@@ -228,9 +204,6 @@ var blogQueryFields = graphql.Fields{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
 			"cache": &graphql.ArgumentConfig{
 				Type: graphql.Boolean,
 			},
@@ -253,14 +226,6 @@ var blogQueryFields = graphql.Fields{
 			id, err := primitive.ObjectIDFromHex(idstring)
 			if err != nil {
 				return nil, err
-			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				var ok bool
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
 			}
 			_, err = blogCollection.UpdateOne(ctxMongo, bson.M{
 				"_id": id,
@@ -326,20 +291,7 @@ var blogQueryFields = graphql.Fields{
 					return nil, err
 				}
 				blogData = blogPrimitive.Map()
-				if formatDate {
-					blogData["created"] = objectidTimestamp(id).Format(dateFormat)
-				} else {
-					blogData["created"] = objectidTimestamp(id).Unix()
-				}
-				updatedInt, ok := blogData["updated"].(int64)
-				if !ok {
-					return nil, errors.New("cannot cast updated time to int")
-				}
-				if formatDate {
-					blogData["updated"] = intTimestamp(updatedInt).Format(dateFormat)
-				} else {
-					blogData["updated"] = intTimestamp(updatedInt).Unix()
-				}
+				blogData["created"] = objectidTimestamp(id).Unix()
 				blogData["id"] = idstring
 				if blogData["tileimage"] != nil {
 					primitiveTileImage, ok := blogData["tileimage"].(primitive.D)
@@ -360,11 +312,11 @@ var blogQueryFields = graphql.Fields{
 					return nil, errors.New("cannot cast files to array")
 				}
 				for i, file := range fileArray {
-					primativeFile, ok := file.(primitive.D)
+					primitiveFile, ok := file.(primitive.D)
 					if !ok {
 						return nil, errors.New("cannot cast file to primitive D")
 					}
-					fileArray[i] = primativeFile.Map()
+					fileArray[i] = primitiveFile.Map()
 				}
 				blogData["files"] = fileArray
 				delete(blogData, "_id")
@@ -379,7 +331,7 @@ var blogQueryFields = graphql.Fields{
 				Type(blogElasticType).
 				Id(idstring).
 				Doc(bson.M{
-					"views": int(blogData["views"].(int32)),
+					"views": blogData["views"].(int64),
 				}).
 				Do(ctxElastic)
 			if err != nil {

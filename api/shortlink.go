@@ -12,7 +12,7 @@ import (
 )
 
 // ShortLinkType account type object for user accounts graphql
-var ShortLinkType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
+var ShortLinkType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "ShortLink",
 	Fields: graphql.Fields{
 		"id": &graphql.Field{
@@ -111,6 +111,5 @@ func shortLinkRedirect(c *gin.Context) {
 		http.Redirect(response, request, shortlinkURL+"/404", 301)
 		return
 	}
-	logger.Info("got link " + fullLink)
 	http.Redirect(response, request, fullLink, 301)
 }

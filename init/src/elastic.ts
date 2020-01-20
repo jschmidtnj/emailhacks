@@ -62,6 +62,9 @@ export const formMappings = {
     items: {
       type: 'nested'
     },
+    owner: {
+      type: 'keyword'
+    },
     multiple: {
       type: 'boolean'
     },
@@ -69,6 +72,9 @@ export const formMappings = {
       type: 'object'
     },
     views: {
+      type: 'integer'
+    },
+    responses: {
       type: 'integer'
     },
     public: {
@@ -97,6 +103,9 @@ export const projectMappings = {
       type: 'text'
     },
     forms: {
+      type: 'integer'
+    },
+    owner: {
       type: 'keyword'
     },
     access: {
@@ -115,6 +124,34 @@ export const projectMappings = {
     updated: {
       type: 'date',
       format: 'epoch_millis'
+    }
+  }
+}
+
+export const responseMappings = {
+  properties: {
+    views: {
+      type: 'integer'
+    },
+    user: {
+      type: 'keyword'
+    },
+    form: {
+      type: 'keyword'
+    },
+    project: {
+      type: 'keyword'
+    },
+    created: {
+      type: 'date',
+      format: 'epoch_millis'
+    },
+    updated: {
+      type: 'date',
+      format: 'epoch_millis'
+    },
+    items: {
+      type: 'nested'
     }
   }
 }

@@ -282,44 +282,45 @@ export default Vue.extend({
       this.updateCount()
       const sort = this.sortBy ? this.sortBy : this.sortOptions[0].value
       const useCache = this.$store.state.auth.user && adminTypes.includes(this.$store.state.auth.user.type)
-      this.$apollo.query({query: gql`
-        query blogs($perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!, $tags: [String!]!, $categories: [String!]!, $cache: Boolean!)
-          {blogs(perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending, tags: $tags, categories: $categories, cache: $cache) {
-            title
-            views
-            id
-            author
-            updated
-          }
-        }
-        `, variables: {
-            perpage: this.perPage,
-            page: this.currentPage - 1,
-            searchterm: this.search,
-            sort,
-            ascending: !this.sortDesc,
-            tags: [],
-            categories: [],
-            cache: useCache
-          }
-        })
-        .then(({ data }) => {
-          const blogs = data.blogs
-          blogs.forEach(blog => {
-            if (blog.updated && blog.updated.toString().length === 10) {
-              blog.updated = Number(blog.updated) * 1000
+      this.$apollo.query({
+        query: gql`
+          query blogs($perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!, $tags: [String!]!, $categories: [String!]!, $cache: Boolean!) {
+            blogs(perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending, tags: $tags, categories: $categories, cache: $cache) {
+              title
+              views
+              id
+              author
+              updated
             }
-            if (blog.created && blog.created.toString().length === 10) {
-              blog.created = Number(blog.created) * 1000
-            }
+          }`,
+          variables: {
+              perpage: this.perPage,
+              page: this.currentPage - 1,
+              searchterm: this.search,
+              sort,
+              ascending: !this.sortDesc,
+              tags: [],
+              categories: [],
+              cache: useCache
+            },
+            fetchPolicy: useCache ? 'cache-first' : 'network-only'
+          }).then(({ data }) => {
+            const blogs = data.blogs
+            blogs.forEach(blog => {
+              if (blog.updated && blog.updated.toString().length === 10) {
+                blog.updated = Number(blog.updated) * 1000
+              }
+              if (blog.created && blog.created.toString().length === 10) {
+                blog.created = Number(blog.created) * 1000
+              }
+            })
+            this.items = blogs
+          }).catch(err => {
+            console.error(err)
+            this.$toasted.global.error({
+              message: `found error: ${err.message}`
+            })
           })
-          this.items = blogs
-        }).catch(err => {
-          console.error(err)
-          this.$toasted.global.error({
-            message: `found error: ${err.message}`
-          })
-        })
     },
     formatDate(dateUTC) {
       return formatRelative(dateUTC, new Date())

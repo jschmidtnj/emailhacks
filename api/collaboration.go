@@ -9,7 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func getUpdateClaimsData(accessToken string, accessLevel []string) (string, string, string, error) {
+func getFormUpdateClaimsData(accessToken string, accessLevel []string) (string, string, string, error) {
 	claims, err := getTokenData(accessToken)
 	if err != nil {
 		return "", "", "", err
@@ -37,7 +37,7 @@ func getUpdateClaimsData(accessToken string, accessLevel []string) (string, stri
 	}
 	formIDString, ok := claims["formid"].(string)
 	if !ok {
-		return "", "", "", errors.New("cannot cast user id to string")
+		return "", "", "", errors.New("cannot cast form id to string")
 	}
 	_, err = primitive.ObjectIDFromHex(formIDString)
 	if err != nil {
@@ -105,7 +105,7 @@ var collaborationFields = graphql.Fields{
 				if !ok {
 					return nil, errors.New("cannot cast token to string")
 				}
-				tokenFormIDString, _, _, err := getUpdateClaimsData(updatesAccessTokenString, viewAccessLevel)
+				tokenFormIDString, _, _, err := getFormUpdateClaimsData(updatesAccessTokenString, viewAccessLevel)
 				if err != nil {
 					return nil, err
 				}

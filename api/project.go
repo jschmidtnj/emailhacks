@@ -15,7 +15,7 @@ import (
 )
 
 // ProjectType overarching project
-var ProjectType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
+var ProjectType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "Project",
 	Fields: graphql.Fields{
 		"id": &graphql.Field{
@@ -24,14 +24,17 @@ var ProjectType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 		"name": &graphql.Field{
 			Type: graphql.String,
 		},
-		"created": &graphql.Field{
+		"owner": &graphql.Field{
 			Type: graphql.String,
+		},
+		"created": &graphql.Field{
+			Type: graphql.Int,
 		},
 		"updated": &graphql.Field{
-			Type: graphql.String,
+			Type: graphql.Int,
 		},
 		"forms": &graphql.Field{
-			Type: graphql.NewList(graphql.String),
+			Type: graphql.Int,
 		},
 		"access": &graphql.Field{
 			Type: graphql.NewList(AccessType),
@@ -51,13 +54,9 @@ var ProjectType *graphql.Object = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-func processProjectFromDB(projectData bson.M, formatDate bool, updated bool) (bson.M, error) {
+func processProjectFromDB(projectData bson.M, updated bool) (bson.M, error) {
 	id := projectData["_id"].(primitive.ObjectID)
-	if formatDate {
-		projectData["created"] = objectidTimestamp(id).Format(dateFormat)
-	} else {
-		projectData["created"] = objectidTimestamp(id).Unix()
-	}
+	projectData["created"] = objectidTimestamp(id).Unix()
 	var updatedTimestamp time.Time
 	if updated {
 		updatedTimestamp = time.Now()
@@ -68,11 +67,7 @@ func processProjectFromDB(projectData bson.M, formatDate bool, updated bool) (bs
 		}
 		updatedTimestamp = intTimestamp(updatedInt)
 	}
-	if formatDate {
-		projectData["updated"] = updatedTimestamp.Format(dateFormat)
-	} else {
-		projectData["updated"] = updatedTimestamp.Unix()
-	}
+	projectData["updated"] = updatedTimestamp.Unix()
 	projectData["id"] = id.Hex()
 	delete(projectData, "_id")
 	accessPrimitiveDoc, ok := projectData["access"].(primitive.D)
@@ -82,70 +77,79 @@ func processProjectFromDB(projectData bson.M, formatDate bool, updated bool) (bs
 	accessPrimitive := accessPrimitiveDoc.Map()
 	access := make(map[string]primitive.M, len(accessPrimitive))
 	for id, accessData := range accessPrimitive {
-		primativeAccessDoc, ok := accessData.(primitive.D)
+		primitiveAccessDoc, ok := accessData.(primitive.D)
 		if !ok {
 			return nil, errors.New("cannot cast access to primitive D")
 		}
-		access[id] = primativeAccessDoc.Map()
+		access[id] = primitiveAccessDoc.Map()
 	}
 	projectData["access"] = access
 	return projectData, nil
 }
 
-func checkProjectAccess(projectID primitive.ObjectID, accessToken string, necessaryAccess []string, formatDate bool, updated bool) (map[string]interface{}, error) {
+func checkProjectAccess(projectID primitive.ObjectID, accessToken string, otherUserIDString string, necessaryAccess []string, updated bool) (map[string]interface{}, string, error) {
 	projectDataCursor, err := projectCollection.Find(ctxMongo, bson.M{
 		"_id": projectID,
 	})
 	defer projectDataCursor.Close(ctxMongo)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	var projectData map[string]interface{}
 	var foundProject = false
+	var accessType string
 	for projectDataCursor.Next(ctxMongo) {
 		foundProject = true
 		projectPrimitive := &bson.D{}
 		err = projectDataCursor.Decode(projectPrimitive)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
-		projectData, err = processProjectFromDB(projectPrimitive.Map(), formatDate, updated)
+		projectData, err = processProjectFromDB(projectPrimitive.Map(), updated)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		// if public just break
 		publicAccess := projectData["public"].(string)
-		if findInArray(publicAccess, viewAccessLevel) {
+		if findInArray(publicAccess, necessaryAccess) {
 			break
 		}
-		// next check if logged in
-		claims, err := getTokenData(accessToken)
-		if err != nil {
-			return nil, err
+		var userIDString string
+		if len(otherUserIDString) == 0 {
+			// next check if logged in
+			claims, err := getTokenData(accessToken)
+			if err != nil {
+				return nil, "", err
+			}
+			// admin can do anything
+			if claims["type"] == adminType {
+				break
+			}
+			userIDString = claims["id"].(string)
+		} else {
+			userIDString = otherUserIDString
 		}
-		// admin can do anything
-		if claims["type"] == adminType {
-			break
-		}
-		userIDString := claims["id"].(string)
 		var foundUser = false
-		access := projectData["access"].(map[string]primitive.M)
-		for currentUserID, _ := range access {
+		access := projectData["access"].(map[string]bson.M)
+		for currentUserID, accessVal := range access {
 			if currentUserID == userIDString {
-				foundUser = true
+				accessType = accessVal["type"].(string)
+				if findInArray(accessType, necessaryAccess) {
+					foundUser = true
+				}
 				break
 			}
 		}
 		if !foundUser {
 			// check if user has access to project directly
-			return nil, errors.New("user not authorized to access project")
+			return nil, "", errors.New("user not authorized to access project")
 		}
 		break
 	}
 	if !foundProject {
-		return nil, errors.New("project not found with given id")
+		return nil, "", errors.New("project not found with given id")
 	}
-	return projectData, nil
+	return projectData, accessType, nil
 }
 
 /**

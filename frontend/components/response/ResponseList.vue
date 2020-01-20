@@ -10,7 +10,7 @@
                 (evt) => {
                   evt.preventDefault()
                   currentPage = 1
-                  searchForms()
+                  searchResponses()
                 }
               "
               placeholder="Type to Search"
@@ -21,7 +21,7 @@
                 @click="
                   search = ''
                   currentPage = 1
-                  searchForms()
+                  searchResponses()
                 "
               >
                 Clear
@@ -38,7 +38,7 @@
               :options="sortOptions"
               @change="
                 currentPage = 1
-                searchForms()
+                searchResponses()
               "
             >
               <option slot="first" :value="null">
@@ -51,7 +51,7 @@
               :disabled="!sortBy"
               @change="
                 currentPage = 1
-                searchForms()
+                searchResponses()
               "
             >
               <option :value="false">
@@ -71,7 +71,7 @@
             :options="pageOptions"
             @change="
               currentPage = 1
-              searchForms()
+              searchResponses()
             "
           />
         </b-form-group>
@@ -85,7 +85,10 @@
       show-empty
       stacked="md"
     >
-      <template v-slot:cell(name)="data">
+      <template v-if="formId" v-slot:cell(user)="data">
+        {{ data.value }}
+      </template>
+      <template v-else v-slot:cell(form)="data">
         {{ data.value }}
       </template>
       <template v-slot:cell(updated)="data">
@@ -98,24 +101,16 @@
         <nuxt-link
           :to="
             `/project/${projectId ? projectId : data.item.project}/form/${
-              data.item.id
-            }/view`
+              formId ? formId : data.item.form
+            }/response/${data.item.id}`
           "
           class="btn btn-primary btn-sm no-underline"
         >
-          View
+          View{{
+            $store.state.auth.user.id === data.item.user ? ' + Edit' : ''
+          }}
         </nuxt-link>
-        <nuxt-link
-          :to="
-            `/project/${projectId ? projectId : data.item.project}/form/${
-              data.item.id
-            }/edit`
-          "
-          class="btn btn-primary btn-sm no-underline"
-        >
-          Edit
-        </nuxt-link>
-        <b-button @click="deleteForm(data.item)" size="sm">
+        <b-button @click="deleteResponse(data.item)" size="sm">
           Delete
         </b-button>
       </template>
@@ -129,13 +124,20 @@
           @change="
             (newpage) => {
               currentPage = newpage
-              searchForms()
+              searchResponses()
             }
           "
           class="my-0"
         />
       </b-col>
     </b-row>
+    <nuxt-link
+      v-if="projectId && formId"
+      :to="`/project/${projectId}/form/${formId}/view`"
+      class="btn btn-primary btn-sm no-underline mt-4"
+    >
+      Create New Response
+    </nuxt-link>
   </b-container>
 </template>
 
@@ -144,8 +146,13 @@ import Vue from 'vue'
 import { formatRelative } from 'date-fns'
 import gql from 'graphql-tag'
 export default Vue.extend({
-  name: 'Forms',
+  name: 'Responses',
+  layout: 'secure',
   props: {
+    formId: {
+      type: String,
+      default: null
+    },
     projectId: {
       type: String,
       default: null
@@ -156,9 +163,9 @@ export default Vue.extend({
       items: [],
       fields: [
         {
-          key: 'name',
-          label: 'Name',
-          sortable: false
+          key: this.formId ? 'user' : 'form',
+          label: this.formId ? 'User Id' : 'Form Id',
+          sortable: true
         },
         {
           key: 'updated',
@@ -212,17 +219,23 @@ export default Vue.extend({
       )
         this.sortBy = this.$route.query.sortby
     }
-    this.searchForms()
+    this.searchResponses()
   },
   methods: {
-    deleteForm(form) {
+    sort(ctx) {
+      this.sortBy = ctx.sortBy //   ==> Field key for sorting by (or null for no sorting)
+      this.sortDesc = ctx.sortDesc // ==> true if sorting descending, false otherwise
+      this.currentPage = 1
+      this.searchResponses()
+    },
+    deleteResponse(response) {
       this.$apollo.mutate({mutation: gql`
-        mutation deleteForm($id: String!){deleteForm(id: $id){id} }
-        `, variables: {id: form.id}})
+        mutation deleteResponse($id: String!){deleteResponse(id: $id){id} }
+        `, variables: {id: response.id}})
         .then(({ data }) => {
-          this.items.splice(this.items.indexOf(form), 1)
+          this.items.splice(this.items.indexOf(response), 1)
           this.$toasted.global.success({
-            message: 'form deleted'
+            message: 'response deleted'
           })
         }).catch(err => {
           console.error(err)
@@ -231,27 +244,24 @@ export default Vue.extend({
           })
         })
     },
-    sort(ctx) {
-      this.sortBy = ctx.sortBy //   ==> Field key for sorting by (or null for no sorting)
-      this.sortDesc = ctx.sortDesc // ==> true if sorting descending, false otherwise
-      this.currentPage = 1
-      this.searchForms()
-    },
     updateCount() {
+      const getParams = {
+        searchterm: this.search,
+        tags: [].join(',tags='),
+        categories: [].join(',categories=')
+      }
+      if (this.formId) {
+        getParams.form = this.formId
+      }
       this.$axios
-        .get('/countForms', {
-          params: {
-            searchterm: this.search,
-            tags: [].join(',tags='),
-            categories: [].join(',categories=')
-          }
+        .get('/countResponses', {
+          params: getParams
         })
         .then(res => {
           if (res.status === 200) {
             if (res.data) {
               if (res.data.count !== null) {
                 this.totalRows = res.data.count
-                console.log(res.data.count)
               } else {
                 this.$toasted.global.error({
                   message: 'could not find count data'
@@ -278,32 +288,34 @@ export default Vue.extend({
           })
         })
     },
-    searchForms() {
+    searchResponses() {
       this.updateCount()
       const sort = this.sortBy ? this.sortBy : this.sortOptions[0].value
-      console.log(`sort by ${sort}`)
-      this.$apollo.query({query: gql`
-        query forms($perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!, $tags: [String!]!, $categories: [String!]!)
-          {forms(perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending, tags: $tags, categories: $categories){
-            name
-            views
-            id
-            updated
-            project
-           }
-          }
-        `, variables: {perpage: this.perPage, page: this.currentPage - 1, searchterm: this.search, sort, ascending: !this.sortDesc, tags: [], categories: []}})
-        .then(({ data }) => {
-          const forms = data.forms
-          forms.forEach(form => {
-            if (form.updated && form.updated.toString().length === 10) {
-              form.updated = Number(form.updated) * 1000
+      const formIdVal = this.formId ? this.formId : null
+      this.$apollo.query({
+        query: gql`
+          query responses($form: String, $perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!) {
+            responses(form: $form, perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending) {
+              ${this.formId ? 'user' : 'project, form'},
+              views,
+              id,
+              updated
             }
-            if (form.created && form.created.toString().length === 10) {
-              form.created = Number(form.created) * 1000
+          }`,
+          variables: {form: formIdVal, perpage: this.perPage, page: this.currentPage - 1, searchterm: this.search, sort, ascending: !this.sortDesc, tags: [], categories: []},
+          fetchPolicy: 'network-only'
+        }).then(({ data }) => {
+          const responses = data.responses
+          console.log(responses)
+          responses.forEach(response => {
+            if (response.updated && response.updated.toString().length === 10) {
+              response.updated = Number(response.updated) * 1000
+            }
+            if (response.created && response.created.toString().length === 10) {
+              response.created = Number(response.created) * 1000
             }
           })
-          this.items = forms
+          this.items = responses
           this.$nextTick(() => {
             this.$forceUpdate()
           })

@@ -6,12 +6,39 @@
 
 <script lang="js">
 import Vue from 'vue'
-import ViewProjectData from '~/components/secure/project/View.vue'
+import ViewProjectData from '~/components/project/View.vue'
+const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({
   name: 'ViewProject',
   layout: 'secure',
   components: {
     ViewProjectData
+  },
+  head() {
+    const title = 'View Project'
+    const description = 'view a project'
+    const image = `${seo.url}/icon.png`
+    return {
+      title,
+      meta: [
+        { property: 'og:title', content: title },
+        { property: 'og:description', content: description },
+        {
+          property: 'og:image',
+          content: image
+        },
+        { name: 'twitter:title', content: title },
+        {
+          name: 'twitter:description',
+          content: description
+        },
+        {
+          name: 'twitter:image',
+          content: image
+        },
+        { hid: 'description', name: 'description', content: description }
+      ]
+    }
   },
   data() {
     return {

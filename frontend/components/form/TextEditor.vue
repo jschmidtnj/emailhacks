@@ -173,12 +173,13 @@ import css from 'highlight.js/lib/languages/css'
 import go from 'highlight.js/lib/languages/go'
 import java from 'highlight.js/lib/languages/java'
 import cpp from 'highlight.js/lib/languages/cpp'
-import Emoji from '~/components/secure/form/Emoji'
+import Emoji from '~/components/form/Emoji'
 // tried to get emojis working, following this:
 // https://github.com/scrumpy/tiptap/blob/master/examples/Components/Routes/Suggestions/index.vue
 // turns out the tooltip doesn't want to work:
 // https://github.com/Human-Connection/Human-Connection/pull/2258
 // currently looking for alternatives
+// look into mathjax for math editing: https://www.npmjs.com/package/vue-mathjax
 export default Vue.extend({
   components: {
     EditorMenuBar,

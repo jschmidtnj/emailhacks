@@ -4,25 +4,57 @@
       v-if="projectId && formId"
       :form-id="formId"
       :project-id="projectId"
+      :access-token="accessToken"
     />
   </b-container>
 </template>
 
 <script lang="js">
 import Vue from 'vue'
-import ViewContent from '~/components/secure/form/View.vue'
+import ViewContent from '~/components/form/View.vue'
+const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({
   name: 'ViewForm',
   components: {
     ViewContent
   },
+  head() {
+    const title = 'View Form'
+    const description = 'view a form'
+    const image = `${seo.url}/icon.png`
+    return {
+      title,
+      meta: [
+        { property: 'og:title', content: title },
+        { property: 'og:description', content: description },
+        {
+          property: 'og:image',
+          content: image
+        },
+        { name: 'twitter:title', content: title },
+        {
+          name: 'twitter:description',
+          content: description
+        },
+        {
+          name: 'twitter:image',
+          content: image
+        },
+        { hid: 'description', name: 'description', content: description }
+      ]
+    }
+  },
   data() {
     return {
       projectId: null,
-      formId: null
+      formId: null,
+      accessToken: null
     }
   },
   mounted() {
+    if (this.$route.query.accessToken) {
+      this.accessToken = this.$route.query.accessToken
+    }
     if (this.$route.params && this.$route.params.projectId && this.$route.params.formId) {
       this.projectId = this.$route.params.projectId
       this.formId = this.$route.params.formId

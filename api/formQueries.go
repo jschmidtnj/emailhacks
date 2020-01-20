@@ -24,6 +24,49 @@ type formAccessClaims struct {
 }
 
 var formQueryFields = graphql.Fields{
+	"formEmail": &graphql.Field{
+		Type:        FormEmailType,
+		Description: "Get form email data",
+		Args: graphql.FieldConfigArgument{
+			"id": &graphql.ArgumentConfig{
+				Type: graphql.String,
+			},
+		},
+		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+			accessToken := params.Context.Value(tokenKey).(string)
+			_, err := getTokenData(accessToken)
+			if err != nil {
+				return nil, err
+			}
+			if params.Args["id"] == nil {
+				return nil, errors.New("no id argument found")
+			}
+			formIDString, ok := params.Args["id"].(string)
+			if !ok {
+				return nil, errors.New("id could not be cast to int")
+			}
+			formID, err := primitive.ObjectIDFromHex(formIDString)
+			if err != nil {
+				return nil, err
+			}
+			form, err := checkFormAccess(formID, accessToken, viewAccessLevel, false)
+			if err != nil {
+				return nil, err
+			}
+			if err = getFileURLs(form, true, true, true); err != nil {
+				return nil, err
+			}
+			formEmail, err := getFormEmailData(form)
+			if err != nil {
+				return nil, err
+			}
+			formEmailData := map[string]string{
+				"id":   formIDString,
+				"data": formEmail,
+			}
+			return formEmailData, nil
+		},
+	},
 	"forms": &graphql.Field{
 		Type:        graphql.NewList(FormType),
 		Description: "Get list of forms",
@@ -52,9 +95,6 @@ var formQueryFields = graphql.Fields{
 			"tags": &graphql.ArgumentConfig{
 				Type: graphql.NewList(graphql.String),
 			},
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			// see this: https://github.com/olivere/elastic/issues/483
@@ -69,6 +109,7 @@ var formQueryFields = graphql.Fields{
 				return nil, errors.New("cannot cast user id to string")
 			}
 			var foundProject = false
+			var sharedDirect = false
 			var project string
 			if params.Args["project"] != nil {
 				project, ok = params.Args["project"].(string)
@@ -81,18 +122,11 @@ var formQueryFields = graphql.Fields{
 					if err != nil {
 						return nil, err
 					}
-					_, err = checkProjectAccess(projectID, accessToken, viewAccessLevel, false, false)
+					_, accessType, err := checkProjectAccess(projectID, accessToken, "", viewAccessLevel, false)
 					if err != nil {
 						return nil, err
 					}
-				}
-			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				var ok bool
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
+					sharedDirect = accessType == sharedAccessLevel
 				}
 			}
 			if params.Args["perpage"] == nil {
@@ -164,10 +198,10 @@ var formQueryFields = graphql.Fields{
 					startIndex = 0
 				}
 				mustQueries := make([]elastic.Query, numtags+len(categories)+startIndex)
-				if foundProject {
+				if foundProject && !sharedDirect {
 					mustQueries[0] = elastic.NewTermQuery("project", project)
 				} else if !showEverything {
-					// get all shared directly forms (not in a project)
+					// get all forms user has shared access to
 					mustQueries[0] = elastic.NewTermsQuery(fmt.Sprintf("access.%s.type", userIDString), stringListToInterfaceList(viewAccessLevel)...)
 				}
 				for i, tag := range tags {
@@ -207,24 +241,10 @@ var formQueryFields = graphql.Fields{
 						return nil, err
 					}
 					createdTimestamp := objectidTimestamp(id)
-					if formatDate {
-						formData["created"] = createdTimestamp.Format(dateFormat)
-					} else {
-						formData["created"] = createdTimestamp.Unix()
-					}
-					updatedInt, ok := formData["updated"].(float64)
-					if !ok {
-						return nil, errors.New("cannot cast updated time to float")
-					}
-					updatedTimestamp := intTimestamp(int64(updatedInt))
-					if formatDate {
-						formData["updated"] = updatedTimestamp.Format(dateFormat)
-					} else {
-						formData["updated"] = updatedTimestamp.Unix()
-					}
+					formData["created"] = createdTimestamp.Unix()
 					formData["id"] = id.Hex()
 					delete(formData, "_id")
-					access, tags, categories, err := getFormattedGQLData(formData, nil, userIDString)
+					access, tags, categories, err := getFormattedAccessGQLData(formData["access"], nil, userIDString)
 					if err != nil {
 						return nil, err
 					}
@@ -244,20 +264,14 @@ var formQueryFields = graphql.Fields{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
 			"editAccessToken": &graphql.ArgumentConfig{
 				Type: graphql.Boolean,
+			}, // true if need edit access, false if need just view access
+			"accessToken": &graphql.ArgumentConfig{
+				Type: graphql.String,
 			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-			accessToken := params.Context.Value(tokenKey).(string)
-			var userIDString = ""
-			claims, err := getTokenData(accessToken)
-			if err == nil {
-				userIDString = claims["id"].(string)
-			}
 			if params.Args["id"] == nil {
 				return nil, errors.New("no id argument found")
 			}
@@ -269,15 +283,10 @@ var formQueryFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				var ok bool
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
-			}
 			var getFormUpdateToken = false
+			var getFileOriginal = false
+			var getFileBlur = false
+			var getFilePlaceholder = false
 			fieldarray := params.Info.FieldASTs
 			fieldselections := fieldarray[0].SelectionSet.Selections
 			for _, field := range fieldselections {
@@ -287,46 +296,117 @@ var formQueryFields = graphql.Fields{
 				}
 				if fieldast.Name.Value == "updatesAccessToken" {
 					getFormUpdateToken = true
-					break
+					continue
+				}
+				if fieldast.Name.Value == "files" {
+					fileSelections := fieldast.GetSelectionSet().Selections
+					for _, fileField := range fileSelections {
+						fileFieldAST, ok := fileField.(*ast.Field)
+						if !ok {
+							return nil, errors.New("file field cannot be converted to *ast.Field")
+						}
+						switch fileFieldAST.Name.Value {
+						case "originalSrc":
+							getFileOriginal = true
+							break
+						case "blurSrc":
+							getFileBlur = true
+							break
+						case "placeholderSrc":
+							getFilePlaceholder = true
+							break
+						default:
+							break
+						}
+						continue
+					}
 				}
 			}
 			var necessaryAccessLevel = viewAccessLevel
-			if getFormUpdateToken && len(userIDString) != 0 && params.Args["editAccessToken"] != nil {
-				needEditAccess, ok := params.Args["editAccessToken"].(bool)
-				if !ok {
-					return nil, errors.New("cannot cast editAccessToken to bool")
+			var needEditAccess = false
+			accessToken := params.Context.Value(tokenKey).(string)
+			var userIDString = ""
+			var useAccessToken = false
+			if params.Args["accessToken"] != nil {
+				useAccessToken = true
+				if getFormUpdateToken && params.Args["editAccessToken"] != nil {
+					needEditAccess, ok = params.Args["editAccessToken"].(bool)
+					if !ok {
+						return nil, errors.New("cannot cast editAccessToken to bool")
+					}
+					if needEditAccess {
+						necessaryAccessLevel = editAccessLevel
+					}
 				}
-				if needEditAccess {
-					necessaryAccessLevel = editAccessLevel
-				}
-			}
-			formData, err := checkFormAccess(formID, accessToken, necessaryAccessLevel, formatDate, false)
-			if err != nil {
-				return nil, err
-			}
-			if len(userIDString) == 0 {
-				formData["access"] = map[string]interface{}{}
-				formData["categories"] = []string{}
-				formData["tags"] = []string{}
-			} else {
-				access, tags, categories, err := getFormattedGQLData(formData, nil, userIDString)
+				var tokenFormIDString string
+				tokenFormIDString, _, _, userIDString, err = getResponseAddTokenData(accessToken, necessaryAccessLevel)
 				if err != nil {
 					return nil, err
 				}
-				formData["access"] = access
-				formData["categories"] = categories
-				formData["tags"] = tags
+				if formIDString != tokenFormIDString {
+					return nil, errors.New("token form id does not match given form id")
+				}
+			} else {
+				claims, err := getTokenData(accessToken)
+				if err == nil {
+					userIDString = claims["id"].(string)
+				}
+				if getFormUpdateToken && len(userIDString) != 0 && params.Args["editAccessToken"] != nil {
+					needEditAccess, ok = params.Args["editAccessToken"].(bool)
+					if !ok {
+						return nil, errors.New("cannot cast editAccessToken to bool")
+					}
+					if needEditAccess {
+						necessaryAccessLevel = editAccessLevel
+					}
+				}
+			}
+			var form *Form
+			if !useAccessToken {
+				form, err = checkFormAccess(formID, accessToken, necessaryAccessLevel, false)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				form, err = getForm(formID, false)
+				if err != nil {
+					return nil, err
+				}
+			}
+			if len(userIDString) == 0 {
+				form.Access = map[string]interface{}{}
+				form.Categories = []string{}
+				form.Tags = []string{}
+			} else {
+				access, tags, categories, err := getFormattedAccessGQLData(form.Access, nil, userIDString)
+				if err != nil {
+					return nil, err
+				}
+				form.Access = access
+				form.Categories = categories
+				form.Tags = tags
+			}
+			var deleteResponses = needEditAccess && form.Responses > 0
+			if deleteResponses {
+				// delete all previous responses (if there are any)
+				bytesRemoved, err := deleteAllResponses(formID)
+				if err != nil {
+					return nil, err
+				}
+				ownerID, err := primitive.ObjectIDFromHex(form.Owner)
+				if err != nil {
+					return nil, err
+				}
+				if err = changeUserStorage(ownerID, -1*bytesRemoved); err != nil {
+					return nil, err
+				}
+				form.Responses = 0
+			}
+			if err = getFileURLs(form, getFileOriginal, getFileBlur, getFilePlaceholder); err != nil {
+				return nil, err
 			}
 			if getFormUpdateToken {
 				// return access token with current claims + project
-				var accessType string
-				_, err = validateAdmin(accessToken)
-				isAdmin := err == nil
-				if isAdmin {
-					accessType = validAccessTypes[0]
-				} else {
-					accessType = validAccessTypes[1]
-				}
 				expirationTime := time.Now().Add(time.Duration(tokenExpiration) * time.Hour)
 				uuid, err := uuid.NewRandom()
 				if err != nil {
@@ -337,7 +417,7 @@ var formQueryFields = graphql.Fields{
 					formIDString,
 					userIDString,
 					connectionIDString,
-					accessType,
+					validAccessTypes[0],
 					jwt.StandardClaims{
 						ExpiresAt: expirationTime.Unix(),
 						Issuer:    jwtIssuer,
@@ -347,35 +427,131 @@ var formQueryFields = graphql.Fields{
 				if err != nil {
 					return nil, err
 				}
-				formData["updatesAccessToken"] = tokenString
+				form.UpdatesAccessToken = tokenString
 			}
-			_, err = formCollection.UpdateOne(ctxMongo, bson.M{
-				"_id": formID,
-			}, bson.M{
+			updateDBData := bson.M{
 				"$inc": bson.M{
 					"views": 1,
 				},
-			})
+			}
+			var elasticUpdateScript string
+			if deleteResponses {
+				elasticUpdateScript = "ctx._source.views+=1; ctx._source.responses=0;"
+				updateDBData["$set"] = bson.M{
+					"responses": int64(0),
+				}
+			} else {
+				elasticUpdateScript = "ctx._source.views+=1;"
+			}
+			_, err = formCollection.UpdateOne(ctxMongo, bson.M{
+				"_id": formID,
+			}, updateDBData)
 			if err != nil {
 				return nil, err
 			}
-			views, ok := formData["views"].(int32)
-			if !ok {
-				return nil, errors.New("cannot convert views to int")
-			}
-			newViews := int(views) + 1
+			script := elastic.NewScriptInline(elasticUpdateScript)
 			_, err = elasticClient.Update().
 				Index(formElasticIndex).
 				Type(formElasticType).
 				Id(formIDString).
-				Doc(bson.M{
-					"views": newViews,
-				}).
+				Script(script).
 				Do(ctxElastic)
 			if err != nil {
 				return nil, err
 			}
-			return formData, nil
+			return form, nil
 		},
 	},
+}
+
+func getFileURLs(form *Form, getFileOriginal bool, getFileBlur bool, getFilePlaceholder bool) error {
+	var err error
+	formIDString := form.ID
+	if getFileOriginal || getFileBlur || getFilePlaceholder {
+		for i := range form.Files {
+			filetype := form.Files[i].Type
+			fileID := form.Files[i].ID
+			if getFileOriginal {
+				filepath := formFileIndex + "/" + formIDString + "/" + fileID + originalPath
+				form.Files[i].OriginalSrc, err = getSignedURL(filepath, validAccessTypes[2])
+				if err != nil {
+					return err
+				}
+			}
+			if filetype == "image/png" || filetype == "image/jpeg" || filetype == "image/gif" {
+				var addPlaceholderPath = ""
+				if filetype == "image/gif" {
+					addPlaceholderPath = placeholderPath
+				}
+				if getFileBlur {
+					filepath := formFileIndex + "/" + formIDString + "/" + fileID + addPlaceholderPath + blurPath
+					form.Files[i].BlurSrc, err = getSignedURL(filepath, validAccessTypes[2])
+					if err != nil {
+						return err
+					}
+				}
+				if getFilePlaceholder {
+					filepath := formFileIndex + "/" + formIDString + "/" + fileID + addPlaceholderPath + originalPath
+					form.Files[i].PlaceholderSrc, err = getSignedURL(filepath, validAccessTypes[2])
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func deleteAllResponses(formID primitive.ObjectID) (int64, error) {
+	formIDString := formID.Hex()
+	sourceContext := elastic.NewFetchSourceContext(true).Include("id")
+	mustQueries := []elastic.Query{
+		elastic.NewTermsQuery("form", formIDString),
+	}
+	query := elastic.NewBoolQuery().Must(mustQueries...)
+	searchResult, err := elasticClient.Search().
+		Index(formElasticIndex).
+		Query(query).
+		Pretty(isDebug()).
+		FetchSourceContext(sourceContext).
+		Do(ctxElastic)
+	if err != nil {
+		return 0, err
+	}
+	var bytesRemoved int64 = 0
+	for _, hit := range searchResult.Hits.Hits {
+		responseIDString := hit.Id
+		responseID, err := primitive.ObjectIDFromHex(responseIDString)
+		if err != nil {
+			return 0, err
+		}
+		newBytesRemoved, err := deleteResponse(responseID, nil)
+		if err != nil {
+			return 0, err
+		}
+		bytesRemoved += newBytesRemoved
+	}
+	_, err = elasticClient.Update().
+		Index(formElasticIndex).
+		Type(formElasticType).
+		Id(formIDString).
+		Doc(bson.M{
+			"responses": int64(0),
+		}).
+		Do(ctxElastic)
+	if err != nil {
+		return 0, err
+	}
+	_, err = formCollection.UpdateOne(ctxMongo, bson.M{
+		"_id": formID,
+	}, bson.M{
+		"$set": bson.M{
+			"responses": int64(0),
+		},
+	})
+	if err != nil {
+		return 0, err
+	}
+	return bytesRemoved, nil
 }

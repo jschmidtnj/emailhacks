@@ -12,6 +12,7 @@ import (
 	json "github.com/json-iterator/go"
 )
 
+// ConnectionACKMessage message for getting connection data
 type ConnectionACKMessage struct {
 	OperationID string `json:"id,omitempty"`
 	Type        string `json:"type"`
@@ -29,6 +30,7 @@ var upgrader = websocket.Upgrader{
 	Subprotocols: []string{"graphql-ws"},
 }
 
+// Subscriber websocket subscriber object
 type Subscriber struct {
 	FormID        string
 	Conn          *websocket.Conn
@@ -37,6 +39,7 @@ type Subscriber struct {
 	ID            string
 }
 
+// Connection websocket connection
 type Connection struct {
 	Conn          *redis.PubSub
 	Subscribers   map[string]Subscriber
@@ -114,7 +117,7 @@ func subscriptionsHandler(c *gin.Context) {
 					return
 				}
 				updatesAccessTokenString := payload.Data.(map[string]interface{})["formUpdates"].(map[string]interface{})["id"].(string)
-				formIDString, _, connectionIDString, _ := getUpdateClaimsData(updatesAccessTokenString, editAccessLevel)
+				formIDString, _, connectionIDString, _ := getFormUpdateClaimsData(updatesAccessTokenString, editAccessLevel)
 				payload = graphql.Do(graphql.Params{
 					Schema:        schema,
 					RequestString: msg.Payload.Query,

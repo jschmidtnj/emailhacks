@@ -1113,11 +1113,46 @@ export default Vue.extend({
         }
       }
       // get blog data first
-      this.$apollo.query({query: gql`
-        query blog($id: String!, $cache: Boolean!){blog(id: $id, cache: $cache)
-        {title, caption, content, id, author, views, heroimage{name, id, width, height, type}, tileimage{name, id, width, height, type}, categories, comments, tags, color, files{name, id, width, height, type}} }
-        `, variables: {id: this.id, cache: false}})
-        .then(({ data }) => {
+      this.$apollo.query({
+        query: gql`
+          query blog($id: String!, $cache: Boolean!) {
+            blog(id: $id, cache: $cache) {
+              title,
+              caption,
+              content,
+              id,
+              author,
+              views,
+              heroimage {
+                name,
+                id,
+                width,
+                height,
+                type
+              },
+              tileimage {
+                name,
+                id,
+                width,
+                height,
+                type
+              },
+              categories,
+              comments,
+              tags,
+              color,
+              files {
+                name,
+                id,
+                width,
+                height,
+                type
+              }
+            }
+          }`,
+          variables: {id: this.id, cache: false},
+          fetchPolicy: 'network-only'
+        }).then(({ data }) => {
           const theblog = data.blog
           getimages(theblog)
         }).catch(err => {
@@ -1149,11 +1184,17 @@ export default Vue.extend({
     },
     searchblogs(evt) {
       evt.preventDefault()
-      this.$apollo.query({query: gql`
-        query blogs($perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!, $tags: [String!]!, $categories: [String!]!, $cache: Boolean!)
-          {blogs(perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending, tags: $tags, categories: $categories, cache: $cache){title, id} }
-        `, variables: {perpage: 10, page: 0, searchterm: this.search, sort: 'title', ascending: false, tags: [], categories: [], cache: false}})
-        .then(({ data }) => {
+      this.$apollo.query({
+        query: gql`
+          query blogs($perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!, $tags: [String!]!, $categories: [String!]!, $cache: Boolean!) {
+            blogs(perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending, tags: $tags, categories: $categories, cache: $cache) {
+              title,
+              id
+            }
+          }`,
+          variables: {perpage: 10, page: 0, searchterm: this.search, sort: 'title', ascending: false, tags: [], categories: [], cache: false},
+          fetchPolicy: 'network-only'
+        }).then(({ data }) => {
           const blogs = data.blogs
           blogs.map(
             blog => {

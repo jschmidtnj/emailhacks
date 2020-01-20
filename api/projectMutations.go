@@ -2,9 +2,11 @@ package main
 
 import (
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/graphql-go/graphql"
+	json "github.com/json-iterator/go"
 	"github.com/olivere/elastic/v7"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -18,9 +20,6 @@ var projectMutationFields = graphql.Fields{
 		Args: graphql.FieldConfigArgument{
 			"name": &graphql.ArgumentConfig{
 				Type: graphql.String,
-			},
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
 			},
 			"categories": &graphql.ArgumentConfig{
 				Type: graphql.NewList(graphql.String),
@@ -42,6 +41,40 @@ var projectMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
+			planIDString, ok := claims["plan"].(string)
+			if !ok {
+				return nil, errors.New("cannot convert plan to string")
+			}
+			var planID primitive.ObjectID
+			if len(planIDString) > 0 {
+				planID, err = primitive.ObjectIDFromHex(planIDString)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				planID = primitive.NilObjectID
+			}
+			productData, err := getProduct(planID, !isDebug())
+			if err != nil {
+				return nil, err
+			}
+			mustQueries := []elastic.Query{
+				elastic.NewTermsQuery("owner", userIDString),
+			}
+			query := elastic.NewBoolQuery().Must(mustQueries...)
+			numProjectsAlready, err := elasticClient.Count().
+				Type(projectElasticType).
+				Query(query).
+				Pretty(false).
+				Do(ctxElastic)
+			if err != nil {
+				return nil, err
+			}
+			logger.Info(strconv.FormatInt(numProjectsAlready, 10))
+			logger.Info(strconv.FormatInt(int64(productData.MaxProjects), 10))
+			if numProjectsAlready >= int64(productData.MaxProjects) {
+				return nil, errors.New("you reached the maximum amount of projects")
+			}
 			if params.Args["name"] == nil {
 				return nil, errors.New("name not provided")
 			}
@@ -50,13 +83,6 @@ var projectMutationFields = graphql.Fields{
 			}
 			if params.Args["categories"] == nil {
 				return nil, errors.New("categories not provided")
-			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
 			}
 			name, ok := params.Args["name"].(string)
 			if !ok {
@@ -86,8 +112,9 @@ var projectMutationFields = graphql.Fields{
 			projectData := bson.M{
 				"updated": now.Unix(),
 				"name":    name,
-				"forms":   bson.A{},
-				"views":   0,
+				"forms":   int64(0),
+				"views":   int64(0),
+				"owner":   userIDString,
 				"access": bson.M{
 					userIDString: bson.M{
 						"type":       userAccess[0]["type"].(string),
@@ -95,7 +122,7 @@ var projectMutationFields = graphql.Fields{
 						"tags":       tags,
 					},
 				},
-				"public": validAccessTypes[3],
+				"public": noAccessLevel,
 			}
 			projectCreateRes, err := projectCollection.InsertOne(ctxMongo, projectData)
 			if err != nil {
@@ -103,9 +130,6 @@ var projectMutationFields = graphql.Fields{
 			}
 			projectID := projectCreateRes.InsertedID.(primitive.ObjectID)
 			projectIDString := projectID.Hex()
-			if err = changeUserProjectAccess(projectID, userAccess); err != nil {
-				return nil, err
-			}
 			projectData["created"] = now.Unix()
 			_, err = elasticClient.Index().
 				Index(projectElasticIndex).
@@ -115,10 +139,6 @@ var projectMutationFields = graphql.Fields{
 				Do(ctxElastic)
 			if err != nil {
 				return nil, err
-			}
-			if formatDate {
-				projectData["created"] = now.Format(dateFormat)
-				projectData["updated"] = now.Format(dateFormat)
 			}
 			projectData["id"] = projectIDString
 			delete(projectData["access"].(bson.M), userIDString)
@@ -175,15 +195,7 @@ var projectMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				var ok bool
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
-			}
-			projectData, err := checkProjectAccess(projectID, accessToken, editAccessLevel, formatDate, true)
+			projectData, _, err := checkProjectAccess(projectID, accessToken, "", editAccessLevel, true)
 			if err != nil {
 				return nil, err
 			}
@@ -239,7 +251,7 @@ var projectMutationFields = graphql.Fields{
 			if updateDataDB["$set"] == nil {
 				updateDataDB["$set"] = bson.M{}
 			}
-			newAccess, oldTags, oldCategories, err := getFormattedGQLData(projectData, access, userIDString)
+			newAccess, oldTags, oldCategories, err := getFormattedAccessGQLData(projectData["access"], access, userIDString)
 			if err != nil {
 				return nil, err
 			}
@@ -269,30 +281,6 @@ var projectMutationFields = graphql.Fields{
 				projectData["multiple"] = multiple
 				updateDataElastic["multiple"] = multiple
 			}
-			if params.Args["categories"] != nil {
-				categoriesInterface, ok := params.Args["categories"].([]interface{})
-				if !ok {
-					return nil, errors.New("problem casting categories to interface array")
-				}
-				categories, err := interfaceListToStringList(categoriesInterface)
-				if err != nil {
-					return nil, err
-				}
-				updateDataDB["$set"].(bson.M)["categories"] = categories
-				updateDataElastic["categories"] = categories
-			}
-			if params.Args["tags"] != nil {
-				tagsInterface, ok := params.Args["tags"].([]interface{})
-				if !ok {
-					return nil, errors.New("problem casting tags to interface array")
-				}
-				tags, err := interfaceListToStringList(tagsInterface)
-				if err != nil {
-					return nil, err
-				}
-				updateDataDB["$set"].(bson.M)["tags"] = tags
-				updateDataElastic["tags"] = tags
-			}
 			if params.Args["public"] != nil {
 				public, ok := params.Args["public"].(string)
 				if !ok {
@@ -307,7 +295,7 @@ var projectMutationFields = graphql.Fields{
 			}
 			projectData["access"] = access
 			if len(access) > 0 {
-				script := elastic.NewScript(addRemoveAccessScript).Lang("painless").Params(map[string]interface{}{
+				script := elastic.NewScript(addRemoveAccessScript).Params(map[string]interface{}{
 					"access":     access,
 					"tags":       tags,
 					"categories": categories,
@@ -369,74 +357,79 @@ var projectMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
-			}
-			projectData, err := checkProjectAccess(projectID, accessToken, editAccessLevel, formatDate, false)
+			projectData, _, err := checkProjectAccess(projectID, accessToken, "", editAccessLevel, false)
 			if err != nil {
 				return nil, err
 			}
-			access, tags, categories, err := getFormattedGQLData(projectData, nil, userIDString)
+			access, tags, categories, err := getFormattedAccessGQLData(projectData["access"], nil, userIDString)
 			if err != nil {
 				return nil, err
 			}
+			projectData["access"] = access
 			projectData["categories"] = categories
 			projectData["tags"] = tags
-			for _, accessUserData := range access {
-				accessUserID, err := primitive.ObjectIDFromHex(accessUserData["id"].(string))
-				if err != nil {
-					return nil, err
-				}
-				_, err = userCollection.UpdateOne(ctxMongo, bson.M{
-					"_id": accessUserID,
-				}, bson.M{
-					"$pull": bson.M{
-						"projects": bson.M{
-							"id": projectIDString,
-						},
-					},
-				})
-				if err != nil {
-					return nil, err
-				}
-			}
-			formsPrimitive, ok := projectData["forms"].(primitive.A)
-			if !ok {
-				return nil, errors.New("problem casting forms to array")
-			}
-			for _, formIDInterface := range formsPrimitive {
-				formIDString, ok := formIDInterface.(string)
-				if !ok {
-					return nil, errors.New("cannot cast form id to string")
-				}
-				formID, err := primitive.ObjectIDFromHex(formIDString)
-				if err != nil {
-					return nil, err
-				}
-				_, err = deleteForm(formID, nil, formatDate, userIDString)
-				if err != nil {
-					return nil, err
-				}
-			}
-			_, err = elasticClient.Delete().
-				Index(projectElasticIndex).
-				Type(projectElasticType).
-				Id(projectIDString).
-				Do(ctxElastic)
-			if err != nil {
-				return nil, err
-			}
-			_, err = projectCollection.DeleteOne(ctxMongo, bson.M{
-				"_id": projectID,
-			})
-			if err != nil {
+			if err = deleteProject(projectID); err != nil {
 				return nil, err
 			}
 			return projectData, nil
 		},
 	},
+}
+
+func deleteProject(projectID primitive.ObjectID) error {
+	sourceContext := elastic.NewFetchSourceContext(true).Include("id", "project")
+	projectIDString := projectID.Hex()
+	mustQueries := []elastic.Query{
+		elastic.NewTermsQuery("project", projectIDString),
+	}
+	query := elastic.NewBoolQuery().Must(mustQueries...)
+	searchResult, err := elasticClient.Search().
+		Index(formElasticIndex).
+		Query(query).
+		Pretty(isDebug()).
+		FetchSourceContext(sourceContext).
+		Do(ctxElastic)
+	if err != nil {
+		return err
+	}
+	for _, hit := range searchResult.Hits.Hits {
+		formIDString := hit.Id
+		formID, err := primitive.ObjectIDFromHex(formIDString)
+		if err != nil {
+			return err
+		}
+		if hit.Source == nil {
+			return errors.New("no hit source found")
+		}
+		var formData map[string]interface{}
+		err = json.Unmarshal(hit.Source, &formData)
+		if err != nil {
+			return err
+		}
+		project, ok := formData["project"].(string)
+		if !ok {
+			return errors.New("cannot cast project to string")
+		}
+		if err = changeFormProject(formIDString, project, "", ""); err != nil {
+			return err
+		}
+		if _, err = deleteForm(formID, nil, ""); err != nil {
+			return err
+		}
+	}
+	_, err = elasticClient.Delete().
+		Index(projectElasticIndex).
+		Type(projectElasticType).
+		Id(projectIDString).
+		Do(ctxElastic)
+	if err != nil {
+		return err
+	}
+	_, err = projectCollection.DeleteOne(ctxMongo, bson.M{
+		"_id": projectID,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }

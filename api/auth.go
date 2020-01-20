@@ -33,6 +33,7 @@ type loginClaims struct {
 	ID    string `json:"id"`
 	Email string `json:"email"`
 	Type  string `json:"type"`
+	Plan  string `json:"plan"`
 	jwt.StandardClaims
 }
 
@@ -157,15 +158,18 @@ func register(c *gin.Context) {
 	}
 	now := time.Now()
 	res, err := userCollection.InsertOne(ctxMongo, bson.M{
-		"email":         email,
-		"password":      string(passwordhashed),
-		"emailverified": false,
-		"type":          userType,
-		"updated":       now.Unix(),
-		"forms":         bson.A{},
-		"projects":      bson.A{},
-		"categories":    bson.A{},
-		"tags":          bson.A{},
+		"email":          email,
+		"password":       string(passwordhashed),
+		"emailverified":  false,
+		"type":           userType,
+		"updated":        now.Unix(),
+		"categories":     bson.A{},
+		"tags":           bson.A{},
+		"stripeid":       "",
+		"plan":           "",
+		"subscriptionid": "",
+		"purchases":      bson.A{},
+		"storage":        int64(0),
 	})
 	if err != nil {
 		handleError("error inserting user to database: "+err.Error(), http.StatusBadRequest, response)
@@ -238,7 +242,9 @@ func loginEmailPassword(c *gin.Context) {
 		handleError("recaptcha error: "+err.Error(), http.StatusUnauthorized, response)
 		return
 	}
-	cursor, err := userCollection.Find(ctxMongo, bson.M{"email": email})
+	cursor, err := userCollection.Find(ctxMongo, bson.M{
+		"email": email,
+	})
 	defer cursor.Close(ctxMongo)
 	if err != nil {
 		handleError("error finding user: "+err.Error(), http.StatusUnauthorized, response)
@@ -268,6 +274,7 @@ func loginEmailPassword(c *gin.Context) {
 			id,
 			userData["email"].(string),
 			userData["type"].(string),
+			userData["plan"].(string),
 			jwt.StandardClaims{
 				ExpiresAt: expirationTime.Unix(),
 				Issuer:    jwtIssuer,
@@ -330,7 +337,10 @@ func verifyEmail(c *gin.Context) {
 	}
 	var decodedToken map[string]interface{}
 	if claims, success := token.Claims.(jwt.MapClaims); success && token.Valid {
-		mapstructure.Decode(claims, &decodedToken)
+		if err = mapstructure.Decode(claims, &decodedToken); err != nil {
+			handleError(err.Error(), http.StatusBadRequest, response)
+			return
+		}
 	} else {
 		handleError("invalid token", http.StatusBadRequest, response)
 		return
@@ -465,7 +475,10 @@ func resetPassword(c *gin.Context) {
 	}
 	var decodedToken map[string]interface{}
 	if claims, success := token.Claims.(jwt.MapClaims); success && token.Valid {
-		mapstructure.Decode(claims, &decodedToken)
+		if err = mapstructure.Decode(claims, &decodedToken); err != nil {
+			handleError(err.Error(), http.StatusBadRequest, response)
+			return
+		}
 	} else {
 		handleError("invalid token", http.StatusBadRequest, response)
 		return

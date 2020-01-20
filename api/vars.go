@@ -1,10 +1,18 @@
 package main
 
-import ()
+import (
+	"time"
+)
 
 var mainDatabase = "website"
 
 var userMongoName = "users"
+
+var responseMongoName = "responses"
+
+var productMongoName = "products"
+
+var couponMongoName = "coupons"
 
 var formMongoName = "forms"
 
@@ -14,13 +22,15 @@ var blogMongoName = "blogs"
 
 var shortLinkMongoName = "shortlink"
 
-var tokenKey = "token"
+type key string
 
-var getTokenKey = "misc"
+const tokenKey key = "token"
 
-var dataKey = "data"
+const getTokenKey key = "misc"
 
-var getConnectionIDKey = "connection"
+const dataKey key = "data"
+
+const getConnectionIDKey key = "connection"
 
 var graphiQL = false
 
@@ -28,18 +38,19 @@ var graphqlPlayground = true
 
 var sitemapTimeFormat = "2006-01-02T15:04:05Z07:00"
 
-var dateFormat = "Mon Jan _2 15:04:05 2006"
-
 var hexRegex = "(^#[0-9A-F]{6}$)|(^#[0-9A-F]{8}$)"
 
 var formType = "form"
 
 var projectType = "project"
 
+var responseType = "response"
+
 var blogType = "blog"
 
-var validTypes = []string{
+var validStorageTypes = []string{
 	formType,
+	responseType,
 	blogType,
 }
 
@@ -55,17 +66,17 @@ var adminType = "admin"
 var userType = "user"
 
 var validAccessTypes = []string{
-	"admin",
 	"edit",
 	"view",
+	"shared",
 	"none",
 }
 
+var sharedAccessLevel = validAccessTypes[2]
 var noAccessLevel = validAccessTypes[3]
 
 var editAccessLevel = []string{
 	validAccessTypes[0],
-	validAccessTypes[1],
 }
 
 var viewAccessLevel = []string{
@@ -78,6 +89,10 @@ var formElasticIndex = "forms"
 
 var formElasticType = "form"
 
+var responseElasticIndex = "responses"
+
+var responseElasticType = "response"
+
 var projectElasticIndex = "projects"
 
 var projectElasticType = "project"
@@ -87,6 +102,8 @@ var blogElasticIndex = "blogs"
 var blogElasticType = "blog"
 
 var formFileIndex = "formfiles"
+
+var responseFileIndex = "responsefiles"
 
 var blogFileIndex = "blogfiles"
 
@@ -109,6 +126,10 @@ var formSearchFields = []string{
 
 var projectSearchFields = []string{
 	"name",
+}
+
+var responseSearchFields = []string{
+	"items",
 }
 
 // all valid file types for attachments
@@ -158,4 +179,64 @@ var validUpdateMapActions = []string{
 	"set",
 }
 
+var validFormItemTypes = []string{
+	"radio",
+	"checkbox",
+	"short",
+	"text",
+	"redgreen",
+	"fileupload",
+	"fileattachment",
+	"media",
+}
+
+var validResponseItemTypes = []string{
+	validFormItemTypes[0],
+	validFormItemTypes[1],
+	validFormItemTypes[2],
+	validFormItemTypes[4],
+	validFormItemTypes[5],
+}
+
+var itemTypesRequireOptions = []string{
+	validFormItemTypes[0],
+	validFormItemTypes[1],
+	validFormItemTypes[4],
+}
+
+var itemTypesAllowMultipleOptions = []string{
+	validFormItemTypes[1],
+}
+
+var itemTypesText = []string{
+	validFormItemTypes[2],
+}
+
+var itemTypesFile = []string{
+	validFormItemTypes[5],
+}
+
+var validIntervals = []string{
+	"year",
+	"month",
+	"once",
+}
+
+var singlePurchase = validIntervals[2]
+
+var defaultPlanName = "free"
+
+var defaultCurrency = "usd"
+
+// see https://stripe.com/docs/api/coupons/object for details
+var defaultCouponDuration = "repeating"
+
 var autosaveTime = 3 // seconds
+
+var storageAccessTime = 5 // minutes
+
+// more configuration params
+
+var tokenExpiration = 3 // hours
+var storageBucketName = "emailhacks"
+var cacheTime = time.Duration(3600) * time.Second

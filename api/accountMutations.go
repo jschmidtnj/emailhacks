@@ -4,53 +4,67 @@ import (
 	"errors"
 
 	"github.com/graphql-go/graphql"
+	"github.com/olivere/elastic/v7"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func deleteAccount(idstring string, formatDate bool) (interface{}, error) {
+func deleteAccount(idstring string) (interface{}, error) {
 	id, err := primitive.ObjectIDFromHex(idstring)
 	if err != nil {
 		return nil, err
 	}
-	cursor, err := userCollection.Find(ctxMongo, bson.M{
-		"_id": id,
-	})
-	defer cursor.Close(ctxMongo)
+	// delete all projects that this user is admin of
+	sourceContext := elastic.NewFetchSourceContext(true).Include("id")
+	mustQueries := []elastic.Query{
+		elastic.NewTermsQuery("owner", idstring),
+	}
+	query := elastic.NewBoolQuery().Must(mustQueries...)
+	searchResult, err := elasticClient.Search().
+		Index(projectElasticIndex).
+		Query(query).
+		Pretty(isDebug()).
+		FetchSourceContext(sourceContext).
+		Do(ctxElastic)
 	if err != nil {
 		return nil, err
 	}
-	var userData map[string]interface{}
-	var foundstuff = false
-	for cursor.Next(ctxMongo) {
-		userPrimitive := &bson.D{}
-		err = cursor.Decode(userPrimitive)
+	for _, hit := range searchResult.Hits.Hits {
+		projectID, err := primitive.ObjectIDFromHex(hit.Id)
 		if err != nil {
 			return nil, err
 		}
-		userData = userPrimitive.Map()
-		id := userData["_id"].(primitive.ObjectID)
-		if formatDate {
-			userData["created"] = objectidTimestamp(id).Format(dateFormat)
-		} else {
-			userData["created"] = objectidTimestamp(id).Unix()
+		if err = deleteProject(projectID); err != nil {
+			return nil, err
 		}
-		updatedInt, ok := userData["updated"].(int64)
-		if !ok {
-			return nil, errors.New("cannot cast updated time to int")
-		}
-		if formatDate {
-			userData["updated"] = intTimestamp(updatedInt).Format(dateFormat)
-		} else {
-			userData["updated"] = intTimestamp(updatedInt).Unix()
-		}
-		userData["id"] = id.Hex()
-		delete(userData, "_id")
-		foundstuff = true
-		break
 	}
-	if !foundstuff {
-		return nil, errors.New("user not found with given id")
+	searchResult, err = elasticClient.Search().
+		Index(formElasticIndex).
+		Query(query).
+		Pretty(isDebug()).
+		FetchSourceContext(sourceContext).
+		Do(ctxElastic)
+	if err != nil {
+		return nil, err
+	}
+	for _, hit := range searchResult.Hits.Hits {
+		formID, err := primitive.ObjectIDFromHex(hit.Id)
+		if err != nil {
+			return nil, err
+		}
+		if _, err = deleteForm(formID, nil, ""); err != nil {
+			return nil, err
+		}
+	}
+	userData, err := getAccount(id, true)
+	if err != nil {
+		return nil, err
+	}
+	stripeSubscriptionID, ok := userData["subscriptionid"].(string)
+	if ok && len(stripeSubscriptionID) > 0 {
+		if _, err = stripeClient.Subscriptions.Cancel(stripeSubscriptionID, nil); err != nil {
+			return nil, err
+		}
 	}
 	_, err = userCollection.DeleteOne(ctxMongo, bson.M{
 		"_id": id,
@@ -58,19 +72,273 @@ func deleteAccount(idstring string, formatDate bool) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	delete(userData, "subscriptionid")
+	delete(userData, "stripeid")
 	return userData, nil
 }
 
 var userMutationFields = graphql.Fields{
+	"cancelSubscription": &graphql.Field{
+		Type:        AccountType,
+		Description: "Purchase a Product",
+		Args:        graphql.FieldConfigArgument{},
+		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+			claims, err := getTokenData(params.Context.Value(tokenKey).(string))
+			if err != nil {
+				return nil, err
+			}
+			idString, ok := claims["id"].(string)
+			if !ok {
+				return nil, errors.New("cannot cast id to string")
+			}
+			id, err := primitive.ObjectIDFromHex(idString)
+			if err != nil {
+				return nil, err
+			}
+			userData, err := getAccount(id, true)
+			if err != nil {
+				return nil, err
+			}
+			stripeSubscriptionID, ok := userData["subscriptionid"].(string)
+			if ok && len(stripeSubscriptionID) > 0 {
+				if _, err = stripeClient.Subscriptions.Cancel(stripeSubscriptionID, nil); err != nil {
+					return nil, err
+				}
+			}
+			userCollection.UpdateOne(ctxMongo, bson.M{
+				"_id": id,
+			}, bson.M{
+				"$set": bson.M{
+					"plan":           "",
+					"subscriptionid": "",
+				},
+			})
+			delete(userData, "subscriptionid")
+			delete(userData, "stripeid")
+			return userData, nil
+		},
+	},
+	"purchaseProduct": &graphql.Field{
+		Type:        AccountType,
+		Description: "Purchase a Product",
+		Args: graphql.FieldConfigArgument{
+			"product": &graphql.ArgumentConfig{
+				Type: graphql.String,
+			},
+			"interval": &graphql.ArgumentConfig{
+				Type: graphql.String,
+			},
+			"cardToken": &graphql.ArgumentConfig{
+				Type: graphql.String,
+			},
+			"coupon": &graphql.ArgumentConfig{
+				Type: graphql.String,
+			},
+		},
+		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+			claims, err := getTokenData(params.Context.Value(tokenKey).(string))
+			if err != nil {
+				return nil, err
+			}
+			idString, ok := claims["id"].(string)
+			if !ok {
+				return nil, errors.New("cannot cast id to string")
+			}
+			id, err := primitive.ObjectIDFromHex(idString)
+			if err != nil {
+				return nil, err
+			}
+			if params.Args["product"] == nil {
+				return nil, errors.New("must specify a product id to purchase")
+			}
+			productIDString, ok := params.Args["product"].(string)
+			if !ok {
+				return nil, errors.New("cannot cast product id to string")
+			}
+			productID, err := primitive.ObjectIDFromHex(productIDString)
+			if err != nil {
+				return nil, err
+			}
+			if params.Args["cardToken"] == nil {
+				return nil, errors.New("must provide a card token to purchase")
+			}
+			cardToken, ok := params.Args["cardToken"].(string)
+			if !ok {
+				return nil, errors.New("cannot cast card token to string")
+			}
+			if params.Args["interval"] == nil {
+				return nil, errors.New("must specify a product interval to purchase")
+			}
+			interval, ok := params.Args["interval"].(string)
+			if !ok {
+				return nil, errors.New("cannot cast interval to string")
+			}
+			if !findInArray(interval, validIntervals) {
+				return nil, errors.New("invalid product interval provided")
+			}
+			var couponIDString = ""
+			var couponAmount int64 = 0
+			var couponPercent = false
+			if params.Args["coupon"] != nil {
+				secret, ok := params.Args["coupon"].(string)
+				if !ok {
+					return nil, errors.New("cannot cast coupon to string")
+				}
+				couponData, err := checkCoupon(secret)
+				if err != nil {
+					return nil, err
+				}
+				couponIDString = couponData.ID
+				couponAmount = couponData.Amount
+				couponPercent = couponData.Percent
+			}
+			userData, err := purchase(id, productID, couponIDString, couponAmount, couponPercent, interval, cardToken)
+			if err != nil {
+				return nil, err
+			}
+			delete(userData, "subscriptionid")
+			delete(userData, "stripeid")
+			return userData, nil
+		},
+	},
+	"addOrganization": &graphql.Field{
+		Type:        AccountType,
+		Description: "Add Organization",
+		Args: graphql.FieldConfigArgument{
+			"type": &graphql.ArgumentConfig{
+				Type: graphql.String,
+			},
+			"name": &graphql.ArgumentConfig{
+				Type: graphql.String,
+			},
+			"color": &graphql.ArgumentConfig{
+				Type: graphql.String,
+			},
+		},
+		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+			claims, err := getTokenData(params.Context.Value(tokenKey).(string))
+			if err != nil {
+				return nil, err
+			}
+			idString, ok := claims["id"].(string)
+			if !ok {
+				return nil, errors.New("cannot cast id to string")
+			}
+			id, err := primitive.ObjectIDFromHex(idString)
+			if err != nil {
+				return nil, err
+			}
+			if params.Args["type"] == nil {
+				return nil, errors.New("must specify organization type")
+			}
+			organizationType, ok := params.Args["type"].(string)
+			if !ok {
+				return nil, errors.New("cannot cast organization type to string")
+			}
+			if !findInArray(organizationType, validOrganization) {
+				return nil, errors.New("invalid organization type given")
+			}
+			if params.Args["name"] == nil {
+				return nil, errors.New("cannot find organization name")
+			}
+			name, ok := params.Args["name"].(string)
+			if !ok {
+				return nil, errors.New("cannot cast organization name to string")
+			}
+			if params.Args["color"] == nil {
+				return nil, errors.New("cannot find organization color")
+			}
+			color, ok := params.Args["color"].(string)
+			if !ok {
+				return nil, errors.New("cannot cast organization color to string")
+			}
+			if !validHexcode.MatchString(color) {
+				return nil, errors.New("invalid hex code for color")
+			}
+			_, err = userCollection.UpdateOne(ctxMongo, bson.M{
+				"_id": id,
+			}, bson.M{
+				"$push": bson.M{
+					organizationType: bson.M{
+						"name":  name,
+						"color": color,
+					},
+				},
+			})
+			userData, err := getAccount(id, true)
+			if err != nil {
+				return nil, err
+			}
+			delete(userData, "subscriptionid")
+			delete(userData, "stripeid")
+			return userData, nil
+		},
+	},
+	"removeOrganization": &graphql.Field{
+		Type:        AccountType,
+		Description: "Remove Organization",
+		Args: graphql.FieldConfigArgument{
+			"type": &graphql.ArgumentConfig{
+				Type: graphql.String,
+			},
+			"name": &graphql.ArgumentConfig{
+				Type: graphql.String,
+			},
+		},
+		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+			claims, err := getTokenData(params.Context.Value(tokenKey).(string))
+			if err != nil {
+				return nil, err
+			}
+			idString, ok := claims["id"].(string)
+			if !ok {
+				return nil, errors.New("cannot cast id to string")
+			}
+			id, err := primitive.ObjectIDFromHex(idString)
+			if err != nil {
+				return nil, err
+			}
+			if params.Args["type"] == nil {
+				return nil, errors.New("must specify organization type")
+			}
+			organizationType, ok := params.Args["type"].(string)
+			if !ok {
+				return nil, errors.New("cannot cast organization type to string")
+			}
+			if !findInArray(organizationType, validOrganization) {
+				return nil, errors.New("invalid organization type given")
+			}
+			if params.Args["name"] == nil {
+				return nil, errors.New("cannot find organization name")
+			}
+			name, ok := params.Args["name"].(string)
+			if !ok {
+				return nil, errors.New("cannot cast organization name to string")
+			}
+			_, err = userCollection.UpdateOne(ctxMongo, bson.M{
+				"_id": id,
+			}, bson.M{
+				"$pull": bson.M{
+					organizationType: bson.M{
+						"name": name,
+					},
+				},
+			})
+			userData, err := getAccount(id, true)
+			if err != nil {
+				return nil, err
+			}
+			delete(userData, "subscriptionid")
+			delete(userData, "stripeid")
+			return userData, nil
+		},
+	},
 	"deleteUser": &graphql.Field{
 		Type:        AccountType,
 		Description: "Delete a User",
 		Args: graphql.FieldConfigArgument{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
-			},
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
 			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
@@ -85,24 +353,13 @@ var userMutationFields = graphql.Fields{
 			if !ok {
 				return nil, errors.New("cannot cast id to string")
 			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
-			}
-			return deleteAccount(idstring, formatDate)
+			return deleteAccount(idstring)
 		},
 	},
 	"deleteAccount": &graphql.Field{
 		Type:        AccountType,
 		Description: "Delete a User",
-		Args: graphql.FieldConfigArgument{
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
-		},
+		Args:        graphql.FieldConfigArgument{},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			claims, err := getTokenData(params.Context.Value(tokenKey).(string))
 			if err != nil {
@@ -112,14 +369,7 @@ var userMutationFields = graphql.Fields{
 			if !ok {
 				return nil, errors.New("cannot cast id to string")
 			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
-			}
-			return deleteAccount(idstring, formatDate)
+			return deleteAccount(idstring)
 		},
 	},
 }

@@ -22,7 +22,7 @@
 <script lang="js">
 import Vue from 'vue'
 import gql from 'graphql-tag'
-import FormList from '~/components/secure/form/FormList.vue'
+import FormList from '~/components/form/FormList.vue'
 import { defaultItemName, noneAccessType } from '~/assets/config'
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)
@@ -83,15 +83,17 @@ export default Vue.extend({
   },
   methods: {
     getProject() {
-      this.$apollo.query({query: gql`
-        query project($id: String!) {
-          project(id: $id) {
-            name
-            public
-          }
-        }
-        `, variables: {id: this.projectId}})
-        .then(({ data }) => {
+      this.$apollo.query({
+        query: gql`
+          query project($id: String!) {
+            project(id: $id) {
+              name
+              public
+            }
+          }`,
+          variables: {id: this.projectId},
+          fetchPolicy: 'network-only'
+        }).then(({ data }) => {
           this.name = data.project.name
           this.isPublic = data.project.public === noneAccessType
           this.$store.commit('auth/setRedirectLogin', this.isPublic)

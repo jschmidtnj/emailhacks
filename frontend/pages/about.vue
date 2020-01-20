@@ -16,7 +16,7 @@ export default Vue.extend({
   // @ts-ignore
   head() {
     const title = 'About'
-    const description = 'description of this website'
+    const description = 'about mailpear'
     const image = `${seo.url}/icon.png`
     return {
       title,

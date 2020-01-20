@@ -337,8 +337,8 @@
                                     checkVideoType(item.files[0].type)
                                 "
                                 :ref="`video-source-${index}-${0}`"
-                                :type="blog.files[index].type"
-                                :src="blog.files[index].src"
+                                :type="item.files[0].type"
+                                :src="item.files[0].src"
                                 controls
                                 autoplay
                                 class="mb-2 sampleimage"
@@ -420,6 +420,7 @@
           </b-col>
         </b-row>
       </b-container>
+      <submit-modal :form-id="formId" :project-id="projectId" />
     </div>
     <page-loading v-else :loading="true" />
   </div>
@@ -427,12 +428,12 @@
 
 <script lang="js">
 import Vue from 'vue'
-import cloneDeepWith from 'lodash.clonedeepwith'
 import gql from 'graphql-tag'
-import axios from 'axios'
-import TextEditor from '~/components/secure/form/TextEditor.vue'
+import TextEditor from '~/components/form/TextEditor.vue'
+import SubmitModal from '~/components/form/SubmitModal.vue'
 import PageLoading from '~/components/PageLoading.vue'
-import { cloudStorageURLs, staticStorageIndexes, paths, validfiles, validimages, validDisplayFiles, autosaveInterval } from '~/assets/config'
+import { validfiles, validDisplayFiles, autosaveInterval } from '~/assets/config'
+import { clone, arrayMove, checkDefined } from '~/assets/utils'
 const objectType = 'form'
 // still need image picker and image viewer component
 const itemTypes = [
@@ -465,8 +466,8 @@ const itemTypes = [
     label: 'File Attachment'
   },
   {
-    id: 'image',
-    label: 'Image'
+    id: 'media',
+    label: 'Media'
   },
 ]
 const defaultFile = {
@@ -480,24 +481,6 @@ const defaultFile = {
   uploadProgress: 0,
   uploaded: false
 }
-const clone = (obj) => {
-  return cloneDeepWith(obj, (curr) => {
-    if (curr && typeof curr === 'object') {
-      delete curr.__typename
-    }
-  })
-}
-
-const arrayMove = (arr, from, to) => {
-  if (to >= arr.length) {
-    let k = to - arr.length + 1;
-    while (k--) {
-      arr.push(undefined);
-    }
-  }
-  arr.splice(to, 0, arr.splice(from, 1)[0]);
-}
-const checkDefined = (field) => typeof field !== 'undefined' && field !== null
 const defaultItem = {
   question: '',
   type: itemTypes[0].id,
@@ -515,7 +498,8 @@ export default Vue.extend({
   name: 'Create',
   components: {
     TextEditor,
-    PageLoading
+    PageLoading,
+    SubmitModal
   },
   props: {
     projectId: {
@@ -529,10 +513,8 @@ export default Vue.extend({
   },
   data() {
     return {
-      paths,
       validDisplayFiles,
       validfiles,
-      validimages,
       loading: true,
       itemTypes,
       updateTimer: null,
@@ -547,31 +529,34 @@ export default Vue.extend({
     }
   },
   mounted() {
-    this.$apollo.query({query: gql`
-      query form($id: String!) {
-        form(id: $id, editAccessToken: true){
-          name
-          items{
-            question
-            type
-            options
-            text
-            required
-            files
-          }
-          multiple
-          files{
-            id
+    this.$apollo.query({
+      query: gql`
+        query form($id: String!) {
+          form(id: $id, editAccessToken: true) {
             name
-            width
-            height
-            type
+            items{
+              question
+              type
+              options
+              text
+              required
+              files
+            }
+            multiple
+            files{
+              id
+              name
+              width
+              height
+              type
+              originalSrc
+            }
+            updatesAccessToken
           }
-          updatesAccessToken
-        }
-      }
-      `, variables: {id: this.formId}})
-      .then(({ data }) => {
+        }`,
+        variables: {id: this.formId},
+        fetchPolicy: 'network-only'
+      }).then(({ data }) => {
         this.name = data.form.name
         const newEditorContent = {}
         for (let i = 0; i < data.form.items.length; i++) {
@@ -596,29 +581,34 @@ export default Vue.extend({
         }
         this.updatesAccessToken = data.form.updatesAccessToken
         this.editorContent = newEditorContent
-        this.items = data.form.items
         // get files
-        for (let i = 0; i < this.items.length; i++) {
-          for (let j = 0; j < this.items[i].files.length; j++) {
-            const fileObj = this.items[i].files[j]
-            // maybe use src instead with link
+        for (let i = 0; i < data.form.items.length; i++) {
+          for (let j = 0; j < data.form.items[i].files.length; j++) {
+            const fileObj = data.form.items[i].files[j]
             if (fileObj.uploaded && (this.checkImageType(fileObj.type) || this.checkVideoType(fileObj.type))) {
-              // this.getFile(i, j)
-              fileObj.src = this.getFileURL(i, j)
+              if (fileObj.originalSrc) {
+                fileObj.src = fileObj.originalSrc
+                delete fileObj.originalSrc
+              } else {
+                this.getFileURLRequest(i, j)
+              }
             }
           }
         }
+        this.items = data.form.items
         this.multiple = data.form.multiple
         this.loading = false
+        this.$forceUpdate()
         this.createSubscription()
         this.$nextTick(() => {
           const newTextLocations = Object.keys(this.editorContent)
           for (let i = 0; i < newTextLocations.length; i++) {
-            this.$refs[`editor-${newTextLocations[i]}`][0]._data.editor.setContent(this.editorContent[newTextLocations[i]])
+            if (this.$refs[`editor-${newTextLocations[i]}`]) {
+              this.$refs[`editor-${newTextLocations[i]}`][0]._data.editor.setContent(this.editorContent[newTextLocations[i]])
+            }
           }
         })
       }).catch(err => {
-        console.log(err.message)
         this.$toasted.global.error({
           message: `found error: ${err.message}`
         })
@@ -628,44 +618,12 @@ export default Vue.extend({
     submit(evt) {
       evt.preventDefault()
       console.log('submit!')
-    },
-    getFile(itemIndex, fileIndex) {
-      const fileObj = this.items[itemIndex].files[fileIndex]
-      axios
-        .get(
-          `${cloudStorageURLs.static}/${
-            staticStorageIndexes.formfiles
-          }/${this.formId}/${fileObj.id + this.paths.original}`,
-          {
-            responseType: 'blob'
-          }
-        )
-        .then(res => {
-          if (res.status === 200) {
-            if (res.data) {
-              console.log('found file')
-              fileObj.file = new File([res.data], fileObj.name)
-              fileObj.uploaded = true
-              fileObj.src = null
-              this.$nextTick(() => {
-                this.updateFileSrc(itemIndex, fileIndex, false)
-              })
-            } else {
-              this.$toasted.global.error({
-                message: 'could not get image data'
-              })
-            }
-          } else {
-            this.$toasted.global.error({
-              message: `got status code of ${res.status} on image upload`
-            })
-          }
-        })
-        .catch(err => {
-          this.$toasted.global.error({
-            message: `got error on hero image get: ${err}`
-          })
-        })
+      if (this.$refs['submit-content-modal']) {
+        console.log('show modal')
+        this.$refs['submit-content-modal'].show()
+      } else {
+        console.log('cannot find modal')
+      }
     },
     getFileData(itemIndex, fileIndex) {
       return {
@@ -758,7 +716,7 @@ export default Vue.extend({
     update() {
       this.updateTimer = null
       this.$apollo.mutate({mutation: gql`
-        mutation updateFormPart($id: String!, $updatesAccessToken: String!, $name: String, $items: [UpdateItemInput!], $multiple: Boolean, $files: [UpdateFileInput!]) {
+        mutation updateFormPart($id: String!, $updatesAccessToken: String!, $name: String, $items: [UpdateFormItemInput!], $multiple: Boolean, $files: [UpdateFileInput!]) {
           updateFormPart(id: $id, updatesAccessToken: $updatesAccessToken, name: $name, items: $items, multiple: $multiple, files: $files) {
             id
           }
@@ -774,7 +732,6 @@ export default Vue.extend({
         .then(({ data }) => {
           this.pendingUpdates = clone(defaultPendingUpdates)
         }).catch(err => {
-          console.error(err)
           this.$toasted.global.error({
             message: `found error: ${err.message}`
           })
@@ -844,6 +801,8 @@ export default Vue.extend({
         foundUpdate = true
         updateData.files.forEach(file => {
           const itemIndex = file.itemIndex
+          if (!this.items[itemIndex])
+            return
           const fileIndex = file.fileIndex
           const updateAction = file.updateAction
           delete file.itemIndex
@@ -881,7 +840,9 @@ export default Vue.extend({
           if (updateAction === 'add' || updateAction === 'set') {
             this.items[itemIndex].files[fileIndex].uploaded = true
             if (this.checkImageType(file.type) || this.checkVideoType(file.type)) {
-              this.items[itemIndex].files[fileIndex].src = this.getFileURL(itemIndex, fileIndex)
+              if (!this.items[itemIndex].files[fileIndex].src) {
+                this.getFileURLRequest(itemIndex, fileIndex)
+              }
             }
           }
         })
@@ -927,16 +888,51 @@ export default Vue.extend({
           updateFunction(data)
         },
         error(error) {
-          console.error(error)
+          const message = `got error: ${error.message}`
+          this.$toasted.global.error({
+            message
+          })
         }
+      })
+    },
+    getFileURLRequest(itemIndex, fileIndex) {
+      // update file src
+      this.$axios.get('/getFile', {
+        params: {
+          posttype: 'form',
+          postid: this.formId,
+          fileid: this.items[itemIndex].files[fileIndex].id,
+          requestType: 'original',
+          fileType: this.items[itemIndex].files[fileIndex].type,
+          updateToken: this.updatesAccessToken
+        }
+      }).then(res => {
+        if (res.data.url) {
+          this.items[itemIndex].files[fileIndex].src = res.data.url
+          this.$forceUpdate()
+        } else {
+          const message = 'cannot find src url in response'
+          this.$toasted.global.error({
+            message
+          })
+        }
+      }).catch(err => {
+        let message = `got error on file url get: ${err}`
+        if (err.response && err.response.data) {
+          message = err.response.data.message
+        }
+        this.$toasted.global.error({
+          message
+        })
       })
     },
     getFileURL(itemIndex, fileIndex) {
       if (this.items[itemIndex].files[fileIndex].uploaded) {
-        // it's uploaded. create link to get from cloud
-        return `${cloudStorageURLs.static}/${
-                staticStorageIndexes.formfiles
-              }/${this.formId}/${this.items[itemIndex].files[fileIndex].id + this.paths.original}`
+        if (this.items[itemIndex].files[fileIndex].src) {
+          return this.items[itemIndex].files[fileIndex].src
+        } else {
+          return ''
+        }
       }
       return URL.createObjectURL(this.items[itemIndex].files[fileIndex].file)
     },
@@ -1017,7 +1013,6 @@ export default Vue.extend({
           if (res.status === 200) {
             fileObj.uploadProgress = 100
             fileObj.uploaded = true
-            console.log(`got id of ${res.data.id}`)
             fileObj.id = res.data.id
             this.updateFileSrc(itemIndex, fileIndex, true)
           } else {
@@ -1031,7 +1026,6 @@ export default Vue.extend({
           if (err.response && err.response.data) {
             message = err.response.data.message
           }
-          console.log(message)
           this.$toasted.global.error({
             message
           })
@@ -1071,10 +1065,8 @@ export default Vue.extend({
       if (!fileObj.file) return
       const img = new Image()
       img.onload = () => {
-        console.log('image loaded')
         fileObj.width = img.width
         fileObj.height = img.height
-        console.log(`image width: ${fileObj.width}, height: ${fileObj.height}`)
         this.setUpdates({
           items: [{
             updateAction: 'set',
@@ -1095,7 +1087,6 @@ export default Vue.extend({
         img.src = fileObj.src
       }
       reader.readAsDataURL(fileObj.file)
-      console.log('done')
     },
     updateVideoSrc(itemIndex, fileIndex, justUploaded) {
       const fileObj = this.items[itemIndex].files[fileIndex]
@@ -1278,10 +1269,10 @@ export default Vue.extend({
       }
       this.items.push(newItem)
       this.focusIndex = this.items.length - 1
-      const newItemUpdateObj = clone(newItem)
-      newItemUpdateObj.updateAction = 'add'
-      newItemUpdateObj.files = []
       if (doUpdate) {
+        const newItemUpdateObj = clone(newItem)
+        newItemUpdateObj.updateAction = 'add'
+        newItemUpdateObj.files = []
         this.setUpdates({
           items: [newItemUpdateObj]
         })

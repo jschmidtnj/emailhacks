@@ -13,11 +13,16 @@ module.exports = {
 
   globalName: name,
 
+  server: {
+    port: 8080 // default: 3000
+  },
+
   env: {
     seoconfig: process.env.SEOCONFIG,
     githuburl: pkg.repository.url,
     authconfig: process.env.AUTHCONFIG,
     apiurl: fullApiUrl,
+    stripeconfig: process.env.STRIPECONFIG,
     recaptchasitekey
   },
 
@@ -44,6 +49,10 @@ module.exports = {
     link: [{ rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }],
     __dangerouslyDisableSanitizers: ['script'],
     script: [
+      {
+        src: 'https://js.stripe.com/v3/',
+        defer: true
+      },
       {
         src: 'https://apis.google.com/js/api.js'
       },
@@ -118,7 +127,6 @@ module.exports = {
     { src: '~/plugins/select', ssr: false },
     { src: '~/plugins/recaptcha', ssr: false },
     { src: '~/plugins/scroll-reveal', ssr: false },
-    { src: '~/plugins/pdf', ssr: false },
     { src: '~/plugins/draggable', ssr: false },
     { src: '~/plugins/touch', ssr: false }
   ],
@@ -153,7 +161,7 @@ module.exports = {
   apollo: {
     tokenName: 'mail-pear-apollo-token',
     cookieAttributes: {
-      expires: 1, // day(s)
+      expires: null, // only for this session
       // domain: seodata.url, // defaults to domain where it was created
       secure: useSecure
     },

@@ -38,9 +38,6 @@ var projectQueryFields = graphql.Fields{
 			"tags": &graphql.ArgumentConfig{
 				Type: graphql.NewList(graphql.String),
 			},
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			// see this: https://github.com/olivere/elastic/issues/483
@@ -52,14 +49,6 @@ var projectQueryFields = graphql.Fields{
 			userIDString, ok := claims["id"].(string)
 			if !ok {
 				return nil, errors.New("cannot cast user id to string")
-			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				var ok bool
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
 			}
 			if params.Args["perpage"] == nil {
 				return nil, errors.New("no perpage argument found")
@@ -170,24 +159,10 @@ var projectQueryFields = graphql.Fields{
 						return nil, err
 					}
 					createdTimestamp := objectidTimestamp(id)
-					if formatDate {
-						projectData["created"] = createdTimestamp.Format(dateFormat)
-					} else {
-						projectData["created"] = createdTimestamp.Unix()
-					}
-					updatedInt, ok := projectData["updated"].(float64)
-					if !ok {
-						return nil, errors.New("cannot cast updated time to float")
-					}
-					updatedTimestamp := intTimestamp(int64(updatedInt))
-					if formatDate {
-						projectData["updated"] = updatedTimestamp.Format(dateFormat)
-					} else {
-						projectData["updated"] = updatedTimestamp.Unix()
-					}
+					projectData["created"] = createdTimestamp.Unix()
 					projectData["id"] = id.Hex()
 					delete(projectData, "_id")
-					access, tags, categories, err := getFormattedGQLData(projectData, nil, userIDString)
+					access, tags, categories, err := getFormattedAccessGQLData(projectData["access"], nil, userIDString)
 					if err != nil {
 						return nil, err
 					}
@@ -207,9 +182,6 @@ var projectQueryFields = graphql.Fields{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			accessToken := params.Context.Value(tokenKey).(string)
@@ -226,16 +198,8 @@ var projectQueryFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				var ok bool
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
-			}
-			projectData, err := checkProjectAccess(projectID, accessToken, editAccessLevel, formatDate, false)
-			access, tags, categories, err := getFormattedGQLData(projectData, nil, userIDString)
+			projectData, _, err := checkProjectAccess(projectID, accessToken, "", editAccessLevel, false)
+			access, tags, categories, err := getFormattedAccessGQLData(projectData["access"], nil, userIDString)
 			if err != nil {
 				return nil, err
 			}
@@ -255,18 +219,12 @@ var projectQueryFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			views, ok := projectData["views"].(int32)
-			if !ok {
-				return nil, errors.New("cannot convert views to int")
-			}
-			newViews := int(views) + 1
+			script := elastic.NewScriptInline("ctx._source.views+=1")
 			_, err = elasticClient.Update().
 				Index(projectElasticIndex).
 				Type(projectElasticType).
 				Id(projectIDString).
-				Doc(bson.M{
-					"views": newViews,
-				}).
+				Script(script).
 				Do(ctxElastic)
 			if err != nil {
 				return nil, err

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"regexp"
+	"strconv"
 	"sync"
 
 	"cloud.google.com/go/storage"
@@ -14,12 +15,19 @@ import (
 	"github.com/joho/godotenv"
 	json "github.com/json-iterator/go"
 	"github.com/olivere/elastic/v7"
+	"github.com/stripe/stripe-go/client"
+	"github.com/tdewolff/minify/v2"
+	minifyCSS "github.com/tdewolff/minify/v2/css"
+	minifyHTML "github.com/tdewolff/minify/v2/html"
+	minifyJS "github.com/tdewolff/minify/v2/js"
+	minifyJSON "github.com/tdewolff/minify/v2/json"
+	minifySVG "github.com/tdewolff/minify/v2/svg"
+	minifyXML "github.com/tdewolff/minify/v2/xml"
 	"github.com/vmihailenco/taskq/v2"
 	"github.com/vmihailenco/taskq/v2/redisq"
 
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -30,8 +38,6 @@ import (
 )
 
 var jwtSecret []byte
-
-var tokenExpiration int
 
 var sendgridAPIKey string
 
@@ -44,6 +50,12 @@ var mongoClient *mongo.Client
 var ctxMongo context.Context
 
 var userCollection *mongo.Collection
+
+var productCollection *mongo.Collection
+
+var couponCollection *mongo.Collection
+
+var responseCollection *mongo.Collection
 
 var formCollection *mongo.Collection
 
@@ -63,11 +75,13 @@ var storageClient *storage.Client
 
 var storageBucket *storage.BucketHandle
 
+var storageAccessID string
+
+var storagePrivateKey []byte
+
 var logger *zap.Logger
 
 var redisClient *redis.Client
-
-var cacheTime time.Duration
 
 var validHexcode *regexp.Regexp
 
@@ -94,6 +108,10 @@ var ctxMessageQueue context.Context
 var saveFormTask *taskq.Task
 
 var connections sync.Map
+
+var stripeClient *client.API
+
+var minifier *minify.M
 
 /**
  * @api {get} /hello Test rest request
@@ -158,13 +176,6 @@ func setupCloseHandler() {
 	}()
 }
 
-func setupMessageQueueWorker() {
-	err := queueFactory.StartConsumers(ctxMessageQueue)
-	if err != nil {
-		logger.Fatal("cannot start queue consumer: " + err.Error())
-	}
-}
-
 func main() {
 	initAddRemoveAccessScript()
 	// "./logs"
@@ -196,10 +207,6 @@ func main() {
 		logger.Fatal("Error loading .env file")
 	}
 	jwtSecret = []byte(os.Getenv("SECRET"))
-	tokenExpiration, err = strconv.Atoi(os.Getenv("TOKENEXPIRATION"))
-	if err != nil {
-		logger.Fatal(err.Error())
-	}
 	sendgridAPIKey = os.Getenv("SENDGRIDAPIKEY")
 	serviceEmail = os.Getenv("SERVICEEMAIL")
 	jwtIssuer = os.Getenv("JWTISSUER")
@@ -214,6 +221,9 @@ func main() {
 		logger.Fatal(err.Error())
 	}
 	userCollection = mongoClient.Database(mainDatabase).Collection(userMongoName)
+	responseCollection = mongoClient.Database(mainDatabase).Collection(responseMongoName)
+	productCollection = mongoClient.Database(mainDatabase).Collection(productMongoName)
+	couponCollection = mongoClient.Database(mainDatabase).Collection(couponMongoName)
 	formCollection = mongoClient.Database(mainDatabase).Collection(formMongoName)
 	projectCollection = mongoClient.Database(mainDatabase).Collection(projectMongoName)
 	blogCollection = mongoClient.Database(mainDatabase).Collection(blogMongoName)
@@ -236,8 +246,7 @@ func main() {
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
-	bucketName := os.Getenv("STORAGEBUCKETNAME")
-	storageBucket = storageClient.Bucket(bucketName)
+	storageBucket = storageClient.Bucket(storageBucketName)
 	gcpprojectid, ok := storageconfigjson["project_id"].(string)
 	if !ok {
 		logger.Fatal("could not cast gcp project id to string")
@@ -245,13 +254,17 @@ func main() {
 	if err := storageBucket.Create(ctxStorage, gcpprojectid, nil); err != nil {
 		logger.Info("error creating storage bucket: " + err.Error())
 	}
+	storagePrivateKeyString, ok := storageconfigjson["private_key"].(string)
+	if !ok {
+		logger.Fatal("cannot cast private key to string")
+	}
+	storagePrivateKey = []byte(storagePrivateKeyString)
+	storageAccessID, ok = storageconfigjson["client_email"].(string)
+	if !ok {
+		logger.Fatal("cannot cast storage access id to string")
+	}
 	redisAddress := os.Getenv("REDISADDRESS")
 	redisPassword := os.Getenv("REDISPASSWORD")
-	cacheSeconds, err := strconv.Atoi(os.Getenv("CACHETIME"))
-	if err != nil {
-		logger.Fatal(err.Error())
-	}
-	cacheTime = time.Duration(cacheSeconds) * time.Second
 	redisClient = redis.NewClient(&redis.Options{
 		Addr:     redisAddress,
 		Password: redisPassword,
@@ -276,7 +289,11 @@ func main() {
 		},
 	})
 	setupCloseHandler()
-	setupMessageQueueWorker()
+	// setup message queue worker
+	err = queueFactory.StartConsumers(ctxMessageQueue)
+	if err != nil {
+		logger.Fatal("cannot start queue consumer: " + err.Error())
+	}
 	validHexcode, err = regexp.Compile(hexRegex)
 	if err != nil {
 		logger.Fatal(err.Error())
@@ -284,6 +301,21 @@ func main() {
 	mainRecaptchaSecret = os.Getenv("MAINRECAPTCHASECRET")
 	shortlinkRecaptchaSecret = os.Getenv("SHORTLINKRECAPTCHASECRET")
 	shortlinkURL = os.Getenv("SHORTLINKURL")
+	stripeKey := os.Getenv("STRIPEKEY")
+	stripeClient = &client.API{}
+	stripeClient.Init(stripeKey, nil)
+	balance, err := stripeClient.Balance.Get(nil)
+	if err != nil {
+		logger.Fatal(err.Error())
+	}
+	logger.Info("current balance: " + strconv.FormatInt(balance.Available[0].Value, 10))
+	minifier = minify.New()
+	minifier.AddFunc("text/css", minifyCSS.Minify)
+	minifier.AddFunc("text/html", minifyHTML.Minify)
+	minifier.AddFunc("image/svg+xml", minifySVG.Minify)
+	minifier.AddFuncRegexp(regexp.MustCompile("^(application|text)/(x-)?(java|ecma)script$"), minifyJS.Minify)
+	minifier.AddFuncRegexp(regexp.MustCompile("[/+]json$"), minifyJSON.Minify)
+	minifier.AddFuncRegexp(regexp.MustCompile("[/+]xml$"), minifyXML.Minify)
 	port := ":" + os.Getenv("PORT")
 	schema, err = graphql.NewSchema(graphql.SchemaConfig{
 		Query:        rootQuery(),
@@ -337,6 +369,8 @@ func main() {
 	router.GET("/getFile", getFile)
 	router.PUT("/writeFile", writeFile)
 	router.DELETE("/deleteFiles", deleteFiles)
+	router.POST("/addResponse", addResponseHandler)
+	router.GET("/countResponses", countResponses)
 	router.GET("/countForms", countForms)
 	router.GET("/countProjects", countProjects)
 	router.GET("/countBlogs", countBlogs)

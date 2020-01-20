@@ -19,9 +19,6 @@ var blogMutationFields = graphql.Fields{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
 			"title": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
@@ -98,14 +95,6 @@ var blogMutationFields = graphql.Fields{
 			id, err := primitive.ObjectIDFromHex(idstring)
 			if err != nil {
 				return nil, err
-			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				var ok bool
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
 			}
 			title, ok := params.Args["title"].(string)
 			if !ok {
@@ -213,10 +202,6 @@ var blogMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			if formatDate {
-				blogData["created"] = created.Format(dateFormat)
-				blogData["updated"] = blogData["created"]
-			}
 			blogData["id"] = idstring
 			return blogData, nil
 		},
@@ -227,9 +212,6 @@ var blogMutationFields = graphql.Fields{
 		Args: graphql.FieldConfigArgument{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
-			},
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
 			},
 			"title": &graphql.ArgumentConfig{
 				Type: graphql.String,
@@ -277,14 +259,6 @@ var blogMutationFields = graphql.Fields{
 			id, err := primitive.ObjectIDFromHex(idstring)
 			if err != nil {
 				return nil, err
-			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				var ok bool
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
 			}
 			updateData := bson.M{}
 			if params.Args["title"] != nil {
@@ -425,21 +399,7 @@ var blogMutationFields = graphql.Fields{
 					return nil, err
 				}
 				blogData = blogPrimitive.Map()
-				id := blogData["_id"].(primitive.ObjectID)
-				if formatDate {
-					blogData["created"] = objectidTimestamp(id).Format(dateFormat)
-				} else {
-					blogData["created"] = objectidTimestamp(id).Unix()
-				}
-				updatedInt, ok := blogData["updated"].(int64)
-				if !ok {
-					return nil, errors.New("cannot cast updated time to int")
-				}
-				if formatDate {
-					blogData["updated"] = intTimestamp(updatedInt).Format(dateFormat)
-				} else {
-					blogData["updated"] = intTimestamp(updatedInt).Unix()
-				}
+				blogData["created"] = objectidTimestamp(id).Unix()
 				blogData["id"] = id.Hex()
 				delete(blogData, "_id")
 				foundstuff = true
@@ -461,9 +421,6 @@ var blogMutationFields = graphql.Fields{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
-			"formatDate": &graphql.ArgumentConfig{
-				Type: graphql.Boolean,
-			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			_, err := validateAdmin(params.Context.Value(tokenKey).(string))
@@ -480,14 +437,6 @@ var blogMutationFields = graphql.Fields{
 			id, err := primitive.ObjectIDFromHex(idstring)
 			if err != nil {
 				return nil, err
-			}
-			var formatDate = false
-			if params.Args["formatDate"] != nil {
-				var ok bool
-				formatDate, ok = params.Args["formatDate"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting format date to boolean")
-				}
 			}
 			_, err = elasticClient.Delete().
 				Index(blogElasticIndex).
@@ -515,20 +464,7 @@ var blogMutationFields = graphql.Fields{
 				}
 				blogData = blogPrimitive.Map()
 				id := blogData["_id"].(primitive.ObjectID)
-				if formatDate {
-					blogData["created"] = objectidTimestamp(id).Format(dateFormat)
-				} else {
-					blogData["created"] = objectidTimestamp(id).Unix()
-				}
-				updatedInt, ok := blogData["updated"].(int64)
-				if !ok {
-					return nil, errors.New("cannot cast updated time to int")
-				}
-				if formatDate {
-					blogData["updated"] = intTimestamp(updatedInt).Format(dateFormat)
-				} else {
-					blogData["updated"] = intTimestamp(updatedInt).Unix()
-				}
+				blogData["created"] = objectidTimestamp(id).Unix()
 				blogData["id"] = idstr
 				delete(blogData, "_id")
 				foundstuff = true
@@ -585,12 +521,12 @@ var blogMutationFields = graphql.Fields{
 					return nil, err
 				}
 			}
-			primativefiles, ok := blogData["files"].(primitive.A)
+			primitivefiles, ok := blogData["files"].(primitive.A)
 			if !ok {
 				return nil, errors.New("cannot convert files to primitive")
 			}
-			for _, primativefile := range primativefiles {
-				filedatadoc, ok := primativefile.(primitive.D)
+			for _, primitivefile := range primitivefiles {
+				filedatadoc, ok := primitivefile.(primitive.D)
 				if !ok {
 					return nil, errors.New("cannot convert file to primitive doc")
 				}
