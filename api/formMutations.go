@@ -839,6 +839,7 @@ var formMutationFields = graphql.Fields{
 
 func deleteForm(formID primitive.ObjectID, form *Form, userIDString string) (*Form, error) {
 	formIDString := formID.Hex()
+	var bytesRemoved int64
 	if !justDeleteElastic {
 		var err error
 		if form == nil {
@@ -847,14 +848,15 @@ func deleteForm(formID primitive.ObjectID, form *Form, userIDString string) (*Fo
 				return nil, err
 			}
 		}
-		if err = deleteAllResponses(formID); err != nil {
+		bytesRemoved, err = deleteAllResponses(formID)
+		if err != nil {
 			return nil, err
 		}
 		access, tags, categories, err := getFormattedAccessGQLData(form.Access, nil, userIDString)
 		if err != nil {
 			return nil, err
 		}
-		form.Responses = 0
+		form.Responses = int64(0)
 		form.Access = access
 		form.Categories = categories
 		form.Tags = tags
@@ -875,34 +877,18 @@ func deleteForm(formID primitive.ObjectID, form *Form, userIDString string) (*Fo
 			return nil, err
 		}
 		for _, file := range form.Files {
-			fileobj := storageBucket.Object(formFileIndex + "/" + formIDString + "/" + file.ID + originalPath)
-			if err := fileobj.Delete(ctxStorage); err != nil {
+			newBytesRemoved, err := deleteFile(formType, form.ID, file.ID)
+			if err != nil {
 				return nil, err
 			}
-			if file.Type == "image/gif" {
-				fileobj = storageBucket.Object(formFileIndex + "/" + formIDString + "/" + file.ID + placeholderPath + originalPath)
-				blurobj := storageBucket.Object(formFileIndex + "/" + formIDString + "/" + file.ID + placeholderPath + blurPath)
-				if err := fileobj.Delete(ctxStorage); err != nil {
-					return nil, err
-				}
-				if err := blurobj.Delete(ctxStorage); err != nil {
-					return nil, err
-				}
-			} else {
-				var hasblur = false
-				for _, blurtype := range haveblur {
-					if blurtype == file.Type {
-						hasblur = true
-						break
-					}
-				}
-				if hasblur {
-					fileobj = storageBucket.Object(formFileIndex + "/" + formIDString + "/" + file.ID + blurPath)
-					if err := fileobj.Delete(ctxStorage); err != nil {
-						return nil, err
-					}
-				}
-			}
+			bytesRemoved += newBytesRemoved
+		}
+		ownerID, err := primitive.ObjectIDFromHex(form.Owner)
+		if err != nil {
+			return nil, err
+		}
+		if err = changeUserStorage(ownerID, -1*bytesRemoved); err != nil {
+			return nil, err
 		}
 	}
 	return form, nil

@@ -19,9 +19,9 @@ type Product struct {
 	StripeID    string  `json:"stripeid"`
 	Name        string  `json:"name"`
 	Plans       []*Plan `json:"plans"`
-	MaxProjects int     `json:"maxprojects"`
-	MaxForms    int     `json:"maxforms"`
-	MaxStorage  int     `json:"maxstorage"`
+	MaxProjects int64   `json:"maxprojects"`
+	MaxForms    int64   `json:"maxforms"`
+	MaxStorage  int64   `json:"maxstorage"`
 }
 
 // ProductType product object for purchasing
@@ -131,7 +131,7 @@ func getProduct(productID primitive.ObjectID, useCache bool) (*Product, error) {
 }
 
 // user purchase a product
-func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDString string, couponAmount int, interval string, cardToken string) (map[string]interface{}, error) {
+func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDString string, couponAmount int64, couponPercent bool, interval string, cardToken string) (map[string]interface{}, error) {
 	productData, err := getProduct(productID, !isDebug())
 	if err != nil {
 		return nil, err
@@ -139,7 +139,7 @@ func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDS
 	productIDString := productID.Hex()
 	var foundPlan = false
 	var planIDString string
-	var amount int
+	var amount int64
 	for _, plan := range productData.Plans {
 		planInterval := plan.Interval
 		if planInterval == interval {
@@ -217,10 +217,28 @@ func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDS
 		userUpdateData["$set"].(bson.M)["plan"] = newPlan
 		userUpdateData["$set"].(bson.M)["subscriptionid"] = stripeSubscription.ID
 	} else {
+		var newPrice int64
+		if couponPercent {
+			if couponAmount >= 100 {
+				newPrice = 0
+			} else if couponAmount <= 0 {
+				newPrice = amount
+			} else {
+				newPrice = int64(float64(couponAmount) / 100 * float64(amount))
+			}
+		} else {
+			if couponAmount >= 100 {
+				newPrice = 0
+			} else if couponAmount <= 0 {
+				newPrice = amount
+			} else {
+				newPrice = amount - couponAmount
+			}
+		}
 		_, err := stripeClient.Charges.New(&stripe.ChargeParams{
 			Customer: &userStripeID,
 			Currency: &defaultCurrency,
-			Amount:   stripe.Int64(int64(amount - couponAmount)),
+			Amount:   stripe.Int64(newPrice),
 			Source: &stripe.SourceParams{
 				Token: &cardToken,
 			},

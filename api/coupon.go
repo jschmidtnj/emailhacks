@@ -12,7 +12,7 @@ import (
 type Coupon struct {
 	ID      string `json:"id"`
 	Secret  string `json:"secret"`
-	Amount  int    `json:"amount"`
+	Amount  int64  `json:"amount"`
 	Percent bool   `json:"percent"`
 }
 

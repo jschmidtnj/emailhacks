@@ -177,7 +177,8 @@ var userMutationFields = graphql.Fields{
 				return nil, errors.New("invalid product interval provided")
 			}
 			var couponIDString = ""
-			var couponAmount = 0
+			var couponAmount int64 = 0
+			var couponPercent = false
 			if params.Args["coupon"] != nil {
 				secret, ok := params.Args["coupon"].(string)
 				if !ok {
@@ -189,8 +190,9 @@ var userMutationFields = graphql.Fields{
 				}
 				couponIDString = couponData.ID
 				couponAmount = couponData.Amount
+				couponPercent = couponData.Percent
 			}
-			userData, err := purchase(id, productID, couponIDString, couponAmount, interval, cardToken)
+			userData, err := purchase(id, productID, couponIDString, couponAmount, couponPercent, interval, cardToken)
 			if err != nil {
 				return nil, err
 			}

@@ -81,7 +81,7 @@ type FormItem struct {
 	Options  []string `json:"options"`
 	Text     string   `json:"text"`
 	Required bool     `json:"required"`
-	Files    []int    `json:"files"`
+	Files    []int64  `json:"files"`
 }
 
 // FormItemType graphql question object

@@ -13,6 +13,20 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// Response response object
+type Response struct {
+	ID      string          `json:"id"`
+	Views   int64           `json:"views"`
+	Owner   string          `json:"owner"`
+	User    string          `json:"user"`
+	Form    string          `json:"form"`
+	Project string          `json:"project"`
+	Created int64           `json:"created"`
+	Updated int64           `json:"updated"`
+	Items   []*ResponseItem `json:"items"`
+	Files   []*File         `json:"files"`
+}
+
 // ResponseType response to form
 var ResponseType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "Response",
@@ -84,36 +98,23 @@ func processResponseFromDB(responseData bson.M, updated bool) (bson.M, error) {
 	return responseData, nil
 }
 
-func getResponse(responseID primitive.ObjectID, updated bool) (map[string]interface{}, error) {
-	responseDataCursor, err := responseCollection.Find(ctxMongo, bson.M{
+func getResponse(responseID primitive.ObjectID, updated bool) (*Response, error) {
+	var response Response
+	err := responseCollection.FindOne(ctxMongo, bson.M{
 		"_id": responseID,
-	})
-	defer responseDataCursor.Close(ctxMongo)
+	}).Decode(&response)
 	if err != nil {
 		return nil, err
 	}
-	var responseData map[string]interface{}
-	var foundResponse = false
-	for responseDataCursor.Next(ctxMongo) {
-		foundResponse = true
-		responsePrimitive := &bson.D{}
-		err = responseDataCursor.Decode(responsePrimitive)
-		if err != nil {
-			return nil, err
-		}
-		responseData, err = processResponseFromDB(responsePrimitive.Map(), updated)
-		if err != nil {
-			return nil, err
-		}
-		break
+	response.Created = objectidTimestamp(responseID).Unix()
+	if updated {
+		response.Updated = time.Now().Unix()
 	}
-	if !foundResponse {
-		return nil, errors.New("response not found with given id")
-	}
-	return responseData, nil
+	response.ID = responseID.Hex()
+	return &response, nil
 }
 
-func checkResponseAccess(responseID primitive.ObjectID, accessToken string, necessaryAccess []string, updated bool) (map[string]interface{}, error) {
+func checkResponseAccess(responseID primitive.ObjectID, accessToken string, necessaryAccess []string, updated bool) (*Response, error) {
 	responseData, err := getResponse(responseID, updated)
 	if err != nil {
 		return nil, err
@@ -129,18 +130,14 @@ func checkResponseAccess(responseID primitive.ObjectID, accessToken string, nece
 	}
 	// check if user submitted the response
 	var userIDString = claims["id"].(string)
-	if responseData["user"].(string) == userIDString {
+	if responseData.User == userIDString {
 		return responseData, nil
 	} else if updated {
 		return nil, errors.New("cannot edit another user's response")
 	}
 	// in this case you are viewing or adding a new response
 	// check if user has access to form directly
-	formIDString, ok := responseData["form"].(string)
-	if !ok {
-		return nil, errors.New("cannot cast project id to string")
-	}
-	formID, err := primitive.ObjectIDFromHex(formIDString)
+	formID, err := primitive.ObjectIDFromHex(responseData.Form)
 	if err != nil {
 		return nil, err
 	}

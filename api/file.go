@@ -198,8 +198,8 @@ var UpdateFileInputType = graphql.NewInputObject(
 type File struct {
 	ID             string `json:"id"`
 	Name           string `json:"name"`
-	Width          int    `json:"width"`
-	Height         int    `json:"height"`
+	Width          int64  `json:"width"`
+	Height         int64  `json:"height"`
 	Type           string `json:"type"`
 	OriginalSrc    string `json:"originalSrc"`
 	BlurSrc        string `json:"blurSrc"`

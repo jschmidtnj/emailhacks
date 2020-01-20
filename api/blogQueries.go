@@ -331,7 +331,7 @@ var blogQueryFields = graphql.Fields{
 				Type(blogElasticType).
 				Id(idstring).
 				Doc(bson.M{
-					"views": int(blogData["views"].(int32)),
+					"views": blogData["views"].(int64),
 				}).
 				Do(ctxElastic)
 			if err != nil {

@@ -121,7 +121,7 @@ func processUserFromDB(userData bson.M, updated bool) (bson.M, error) {
 }
 
 func getAccount(accountID primitive.ObjectID, updated bool) (map[string]interface{}, error) {
-	userDataCursor, err := formCollection.Find(ctxMongo, bson.M{
+	userDataCursor, err := userCollection.Find(ctxMongo, bson.M{
 		"_id": accountID,
 	})
 	defer userDataCursor.Close(ctxMongo)

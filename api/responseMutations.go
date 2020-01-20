@@ -11,6 +11,7 @@ import (
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/language/ast"
 	json "github.com/json-iterator/go"
+	"github.com/mitchellh/mapstructure"
 	"github.com/olivere/elastic/v7"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -193,7 +194,6 @@ var responseMutationFields = graphql.Fields{
 				}
 				userID, _ = primitive.ObjectIDFromHex(userIDString)
 			} else {
-				logger.Info("don't use access token")
 				accessToken = params.Context.Value(tokenKey).(string)
 				claims, err := getTokenData(accessToken)
 				if err != nil {
@@ -306,7 +306,7 @@ var responseMutationFields = graphql.Fields{
 				useAccessToken = true
 			}
 			var accessToken string
-			var responseData map[string]interface{}
+			var responseData *Response
 			if useAccessToken {
 				accessToken, ok = params.Args["accessToken"].(string)
 				if !ok {
@@ -352,40 +352,36 @@ var responseMutationFields = graphql.Fields{
 						return nil, err
 					}
 				}
-				files, ok := responseData["files"].(primitive.A)
-				if !ok {
-					return nil, errors.New("cannot cast items to array")
-				}
 				for _, fileUpdate := range filesUpdate {
-					index := int(fileUpdate["index"].(int))
+					index := fileUpdate["index"].(int)
 					delete(fileUpdate, "index")
 					delete(fileUpdate, "fileIndex")
 					delete(fileUpdate, "itemIndex")
 					action := fileUpdate["updateAction"].(string)
 					delete(fileUpdate, "updateAction")
+					var fileObj *File
+					if err = mapstructure.Decode(fileUpdate, &fileObj); err != nil {
+						return nil, err
+					}
 					if action == validUpdateMapActions[0] {
 						// add
-						files = append(files, fileUpdate)
+						responseData.Files = append(responseData.Files, fileObj)
 					} else {
 						if action == validUpdateMapActions[1] {
 							// remove
-							if index >= 0 && index < len(files) {
-								files = append(files[:index], files[index+1:]...)
+							if index >= 0 && index < len(responseData.Files) {
+								responseData.Files = append(responseData.Files[:index], responseData.Files[index+1:]...)
 							}
 						} else if action == validUpdateMapActions[2] {
 							// set to value
-							files[index] = fileUpdate
+							responseData.Files[index] = fileObj
 						}
 					}
 				}
-				updateDataDB["$set"].(bson.M)["files"] = files
-				updateDataElastic["files"] = files
+				updateDataDB["$set"].(bson.M)["files"] = responseData.Files
+				updateDataElastic["files"] = responseData.Files
 			}
-			formIDString, ok := responseData["form"].(string)
-			if !ok {
-				return nil, errors.New("unable to cast form id to string")
-			}
-			formID, err := primitive.ObjectIDFromHex(formIDString)
+			formID, err := primitive.ObjectIDFromHex(responseData.Form)
 			if err != nil {
 				return nil, errors.New("unable to create object id from string")
 			}
@@ -401,42 +397,42 @@ var responseMutationFields = graphql.Fields{
 				if err = validateResponseItems(formID, &itemsUpdate); err != nil {
 					return nil, err
 				}
-				items, ok := responseData["items"].(primitive.A)
-				if !ok {
-					return nil, errors.New("cannot cast items to array")
-				}
 				for _, itemUpdate := range itemsUpdate {
 					action := itemUpdate["updateAction"].(string)
 					delete(itemUpdate, "updateAction")
+					var itemObj *ResponseItem
+					if err = mapstructure.Decode(itemUpdate, &itemObj); err != nil {
+						return nil, err
+					}
 					if action == validUpdateArrayActions[0] {
 						// add
 						delete(itemUpdate, "index")
-						items = append(items, itemUpdate)
+						responseData.Items = append(responseData.Items, itemObj)
 					} else {
 						index := itemUpdate["index"].(int)
 						delete(itemUpdate, "index")
-						if index >= len(items) || index < 0 {
+						if index >= len(responseData.Items) || index < 0 {
 							continue
 						}
 						if action == validUpdateArrayActions[1] {
 							// remove
-							items = append(items[:index], items[index+1:]...)
+							responseData.Items = append(responseData.Items[:index], responseData.Items[index+1:]...)
 						} else if action == validUpdateArrayActions[2] {
 							// move to new index
 							newIndex := itemUpdate["newIndex"].(int)
 							delete(itemUpdate, "newIndex")
-							err = moveArray(items, index, newIndex)
+							err = moveArray(responseData.Items, index, newIndex)
 							if err != nil {
 								logger.Info(err.Error())
 							}
 						} else if action == validUpdateArrayActions[3] {
 							// set index to value
-							items[index] = itemUpdate
+							responseData.Items[index] = itemObj
 						}
 					}
 				}
-				updateDataDB["$set"].(bson.M)["items"] = items
-				updateDataElastic["items"] = items
+				updateDataDB["$set"].(bson.M)["items"] = responseData.Items
+				updateDataElastic["items"] = responseData.Items
 			}
 			_, err = elasticClient.Update().
 				Index(responseElasticIndex).
@@ -477,19 +473,26 @@ var responseMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			var responseData map[string]interface{}
+			var response *Response
 			if !justDeleteElastic {
-				responseData, err = checkResponseAccess(responseID, accessToken, editAccessLevel, false)
+				response, err = checkResponseAccess(responseID, accessToken, editAccessLevel, false)
 				if err != nil {
 					return nil, err
 				}
 			}
-			if err = deleteResponse(responseID, responseData); err != nil {
+			bytesRemoved, err := deleteResponse(responseID, response)
+			if err != nil {
+				return nil, err
+			}
+			ownerID, err := primitive.ObjectIDFromHex(response.Owner)
+			if err != nil {
+				return nil, err
+			}
+			if err = changeUserStorage(ownerID, -1*bytesRemoved); err != nil {
 				return nil, err
 			}
 			if !justDeleteElastic {
-				formIDString := responseData["form"].(string)
-				formID, err := primitive.ObjectIDFromHex(formIDString)
+				formID, err := primitive.ObjectIDFromHex(response.ID)
 				if err != nil {
 					return nil, err
 				}
@@ -497,7 +500,7 @@ var responseMutationFields = graphql.Fields{
 				_, err = elasticClient.Update().
 					Index(formElasticIndex).
 					Type(formElasticType).
-					Id(formIDString).
+					Id(response.Form).
 					Script(script).
 					Do(ctxElastic)
 				if err != nil {
@@ -514,7 +517,7 @@ var responseMutationFields = graphql.Fields{
 					return nil, err
 				}
 			}
-			return responseData, nil
+			return response, nil
 		},
 	},
 }
@@ -694,13 +697,13 @@ func addResponse(itemsInterface []interface{}, filesInterface []interface{}, for
 	return responseData, nil
 }
 
-func deleteResponse(responseID primitive.ObjectID, responseData bson.M) error {
+func deleteResponse(responseID primitive.ObjectID, response *Response) (int64, error) {
 	if !justDeleteElastic {
 		var err error
-		if responseData == nil {
-			responseData, err = getResponse(responseID, false)
+		if response == nil {
+			response, err = getResponse(responseID, false)
 			if err != nil {
-				return err
+				return 0, err
 			}
 		}
 	}
@@ -711,70 +714,34 @@ func deleteResponse(responseID primitive.ObjectID, responseData bson.M) error {
 		Id(responseIDString).
 		Do(ctxElastic)
 	if err != nil {
-		return err
+		return 0, err
 	}
+	var bytesRemoved int64 = 0
 	if !justDeleteElastic {
 		_, err = responseCollection.DeleteOne(ctxMongo, bson.M{
 			"_id": responseID,
 		})
 		if err != nil {
-			return err
+			return 0, err
 		}
-		primitivefiles, ok := responseData["files"].(primitive.A)
-		if !ok {
-			return errors.New("cannot convert files to primitive")
-		}
-		for _, primitivefile := range primitivefiles {
-			filedatadoc, ok := primitivefile.(primitive.D)
-			if !ok {
-				return errors.New("cannot convert file to primitive doc")
+		for _, file := range response.Files {
+			newBytesRemoved, err := deleteFile(responseType, response.ID, file.ID)
+			if err != nil {
+				return 0, err
 			}
-			filedata := filedatadoc.Map()
-			fileid, ok := filedata["id"].(string)
-			if !ok {
-				return errors.New("cannot convert file id to string")
-			}
-			filetype, ok := filedata["type"].(string)
-			if !ok {
-				return errors.New("cannot convert file type to string")
-			}
-			fileobj := storageBucket.Object(responseFileIndex + "/" + responseIDString + "/" + fileid + originalPath)
-			if err := fileobj.Delete(ctxStorage); err != nil {
-				return err
-			}
-			if filetype == "image/gif" {
-				fileobj = storageBucket.Object(responseFileIndex + "/" + responseIDString + "/" + fileid + placeholderPath + originalPath)
-				blurobj := storageBucket.Object(responseFileIndex + "/" + responseIDString + "/" + fileid + placeholderPath + blurPath)
-				if err := fileobj.Delete(ctxStorage); err != nil {
-					return err
-				}
-				if err := blurobj.Delete(ctxStorage); err != nil {
-					return err
-				}
-			} else {
-				var hasblur = false
-				for _, blurtype := range haveblur {
-					if blurtype == filetype {
-						hasblur = true
-						break
-					}
-				}
-				if hasblur {
-					fileobj = storageBucket.Object(responseFileIndex + "/" + responseIDString + "/" + fileid + blurPath)
-					if err := fileobj.Delete(ctxStorage); err != nil {
-						return err
-					}
-				}
-			}
+			bytesRemoved += newBytesRemoved
 		}
 	}
-	return nil
+	return bytesRemoved, nil
 }
 
 func validateResponseItems(formID primitive.ObjectID, responseItems *[]map[string]interface{}) error {
 	formData, err := getForm(formID, false)
 	if err != nil {
 		return err
+	}
+	if !formData.Multiple && formData.Responses == 1 {
+		return errors.New("cannot submit multiple responses")
 	}
 	formItems := formData.Items
 	responseItemIndexes := map[int]bool{}

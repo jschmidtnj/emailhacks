@@ -361,40 +361,48 @@ var formQueryFields = graphql.Fields{
 					}
 				}
 			}
-			var formData *Form
+			var form *Form
 			if !useAccessToken {
-				formData, err = checkFormAccess(formID, accessToken, necessaryAccessLevel, false)
+				form, err = checkFormAccess(formID, accessToken, necessaryAccessLevel, false)
 				if err != nil {
 					return nil, err
 				}
 			} else {
-				formData, err = getForm(formID, false)
+				form, err = getForm(formID, false)
 				if err != nil {
 					return nil, err
 				}
 			}
 			if len(userIDString) == 0 {
-				formData.Access = map[string]interface{}{}
-				formData.Categories = []string{}
-				formData.Tags = []string{}
+				form.Access = map[string]interface{}{}
+				form.Categories = []string{}
+				form.Tags = []string{}
 			} else {
-				access, tags, categories, err := getFormattedAccessGQLData(formData.Access, nil, userIDString)
+				access, tags, categories, err := getFormattedAccessGQLData(form.Access, nil, userIDString)
 				if err != nil {
 					return nil, err
 				}
-				formData.Access = access
-				formData.Categories = categories
-				formData.Tags = tags
+				form.Access = access
+				form.Categories = categories
+				form.Tags = tags
 			}
-			var deleteResponses = needEditAccess && formData.Responses > 0
+			var deleteResponses = needEditAccess && form.Responses > 0
 			if deleteResponses {
 				// delete all previous responses (if there are any)
-				if err = deleteAllResponses(formID); err != nil {
+				bytesRemoved, err := deleteAllResponses(formID)
+				if err != nil {
 					return nil, err
 				}
-				formData.Responses = 0
+				ownerID, err := primitive.ObjectIDFromHex(form.Owner)
+				if err != nil {
+					return nil, err
+				}
+				if err = changeUserStorage(ownerID, -1*bytesRemoved); err != nil {
+					return nil, err
+				}
+				form.Responses = 0
 			}
-			if err = getFileURLs(formData, getFileOriginal, getFileBlur, getFilePlaceholder); err != nil {
+			if err = getFileURLs(form, getFileOriginal, getFileBlur, getFilePlaceholder); err != nil {
 				return nil, err
 			}
 			if getFormUpdateToken {
@@ -419,7 +427,7 @@ var formQueryFields = graphql.Fields{
 				if err != nil {
 					return nil, err
 				}
-				formData.UpdatesAccessToken = tokenString
+				form.UpdatesAccessToken = tokenString
 			}
 			updateDBData := bson.M{
 				"$inc": bson.M{
@@ -430,7 +438,7 @@ var formQueryFields = graphql.Fields{
 			if deleteResponses {
 				elasticUpdateScript = "ctx._source.views+=1; ctx._source.responses=0;"
 				updateDBData["$set"] = bson.M{
-					"responses": 0,
+					"responses": int64(0),
 				}
 			} else {
 				elasticUpdateScript = "ctx._source.views+=1;"
@@ -451,7 +459,7 @@ var formQueryFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			return formData, nil
+			return form, nil
 		},
 	},
 }
@@ -495,7 +503,7 @@ func getFileURLs(form *Form, getFileOriginal bool, getFileBlur bool, getFilePlac
 	return nil
 }
 
-func deleteAllResponses(formID primitive.ObjectID) error {
+func deleteAllResponses(formID primitive.ObjectID) (int64, error) {
 	formIDString := formID.Hex()
 	sourceContext := elastic.NewFetchSourceContext(true).Include("id")
 	mustQueries := []elastic.Query{
@@ -509,38 +517,41 @@ func deleteAllResponses(formID primitive.ObjectID) error {
 		FetchSourceContext(sourceContext).
 		Do(ctxElastic)
 	if err != nil {
-		return err
+		return 0, err
 	}
+	var bytesRemoved int64 = 0
 	for _, hit := range searchResult.Hits.Hits {
 		responseIDString := hit.Id
 		responseID, err := primitive.ObjectIDFromHex(responseIDString)
 		if err != nil {
-			return err
+			return 0, err
 		}
-		if err = deleteResponse(responseID, nil); err != nil {
-			return err
+		newBytesRemoved, err := deleteResponse(responseID, nil)
+		if err != nil {
+			return 0, err
 		}
+		bytesRemoved += newBytesRemoved
 	}
 	_, err = elasticClient.Update().
 		Index(formElasticIndex).
 		Type(formElasticType).
 		Id(formIDString).
 		Doc(bson.M{
-			"responses": 0,
+			"responses": int64(0),
 		}).
 		Do(ctxElastic)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	_, err = formCollection.UpdateOne(ctxMongo, bson.M{
 		"_id": formID,
 	}, bson.M{
 		"$set": bson.M{
-			"responses": 0,
+			"responses": int64(0),
 		},
 	})
 	if err != nil {
-		return err
+		return 0, err
 	}
-	return nil
+	return bytesRemoved, nil
 }

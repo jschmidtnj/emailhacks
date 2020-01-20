@@ -169,7 +169,7 @@ func register(c *gin.Context) {
 		"plan":           "",
 		"subscriptionid": "",
 		"purchases":      bson.A{},
-		"storage":        0,
+		"storage":        int64(0),
 	})
 	if err != nil {
 		handleError("error inserting user to database: "+err.Error(), http.StatusBadRequest, response)
@@ -242,7 +242,9 @@ func loginEmailPassword(c *gin.Context) {
 		handleError("recaptcha error: "+err.Error(), http.StatusUnauthorized, response)
 		return
 	}
-	cursor, err := userCollection.Find(ctxMongo, bson.M{"email": email})
+	cursor, err := userCollection.Find(ctxMongo, bson.M{
+		"email": email,
+	})
 	defer cursor.Close(ctxMongo)
 	if err != nil {
 		handleError("error finding user: "+err.Error(), http.StatusUnauthorized, response)

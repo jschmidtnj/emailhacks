@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/graphql-go/graphql"
@@ -17,7 +18,7 @@ import (
 type Form struct {
 	ID                 string      `json:"id"`
 	Owner              string      `json:"owner"`
-	Responses          int         `json:"responses"`
+	Responses          int64       `json:"responses"`
 	Created            int64       `json:"created"`
 	Updated            int64       `json:"updated"`
 	Project            string      `json:"project"`
@@ -26,7 +27,7 @@ type Form struct {
 	Multiple           bool        `json:"multiple"`
 	Access             interface{} `json:"access"`
 	Public             string      `json:"public"`
-	Views              int         `json:"Views"`
+	Views              int64       `json:"Views"`
 	Tags               []string    `json:"tags"`
 	Categories         []string    `json:"categories"`
 	Files              []*File     `json:"files"`
@@ -129,6 +130,9 @@ func getForm(formID primitive.ObjectID, updated bool) (*Form, error) {
 	}
 	form.Access = access
 	form.Created = objectidTimestamp(formID).Unix()
+	if updated {
+		form.Updated = time.Now().Unix()
+	}
 	form.ID = formID.Hex()
 	return &form, nil
 }

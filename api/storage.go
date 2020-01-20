@@ -36,11 +36,11 @@ func validateContentType(thetype string) error {
 func uploadFile(fileBuffer *bytes.Buffer, filewriter *storage.Writer) (int64, error) {
 	byteswritten, err := fileBuffer.WriteTo(filewriter)
 	if err != nil {
-		return -1, errors.New("error writing to filewriter: " + err.Error())
+		return 0, errors.New("error writing to filewriter: " + err.Error())
 	}
 	err = filewriter.Close()
 	if err != nil {
-		return -1, errors.New("error closing writer: " + err.Error())
+		return 0, errors.New("error closing writer: " + err.Error())
 	}
 	return byteswritten, nil
 }
@@ -64,7 +64,7 @@ func writeGenericFile(file io.Reader, filetype string, posttype string, fileidDe
 	filewriter.Metadata = map[string]string{}
 	byteswritten, err := uploadFile(&filebuffer, filewriter)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	return byteswritten, nil
 }
@@ -72,14 +72,14 @@ func writeGenericFile(file io.Reader, filetype string, posttype string, fileidDe
 func writeJpeg(file io.Reader, filetype string, posttype string, fileidDecoded string, postid string) (int64, error) {
 	originalImage, _, err := image.Decode(file)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	originalImageBuffer := new(bytes.Buffer)
 	defer originalImageBuffer.Reset()
 	jpegOptionsOriginal := jpeg.Options{Quality: 90}
 	err = jpeg.Encode(originalImageBuffer, originalImage, &jpegOptionsOriginal)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	blurredImage := imaging.Blur(originalImage, progressiveImageBlurAmount)
 	blurredImageBuffer := new(bytes.Buffer)
@@ -87,7 +87,7 @@ func writeJpeg(file io.Reader, filetype string, posttype string, fileidDecoded s
 	jpegOptionsBlurred := jpeg.Options{Quality: 60}
 	err = jpeg.Encode(blurredImageBuffer, blurredImage, &jpegOptionsBlurred)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	var originalImageObj *storage.ObjectHandle
 	var blurredImageObj *storage.ObjectHandle
@@ -106,14 +106,14 @@ func writeJpeg(file io.Reader, filetype string, posttype string, fileidDecoded s
 	originalImageWriter.Metadata = map[string]string{}
 	byteswritten, err := uploadFile(originalImageBuffer, originalImageWriter)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	blurredImageWriter := blurredImageObj.NewWriter(ctxStorage)
 	blurredImageWriter.ContentType = filetype
 	blurredImageWriter.Metadata = map[string]string{}
 	morebyteswritten, err := uploadFile(blurredImageBuffer, blurredImageWriter)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	byteswritten += morebyteswritten
 	return byteswritten, nil
@@ -122,20 +122,20 @@ func writeJpeg(file io.Reader, filetype string, posttype string, fileidDecoded s
 func writePng(file io.Reader, filetype string, posttype string, fileidDecoded string, postid string) (int64, error) {
 	originalImage, _, err := image.Decode(file)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	originalImageBuffer := new(bytes.Buffer)
 	defer originalImageBuffer.Reset()
 	err = png.Encode(originalImageBuffer, originalImage)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	blurredImage := imaging.Blur(originalImage, progressiveImageBlurAmount)
 	blurredImageBuffer := new(bytes.Buffer)
 	defer blurredImageBuffer.Reset()
 	err = png.Encode(blurredImageBuffer, blurredImage)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	var originalImageObj *storage.ObjectHandle
 	var blurredImageObj *storage.ObjectHandle
@@ -154,14 +154,14 @@ func writePng(file io.Reader, filetype string, posttype string, fileidDecoded st
 	originalImageWriter.Metadata = map[string]string{}
 	byteswritten, err := uploadFile(originalImageBuffer, originalImageWriter)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	blurredImageWriter := blurredImageObj.NewWriter(ctxStorage)
 	blurredImageWriter.ContentType = filetype
 	blurredImageWriter.Metadata = map[string]string{}
 	morebyteswritten, err := uploadFile(blurredImageBuffer, blurredImageWriter)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	byteswritten += morebyteswritten
 	return byteswritten, nil
@@ -192,13 +192,13 @@ func getGifDimensions(gif *gif.GIF) (x, y int) {
 func writeGif(file io.Reader, filetype string, posttype string, fileidDecoded string, postid string) (int64, error) {
 	originalGif, err := gif.DecodeAll(file)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	originalGifBuffer := new(bytes.Buffer)
 	defer originalGifBuffer.Reset()
 	err = gif.EncodeAll(originalGifBuffer, originalGif)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	imgWidth, imgHeight := getGifDimensions(originalGif)
 	originalImage := image.NewRGBA(image.Rect(0, 0, imgWidth, imgHeight))
@@ -208,7 +208,7 @@ func writeGif(file io.Reader, filetype string, posttype string, fileidDecoded st
 	jpegOptionsOriginal := jpeg.Options{Quality: 90}
 	err = jpeg.Encode(originalImageBuffer, originalImage, &jpegOptionsOriginal)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	blurredImage := imaging.Blur(originalImage, progressiveImageBlurAmount)
 	blurredImageBuffer := new(bytes.Buffer)
@@ -216,7 +216,7 @@ func writeGif(file io.Reader, filetype string, posttype string, fileidDecoded st
 	jpegOptionsBlurred := jpeg.Options{Quality: 60}
 	err = jpeg.Encode(blurredImageBuffer, blurredImage, &jpegOptionsBlurred)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	var originalGifObj *storage.ObjectHandle
 	var originalImageObj *storage.ObjectHandle
@@ -237,7 +237,7 @@ func writeGif(file io.Reader, filetype string, posttype string, fileidDecoded st
 	originalGifWriter.Metadata = map[string]string{}
 	byteswritten, err := uploadFile(originalGifBuffer, originalGifWriter)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	var placeholderFileType = "image/jpeg"
 	originalImageWriter := originalImageObj.NewWriter(ctxStorage)
@@ -245,7 +245,7 @@ func writeGif(file io.Reader, filetype string, posttype string, fileidDecoded st
 	originalImageWriter.Metadata = map[string]string{}
 	morebyteswritten, err := uploadFile(originalImageBuffer, originalImageWriter)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	byteswritten += morebyteswritten
 	blurredImageWriter := blurredImageObj.NewWriter(ctxStorage)
@@ -253,7 +253,7 @@ func writeGif(file io.Reader, filetype string, posttype string, fileidDecoded st
 	blurredImageWriter.Metadata = map[string]string{}
 	morebyteswritten, err = uploadFile(blurredImageBuffer, blurredImageWriter)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	byteswritten += morebyteswritten
 	return byteswritten, nil
@@ -326,13 +326,13 @@ func writeFile(c *gin.Context) {
 			handleError(err.Error(), http.StatusBadRequest, response)
 			return
 		}
-		usedStorage := userData["storage"].(int)
+		usedStorage := userData["storage"].(int64)
 		productData, err := getProductFromUserData(userData)
 		if err != nil {
 			handleError(err.Error(), http.StatusUnauthorized, response)
 			return
 		}
-		storageRemaining := productData.MaxStorage - usedStorage
+		storageRemaining := int64(productData.MaxStorage) - usedStorage
 		if fileHeader.Size > int64(storageRemaining) {
 			handleError("not enough storage remaining", http.StatusBadRequest, response)
 			return
@@ -380,6 +380,68 @@ func writeFile(c *gin.Context) {
 	}
 	response.Header().Set("Content-Type", "application/json")
 	response.Write([]byte(`{"message":"file updated","id":"` + fileid + `"}`))
+}
+
+func deleteFile(posttype string, postid string, fileid string) (int64, error) {
+	var fileobj *storage.ObjectHandle
+	var fileIndex string
+	if posttype == formType {
+		fileIndex = formFileIndex
+	} else if posttype == responseType {
+		fileIndex = responseFileIndex
+	} else {
+		fileIndex = blogFileIndex
+	}
+	fileobj = storageBucket.Object(fileIndex + "/" + postid + "/" + fileid + originalPath)
+	fileobjattributes, err := fileobj.Attrs(ctxStorage)
+	if err != nil {
+		return 0, err
+	}
+	var filetype = fileobjattributes.ContentType
+	var hasblur = false
+	for _, blurtype := range haveblur {
+		if blurtype == filetype {
+			hasblur = true
+			break
+		}
+	}
+	var bytesRemoved int64 = fileobjattributes.Size
+	if err := fileobj.Delete(ctxStorage); err != nil {
+		return 0, err
+	}
+	if hasblur {
+		var fileIndex string
+		if posttype == formType {
+			fileIndex = formFileIndex
+		} else if posttype == responseType {
+			fileIndex = responseFileIndex
+		} else {
+			fileIndex = blogFileIndex
+		}
+		var addPath = ""
+		if filetype == "image/gif" {
+			fileobj = storageBucket.Object(fileIndex + "/" + postid + "/" + fileid + placeholderPath + originalPath)
+			fileobjattributes, err := fileobj.Attrs(ctxStorage)
+			if err != nil {
+				return 0, err
+			}
+			bytesRemoved += fileobjattributes.Size
+			if err := fileobj.Delete(ctxStorage); err != nil {
+				return 0, err
+			}
+			addPath = placeholderPath
+		}
+		fileobj = storageBucket.Object(fileIndex + "/" + postid + "/" + fileid + addPath + blurPath)
+		fileobjattributes, err := fileobj.Attrs(ctxStorage)
+		if err != nil {
+			return 0, err
+		}
+		bytesRemoved += fileobjattributes.Size
+		if err := fileobj.Delete(ctxStorage); err != nil {
+			return 0, err
+		}
+	}
+	return bytesRemoved, nil
 }
 
 func deleteFiles(c *gin.Context) {
@@ -460,86 +522,35 @@ func deleteFiles(c *gin.Context) {
 			handleError("file id cannot be cast to string", http.StatusBadRequest, response)
 			return
 		}
-		var fileobj *storage.ObjectHandle
-		var fileIndex string
-		if posttype == formType {
-			fileIndex = formFileIndex
-		} else if posttype == responseType {
-			fileIndex = responseFileIndex
-		} else {
-			fileIndex = blogFileIndex
-		}
-		fileobj = storageBucket.Object(fileIndex + "/" + postid + "/" + fileid + originalPath)
-		fileobjattributes, err := fileobj.Attrs(ctxStorage)
+		newBytesRemoved, err := deleteFile(posttype, postid, fileid)
 		if err != nil {
 			handleError(err.Error(), http.StatusBadRequest, response)
 			return
 		}
-		var filetype = fileobjattributes.ContentType
-		var hasblur = false
-		for _, blurtype := range haveblur {
-			if blurtype == filetype {
-				hasblur = true
-				break
-			}
-		}
-		bytesRemoved += fileobjattributes.Size
-		if err := fileobj.Delete(ctxStorage); err != nil {
-			handleError("error deleting original file: "+err.Error(), http.StatusBadRequest, response)
-			return
-		}
-		if hasblur {
-			var fileIndex string
-			if posttype == formType {
-				fileIndex = formFileIndex
-			} else if posttype == responseType {
-				fileIndex = responseFileIndex
-			} else {
-				fileIndex = blogFileIndex
-			}
-			var addPath = ""
-			if filetype == "image/gif" {
-				fileobj = storageBucket.Object(fileIndex + "/" + postid + "/" + fileid + placeholderPath + originalPath)
-				fileobjattributes, err := fileobj.Attrs(ctxStorage)
-				if err != nil {
-					handleError(err.Error(), http.StatusBadRequest, response)
-					return
-				}
-				bytesRemoved += fileobjattributes.Size
-				if err := fileobj.Delete(ctxStorage); err != nil {
-					handleError("error deleting blur file: "+err.Error(), http.StatusBadRequest, response)
-					return
-				}
-				addPath = placeholderPath
-			}
-			fileobj = storageBucket.Object(fileIndex + "/" + postid + "/" + fileid + addPath + blurPath)
-			fileobjattributes, err := fileobj.Attrs(ctxStorage)
-			if err != nil {
-				handleError(err.Error(), http.StatusBadRequest, response)
-				return
-			}
-			bytesRemoved += fileobjattributes.Size
-			if err := fileobj.Delete(ctxStorage); err != nil {
-				handleError("error deleting blur file: "+err.Error(), http.StatusBadRequest, response)
-				return
-			}
-		}
+		bytesRemoved += newBytesRemoved
 	}
 	if posttype == responseType || posttype == formType {
-		_, err = userCollection.UpdateOne(ctxMongo, bson.M{
-			"_id": ownerID,
-		}, bson.M{
-			"$inc": bson.M{
-				"storage": -1 * bytesRemoved,
-			},
-		})
-		if err != nil {
+		if err = changeUserStorage(ownerID, -1*bytesRemoved); err != nil {
 			handleError(err.Error(), http.StatusBadRequest, response)
 			return
 		}
 	}
 	response.Header().Set("Content-Type", "application/json")
 	response.Write([]byte(`{"message":"files deleted"}`))
+}
+
+func changeUserStorage(ownerID primitive.ObjectID, amountChange int64) error {
+	_, err := userCollection.UpdateOne(ctxMongo, bson.M{
+		"_id": ownerID,
+	}, bson.M{
+		"$inc": bson.M{
+			"storage": amountChange,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func validateStorageEditRequest(request *http.Request, postID primitive.ObjectID, posttype string) (primitive.ObjectID, error) {
@@ -582,14 +593,14 @@ func validateStorageEditRequest(request *http.Request, postID primitive.ObjectID
 				if err != nil {
 					return primitive.NilObjectID, err
 				}
-				ownerString = responseData["owner"].(string)
+				ownerString = responseData.Owner
 			}
 		} else if posttype == responseType {
 			responseData, err := getResponse(postID, false)
 			if err != nil {
 				return primitive.NilObjectID, err
 			}
-			ownerString = responseData["owner"].(string)
+			ownerString = responseData.Owner
 		} else if posttype == formType {
 			formData, err := getForm(postID, false)
 			if err != nil {

@@ -9,7 +9,7 @@ import (
 // Plan object
 type Plan struct {
 	Interval string `json:"interval"`
-	Amount   int    `json:"amount"`
+	Amount   int64  `json:"amount"`
 	StripeID string `json:"stripeid"`
 }
 

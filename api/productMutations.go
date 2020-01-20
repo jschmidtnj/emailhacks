@@ -130,9 +130,9 @@ var productMutationFields = graphql.Fields{
 				"name":        name,
 				"stripeid":    stripeProductIDString,
 				"plans":       plans,
-				"maxprojects": maxProjects,
-				"maxforms":    maxForms,
-				"maxstorage":  maxStorage,
+				"maxprojects": int64(maxProjects),
+				"maxforms":    int64(maxForms),
+				"maxstorage":  int64(maxStorage),
 			}
 			productCreateRes, err := productCollection.InsertOne(ctxMongo, productData)
 			if err != nil {

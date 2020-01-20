@@ -161,7 +161,7 @@ module.exports = {
   apollo: {
     tokenName: 'mail-pear-apollo-token',
     cookieAttributes: {
-      expires: 1, // day(s)
+      expires: null, // only for this session
       // domain: seodata.url, // defaults to domain where it was created
       secure: useSecure
     },

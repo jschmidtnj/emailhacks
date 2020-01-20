@@ -112,8 +112,8 @@ var projectMutationFields = graphql.Fields{
 			projectData := bson.M{
 				"updated": now.Unix(),
 				"name":    name,
-				"forms":   0,
-				"views":   0,
+				"forms":   int64(0),
+				"views":   int64(0),
 				"owner":   userIDString,
 				"access": bson.M{
 					userIDString: bson.M{

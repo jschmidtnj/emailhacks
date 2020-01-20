@@ -70,6 +70,7 @@
                         v-model="item.responseItem.options[0]"
                         :options="item.options"
                         @change="changedResponse(index)"
+                        :disabled="!canWrite"
                         name="radios-stacked"
                         stacked
                       />
@@ -79,6 +80,7 @@
                         v-model="item.responseItem.options"
                         :options="item.options"
                         @change="changedResponse(index)"
+                        :disabled="!canWrite"
                         name="radios-stacked"
                         stacked
                       />
@@ -87,6 +89,7 @@
                         :id="`item-${index}-shortAnswer`"
                         v-model="item.responseItem.text"
                         @change="changedResponse(index)"
+                        :disabled="!canWrite"
                         class="mt-2 mb-2"
                         rows="3"
                         max-rows="8"
@@ -97,6 +100,7 @@
                         v-model="item.responseItem.options"
                         :id="`item-${index}-red-green`"
                         @change="changedResponse(index)"
+                        :disabled="!canWrite"
                         class="mt-2 mb-2"
                         style="display: inline-block;"
                         name="red-green"
@@ -108,6 +112,7 @@
                         v-model="item.responseItem.files[0].file"
                         @input="updateFileSrc(index, 0)"
                         @change="changedResponse(index)"
+                        :disabled="!canWrite"
                         class="mt-2 mb-2"
                         placeholder="Choose a file or drop it here..."
                         drop-placeholder="Drop file here..."
@@ -122,10 +127,7 @@
         </b-card-body>
       </b-card>
       <b-container
-        v-if="
-          !preview &&
-            (!userIdResponse || userIdResponse === $store.state.auth.user.id)
-        "
+        v-if="!preview && canWrite"
         style="margin-top: 3rem; margin-bottom: 2rem;"
       >
         <b-row>
@@ -214,6 +216,7 @@ export default Vue.extend({
   data() {
     return {
       name: '',
+      numResponses: 0,
       items: [],
       multiple: false,
       focusIndex: 0,
@@ -224,6 +227,11 @@ export default Vue.extend({
       connectionId: null,
       userIdResponse: null,
       editResponseAccessToken: null
+    }
+  },
+  computed: {
+    canWrite() {
+      return (this.multiple || this.numResponses === 0) && (!this.userIdResponse || this.userIdResponse === this.$store.state.auth.user.id)
     }
   },
   mounted() {
@@ -690,6 +698,7 @@ export default Vue.extend({
       const uploadFiles = () => {
         let foundFile = false
         for (let i = 0; i < this.items.length; i++) {
+          if (!this.items[i].responseItem) continue
           for (let j = 0; j < this.items[i].responseItem.files.length; j++) {
             const fileObj = this.items[i].files[j]
             if (!fileObj.file) continue
@@ -783,7 +792,6 @@ export default Vue.extend({
           {addResponse(accessToken: $accessToken, id: $id, items: $items, files: $files){id editAccessToken} }
           `, variables: {accessToken: this.accessToken, id: this.formId, items: [], files: []}})
           .then(({ data }) => {
-            console.log('got response')
             this.currentResponseId = data.addResponse.id
             this.userIdResponse = this.$store.state.auth.user.id
             this.editResponseAccessToken = data.addResponse.editAccessToken

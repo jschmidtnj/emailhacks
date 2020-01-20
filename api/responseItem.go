@@ -34,6 +34,14 @@ var UpdateResponseItemInputType = graphql.NewInputObject(graphql.InputObjectConf
 	},
 })
 
+// ResponseItem response item object
+type ResponseItem struct {
+	FormIndex int64    `json:"formindex"`
+	Text      string   `json:"text"`
+	Options   []string `json:"options"`
+	Files     []int64  `json:"files"`
+}
+
 // ResponseItemType response item type
 var ResponseItemType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "ResponseItem",
