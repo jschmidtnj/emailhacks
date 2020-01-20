@@ -6,6 +6,7 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/graphql-go/graphql"
 	json "github.com/json-iterator/go"
+	"github.com/mitchellh/mapstructure"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -31,7 +32,7 @@ var productQueryFields = graphql.Fields{
 						return nil, err
 					}
 				} else {
-					var products []map[string]interface{}
+					var products []Product
 					json.UnmarshalFromString(cachedres, &products)
 					return products, nil
 				}
@@ -44,18 +45,19 @@ var productQueryFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			var products = []map[string]interface{}{}
+			var products = []Product{}
 			for cursor.Next(ctxMongo) {
-				productDataPrimitive := &bson.D{}
-				err = cursor.Decode(productDataPrimitive)
-				if err != nil {
+				var productData map[string]interface{}
+				if err = cursor.Decode(productData); err != nil {
 					return nil, err
 				}
-				productData, err := processProductFromDB(productDataPrimitive.Map())
-				if err != nil {
+				productID := productData["_id"].(primitive.ObjectID)
+				var currentProduct Product
+				if err = mapstructure.Decode(productData, &currentProduct); err != nil {
 					return nil, err
 				}
-				products = append(products, productData)
+				currentProduct.ID = productID.Hex()
+				products = append(products, currentProduct)
 			}
 			productsResBytes, err := json.Marshal(products)
 			if err != nil {

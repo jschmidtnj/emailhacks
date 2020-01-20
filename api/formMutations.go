@@ -171,10 +171,6 @@ var formMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			maxForms, ok := productData["maxforms"].(int)
-			if !ok {
-				return nil, errors.New("cannot convert max forms to int")
-			}
 			mustQueries := []elastic.Query{
 				elastic.NewTermsQuery("owner", userIDString),
 			}
@@ -187,7 +183,7 @@ var formMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			if numFormsAlready >= int64(maxForms) {
+			if numFormsAlready >= int64(productData.MaxForms) {
 				return nil, errors.New("you reached the maximum amount of forms")
 			}
 			if params.Args["project"] == nil {

@@ -116,7 +116,7 @@ var couponMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			if _, err := stripeClient.Coupons.Del(couponData["secret"].(string), nil); err != nil {
+			if _, err := stripeClient.Coupons.Del(couponData.Secret, nil); err != nil {
 				return nil, err
 			}
 			_, err = couponCollection.DeleteOne(ctxMongo, bson.M{

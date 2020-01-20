@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/graphql-go/graphql"
+	"github.com/mitchellh/mapstructure"
 	"github.com/stripe/stripe-go"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -113,7 +114,7 @@ var productMutationFields = graphql.Fields{
 						BillingScheme: stripe.String("per_unit"),
 						UsageType:     stripe.String("licensed"),
 						Interval:      &interval,
-						Amount:        stripe.Int64(int64(plans[i]["price"].(int))),
+						Amount:        stripe.Int64(int64(plans[i]["amount"].(int))),
 						Currency:      &defaultCurrency,
 					}
 					stripePlan, err := stripeClient.Plans.New(planParams)
@@ -191,7 +192,7 @@ var productMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			stripeProductIDString := productData["stripeid"].(string)
+			stripeProductIDString := productData.StripeID
 			updateDataDB := bson.M{
 				"$set": bson.M{},
 			}
@@ -224,19 +225,19 @@ var productMutationFields = graphql.Fields{
 				if err = deleteAllPlans(productData); err != nil {
 					return nil, err
 				}
-				returnPlans := make([]map[string]interface{}, len(plans))
+				returnPlans := make([]*Plan, len(plans))
 				for i := range plans {
-					interval := plans[i]["interval"].(string)
-					for key, val := range plans[i] {
-						returnPlans[i][key] = val
+					if err = mapstructure.Decode(plans[i], &returnPlans[i]); err != nil {
+						return nil, err
 					}
+					interval := plans[i]["interval"].(string)
 					if interval != singlePurchase {
 						planParams := &stripe.PlanParams{
 							ProductID:     &stripeProductIDString,
 							BillingScheme: stripe.String("per_unit"),
 							UsageType:     stripe.String("licensed"),
 							Interval:      &interval,
-							Amount:        stripe.Int64(int64(plans[i]["price"].(int))),
+							Amount:        stripe.Int64(int64(plans[i]["amount"].(int))),
 							Currency:      &defaultCurrency,
 						}
 						stripePlan, err := stripeClient.Plans.New(planParams)
@@ -249,7 +250,7 @@ var productMutationFields = graphql.Fields{
 					}
 				}
 				updateDataDB["$set"].(bson.M)["plans"] = plans
-				productData["plans"] = returnPlans
+				productData.Plans = returnPlans
 			}
 			if params.Args["maxprojects"] != nil {
 				maxProjects, ok := params.Args["maxprojects"].(int)
@@ -326,7 +327,7 @@ var productMutationFields = graphql.Fields{
 			if err = deleteAllPlans(productData); err != nil {
 				return nil, err
 			}
-			if _, err := stripeClient.Products.Del(productData["stripeid"].(string), nil); err != nil {
+			if _, err := stripeClient.Products.Del(productData.StripeID, nil); err != nil {
 				return nil, err
 			}
 			_, err = productCollection.DeleteOne(ctxMongo, bson.M{
@@ -340,11 +341,9 @@ var productMutationFields = graphql.Fields{
 	},
 }
 
-func deleteAllPlans(productData map[string]interface{}) error {
-	currentPlans := productData["plans"].(bson.A)
-	for _, currentPlan := range currentPlans {
-		currentPlanObj := currentPlan.(bson.M)
-		if _, err := stripeClient.Plans.Del(currentPlanObj["stripeid"].(string), nil); err != nil {
+func deleteAllPlans(productData *Product) error {
+	for _, currentPlan := range productData.Plans {
+		if _, err := stripeClient.Plans.Del(currentPlan.StripeID, nil); err != nil {
 			return err
 		}
 	}

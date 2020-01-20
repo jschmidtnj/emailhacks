@@ -52,10 +52,6 @@ var projectMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			maxProjects, ok := productData["maxprojects"].(int)
-			if !ok {
-				return nil, errors.New("cannot convert max projects to int")
-			}
 			mustQueries := []elastic.Query{
 				elastic.NewTermsQuery("owner", userIDString),
 			}
@@ -68,7 +64,7 @@ var projectMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			if numProjectsAlready >= int64(maxProjects) {
+			if numProjectsAlready >= int64(productData.MaxProjects) {
 				return nil, errors.New("you reached the maximum amount of projects")
 			}
 			if params.Args["name"] == nil {

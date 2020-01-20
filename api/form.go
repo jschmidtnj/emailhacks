@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/graphql-go/graphql"
@@ -110,63 +109,6 @@ var FormUpdateType = graphql.NewObject(graphql.ObjectConfig{
 		},
 	},
 })
-
-func processFormFromDB(formData bson.M, updated bool) (bson.M, error) {
-	id := formData["_id"].(primitive.ObjectID)
-	formData["created"] = objectidTimestamp(id).Unix()
-	var updatedTimestamp time.Time
-	if updated {
-		updatedTimestamp = time.Now()
-	} else {
-		updatedInt, ok := formData["updated"].(int64)
-		if !ok {
-			return nil, errors.New("cannot cast updated time to int")
-		}
-		updatedTimestamp = intTimestamp(updatedInt)
-	}
-	formData["updated"] = updatedTimestamp.Unix()
-	formData["id"] = id.Hex()
-	delete(formData, "_id")
-	fileArray, ok := formData["files"].(primitive.A)
-	if !ok {
-		return nil, errors.New("cannot cast files to array")
-	}
-	for i, file := range fileArray {
-		primitiveFile, ok := file.(primitive.D)
-		if !ok {
-			return nil, errors.New("cannot cast file to primitive D")
-		}
-		fileArray[i] = primitiveFile.Map()
-	}
-	formData["files"] = fileArray
-	itemArray, ok := formData["items"].(primitive.A)
-	if !ok {
-		return nil, errors.New("cannot cast items to array")
-	}
-	for i, item := range itemArray {
-		primitiveItem, ok := item.(primitive.D)
-		if !ok {
-			return nil, errors.New("cannot cast file to primitive D")
-		}
-		itemArray[i] = primitiveItem.Map()
-	}
-	formData["items"] = itemArray
-	accessPrimitiveDoc, ok := formData["access"].(primitive.D)
-	if !ok {
-		return nil, errors.New("cannot cast access to map")
-	}
-	accessPrimitive := accessPrimitiveDoc.Map()
-	access := make(map[string]primitive.M, len(accessPrimitive))
-	for id, accessData := range accessPrimitive {
-		primitiveAccessDoc, ok := accessData.(primitive.D)
-		if !ok {
-			return nil, errors.New("cannot cast access to primitive D")
-		}
-		access[id] = primitiveAccessDoc.Map()
-	}
-	formData["access"] = access
-	return formData, nil
-}
 
 func getForm(formID primitive.ObjectID, updated bool) (*Form, error) {
 	var form Form

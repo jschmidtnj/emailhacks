@@ -6,11 +6,23 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/graphql-go/graphql"
 	json "github.com/json-iterator/go"
+	"github.com/mitchellh/mapstructure"
 	"github.com/stripe/stripe-go"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
+
+// Product type
+type Product struct {
+	ID          string  `json:"id"`
+	StripeID    string  `json:"stripeid"`
+	Name        string  `json:"name"`
+	Plans       []*Plan `json:"plans"`
+	MaxProjects int     `json:"maxprojects"`
+	MaxForms    int     `json:"maxforms"`
+	MaxStorage  int     `json:"maxstorage"`
+}
 
 // ProductType product object for purchasing
 var ProductType = graphql.NewObject(graphql.ObjectConfig{
@@ -61,13 +73,13 @@ func processProductFromDB(productData bson.M) (bson.M, error) {
 	return productData, nil
 }
 
-func getProductFromUserData(userData map[string]interface{}) (map[string]interface{}, error) {
+func getProductFromUserData(userData map[string]interface{}) (*Product, error) {
 	var useDefaultPlan = false
 	if userData["plan"] != nil {
 		plan, ok := userData["plan"].(string)
 		useDefaultPlan = !ok || len(plan) == 0
 	}
-	var productData map[string]interface{}
+	var productData *Product
 	var err error
 	if useDefaultPlan {
 		productData, err = getProduct(primitive.NilObjectID, !isDebug())
@@ -84,7 +96,7 @@ func getProductFromUserData(userData map[string]interface{}) (map[string]interfa
 	return productData, nil
 }
 
-func getProduct(productID primitive.ObjectID, useCache bool) (map[string]interface{}, error) {
+func getProduct(productID primitive.ObjectID, useCache bool) (*Product, error) {
 	pathMap := map[string]string{
 		"path": "product",
 		"id":   productID.Hex(),
@@ -93,7 +105,7 @@ func getProduct(productID primitive.ObjectID, useCache bool) (map[string]interfa
 	if err != nil {
 		return nil, err
 	}
-	var productData map[string]interface{}
+	var product Product
 	cachepath := string(cachepathBytes)
 	if useCache {
 		cachedres, err := redisClient.Get(cachepath).Result()
@@ -102,42 +114,30 @@ func getProduct(productID primitive.ObjectID, useCache bool) (map[string]interfa
 				return nil, err
 			}
 		} else {
-			json.UnmarshalFromString(cachedres, &productData)
-			return productData, nil
+			json.UnmarshalFromString(cachedres, &product)
+			return &product, nil
 		}
 	}
-	var productDataCursor *mongo.Cursor
+	var mongoRes *mongo.SingleResult
 	if productID == primitive.NilObjectID {
-		productDataCursor, err = productCollection.Find(ctxMongo, bson.M{
+		mongoRes = productCollection.FindOne(ctxMongo, bson.M{
 			"name": defaultPlanName,
 		})
 	} else {
-		productDataCursor, err = productCollection.Find(ctxMongo, bson.M{
+		mongoRes = productCollection.FindOne(ctxMongo, bson.M{
 			"_id": productID,
 		})
 	}
-	defer productDataCursor.Close(ctxMongo)
-	if err != nil {
+	var productData map[string]interface{}
+	if err = mongoRes.Decode(&productData); err != nil {
 		return nil, err
 	}
-	var foundProduct = false
-	for productDataCursor.Next(ctxMongo) {
-		foundProduct = true
-		productPrimitive := &bson.D{}
-		err = productDataCursor.Decode(productPrimitive)
-		if err != nil {
-			return nil, err
-		}
-		productData, err = processProductFromDB(productPrimitive.Map())
-		if err != nil {
-			return nil, err
-		}
-		break
+	productID = productData["_id"].(primitive.ObjectID)
+	if err = mapstructure.Decode(productData, &product); err != nil {
+		return nil, err
 	}
-	if !foundProduct {
-		return nil, errors.New("product not found with given id")
-	}
-	productResBytes, err := json.Marshal(productData)
+	product.ID = productID.Hex()
+	productResBytes, err := json.Marshal(product)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +145,7 @@ func getProduct(productID primitive.ObjectID, useCache bool) (map[string]interfa
 	if err != nil {
 		return nil, err
 	}
-	return productData, nil
+	return &product, nil
 }
 
 // user purchase a product
@@ -155,22 +155,17 @@ func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDS
 		return nil, err
 	}
 	productIDString := productID.Hex()
-	plans, ok := productData["plans"].(bson.A)
-	if !ok {
-		return nil, errors.New("cannot cast plans to array")
-	}
 	var foundPlan = false
 	var planIDString string
 	var amount int
-	for _, plan := range plans {
-		planObj := plan.(bson.M)
-		planInterval := planObj["interval"].(string)
+	for _, plan := range productData.Plans {
+		planInterval := plan.Interval
 		if planInterval == interval {
 			foundPlan = true
 			if interval == singlePurchase {
-				planIDString = planObj["stripeid"].(string)
+				planIDString = plan.StripeID
 			} else {
-				amount = planObj["amount"].(int)
+				amount = plan.Amount
 			}
 			break
 		}

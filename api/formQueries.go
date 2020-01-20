@@ -352,7 +352,7 @@ var formQueryFields = graphql.Fields{
 				formData.Responses = 0
 			}
 			if getFileOriginal || getFileBlur || getFilePlaceholder {
-				for i, _ := range formData.Files {
+				for i := range formData.Files {
 					filetype := formData.Files[i].Type
 					fileID := formData.Files[i].ID
 					if getFileOriginal {

@@ -332,8 +332,7 @@ func writeFile(c *gin.Context) {
 			handleError(err.Error(), http.StatusUnauthorized, response)
 			return
 		}
-		maxStorage := productData["maxstorage"].(int)
-		storageRemaining := maxStorage - usedStorage
+		storageRemaining := productData.MaxStorage - usedStorage
 		if fileHeader.Size > int64(storageRemaining) {
 			handleError("not enough storage remaining", http.StatusBadRequest, response)
 			return

@@ -6,6 +6,7 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/graphql-go/graphql"
 	json "github.com/json-iterator/go"
+	"github.com/mitchellh/mapstructure"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -39,12 +40,12 @@ var couponQueryFields = graphql.Fields{
 						return nil, err
 					}
 				} else {
-					var products []map[string]interface{}
-					json.UnmarshalFromString(cachedres, &products)
-					return products, nil
+					var coupons []Coupon
+					json.UnmarshalFromString(cachedres, &coupons)
+					return coupons, nil
 				}
 			}
-			cursor, err := productCollection.Find(ctxMongo, bson.M{}, nil)
+			cursor, err := couponCollection.Find(ctxMongo, bson.M{}, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -52,20 +53,21 @@ var couponQueryFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			var products = []map[string]interface{}{}
+			var coupons = []Coupon{}
 			for cursor.Next(ctxMongo) {
-				productDataPrimitive := &bson.D{}
-				err = cursor.Decode(productDataPrimitive)
-				if err != nil {
+				var couponData map[string]interface{}
+				if err = cursor.Decode(couponData); err != nil {
 					return nil, err
 				}
-				productData, err := processProductFromDB(productDataPrimitive.Map())
-				if err != nil {
+				couponID := couponData["_id"].(primitive.ObjectID)
+				var currentCoupon Coupon
+				if err = mapstructure.Decode(couponData, &currentCoupon); err != nil {
 					return nil, err
 				}
-				products = append(products, productData)
+				currentCoupon.ID = couponID.Hex()
+				coupons = append(coupons, currentCoupon)
 			}
-			productsResBytes, err := json.Marshal(products)
+			productsResBytes, err := json.Marshal(coupons)
 			if err != nil {
 				return nil, err
 			}
@@ -73,7 +75,7 @@ var couponQueryFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			return products, nil
+			return coupons, nil
 		},
 	},
 	"coupon": &graphql.Field{
@@ -134,7 +136,7 @@ var couponQueryFields = graphql.Fields{
 	},
 }
 
-func checkCoupon(secret string) (map[string]interface{}, error) {
+func checkCoupon(secret string) (*Coupon, error) {
 	pathMap := map[string]string{
 		"path":   "coupon",
 		"secret": secret,
@@ -143,7 +145,7 @@ func checkCoupon(secret string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	var couponData map[string]interface{}
+	var coupon Coupon
 	cachepath := string(cachepathBytes)
 	if !isDebug() {
 		cachedres, err := redisClient.Get(cachepath).Result()
@@ -152,34 +154,23 @@ func checkCoupon(secret string) (map[string]interface{}, error) {
 				return nil, err
 			}
 		} else {
-			json.UnmarshalFromString(cachedres, &couponData)
-			return couponData, nil
+			json.UnmarshalFromString(cachedres, &coupon)
+			return &coupon, nil
 		}
 	}
-	couponDataCursor, err := couponCollection.Find(ctxMongo, bson.M{
+	var couponData map[string]interface{}
+	err = couponCollection.FindOne(ctxMongo, bson.M{
 		"secret": secret,
-	})
-	defer couponDataCursor.Close(ctxMongo)
+	}).Decode(&couponData)
 	if err != nil {
 		return nil, err
 	}
-	var foundCoupon = false
-	for couponDataCursor.Next(ctxMongo) {
-		foundCoupon = true
-		couponPrimitive := &bson.D{}
-		err = couponDataCursor.Decode(couponPrimitive)
-		if err != nil {
-			return nil, err
-		}
-		couponData = couponPrimitive.Map()
-		couponData["id"] = couponData["_id"]
-		delete(couponData, "_id")
-		break
+	couponID := couponData["_id"].(primitive.ObjectID)
+	if err = mapstructure.Decode(couponData, &coupon); err != nil {
+		return nil, err
 	}
-	if !foundCoupon {
-		return nil, errors.New("product not found with given id")
-	}
-	couponResBytes, err := json.Marshal(couponData)
+	coupon.ID = couponID.Hex()
+	couponResBytes, err := json.Marshal(coupon)
 	if err != nil {
 		return nil, err
 	}
@@ -187,5 +178,5 @@ func checkCoupon(secret string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return couponData, nil
+	return &coupon, nil
 }

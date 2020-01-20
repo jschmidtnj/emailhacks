@@ -187,8 +187,8 @@ var userMutationFields = graphql.Fields{
 				if err != nil {
 					return nil, err
 				}
-				couponIDString = couponData["id"].(string)
-				couponAmount = couponData["amount"].(int)
+				couponIDString = couponData.ID
+				couponAmount = couponData.Amount
 			}
 			userData, err := purchase(id, productID, couponIDString, couponAmount, interval, cardToken)
 			if err != nil {
