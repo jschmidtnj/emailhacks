@@ -1,29 +1,34 @@
 package main
 
-import ()
+import (
+	"bytes"
+	"html/template"
 
-var formEmailTemplate = `
-<!DOCTYPE html>
-<html ⚡4email>
-  <head>
-    <meta charset="utf-8" />
-    <style amp4email-boilerplate>
-      body {
-        visibility: hidden;
-      }
-    </style>
-    <script async src="https://cdn.ampproject.org/v0.js"></script>
-  </head>
-  <body>
-    <h1>{{ .Title }}</h1>
-  </body>
-</html>
-`
+	"github.com/graphql-go/graphql"
+)
 
-// TODO - get form as email to send to client
-// use this: https://gowebexamples.com/templates/
+// FormEmailType form email data
+var FormEmailType = graphql.NewObject(graphql.ObjectConfig{
+	Name: "FormEmail",
+	Fields: graphql.Fields{
+		"id": &graphql.Field{
+			Type: graphql.String,
+		},
+		"data": &graphql.Field{
+			Type: graphql.String,
+		},
+	},
+})
+
+var formEmailTemplate = template.Must(template.ParseFiles("templates/formEmail.html"))
+
 func getFormEmailData(form *Form) (string, error) {
-	minifiedData, err := minifier.String("text/html", formEmailTemplate)
+	var templateData bytes.Buffer
+	err := formEmailTemplate.Execute(&templateData, form)
+	if err != nil {
+		return "", err
+	}
+	minifiedData, err := minifier.String("text/html", templateData.String())
 	if err != nil {
 		return "", err
 	}

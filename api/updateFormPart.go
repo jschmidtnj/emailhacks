@@ -68,6 +68,7 @@ func updateForm(formIDString string) error {
 			}
 			if action == validUpdateArrayActions[0] {
 				// add
+				delete(itemUpdate, "index")
 				formData.Items = append(formData.Items, itemObj)
 			} else {
 				index := int(itemUpdate["index"].(float64))

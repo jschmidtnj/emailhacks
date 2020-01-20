@@ -24,6 +24,49 @@ type formAccessClaims struct {
 }
 
 var formQueryFields = graphql.Fields{
+	"formEmail": &graphql.Field{
+		Type:        FormEmailType,
+		Description: "Get form email data",
+		Args: graphql.FieldConfigArgument{
+			"id": &graphql.ArgumentConfig{
+				Type: graphql.String,
+			},
+		},
+		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+			accessToken := params.Context.Value(tokenKey).(string)
+			_, err := getTokenData(accessToken)
+			if err != nil {
+				return nil, err
+			}
+			if params.Args["id"] == nil {
+				return nil, errors.New("no id argument found")
+			}
+			formIDString, ok := params.Args["id"].(string)
+			if !ok {
+				return nil, errors.New("id could not be cast to int")
+			}
+			formID, err := primitive.ObjectIDFromHex(formIDString)
+			if err != nil {
+				return nil, err
+			}
+			form, err := checkFormAccess(formID, accessToken, viewAccessLevel, false)
+			if err != nil {
+				return nil, err
+			}
+			if err = getFileURLs(form, true, true, true); err != nil {
+				return nil, err
+			}
+			formEmail, err := getFormEmailData(form)
+			if err != nil {
+				return nil, err
+			}
+			formEmailData := map[string]string{
+				"id":   formIDString,
+				"data": formEmail,
+			}
+			return formEmailData, nil
+		},
+	},
 	"forms": &graphql.Field{
 		Type:        graphql.NewList(FormType),
 		Description: "Get list of forms",
@@ -201,7 +244,7 @@ var formQueryFields = graphql.Fields{
 					formData["created"] = createdTimestamp.Unix()
 					formData["id"] = id.Hex()
 					delete(formData, "_id")
-					access, tags, categories, err := getFormattedAccessGQLData(formData, nil, userIDString)
+					access, tags, categories, err := getFormattedAccessGQLData(formData["access"], nil, userIDString)
 					if err != nil {
 						return nil, err
 					}
@@ -335,7 +378,7 @@ var formQueryFields = graphql.Fields{
 				formData.Categories = []string{}
 				formData.Tags = []string{}
 			} else {
-				access, tags, categories, err := getFormattedAccessGQLData(formData, nil, userIDString)
+				access, tags, categories, err := getFormattedAccessGQLData(formData.Access, nil, userIDString)
 				if err != nil {
 					return nil, err
 				}
@@ -351,38 +394,8 @@ var formQueryFields = graphql.Fields{
 				}
 				formData.Responses = 0
 			}
-			if getFileOriginal || getFileBlur || getFilePlaceholder {
-				for i := range formData.Files {
-					filetype := formData.Files[i].Type
-					fileID := formData.Files[i].ID
-					if getFileOriginal {
-						filepath := formFileIndex + "/" + formIDString + "/" + fileID + originalPath
-						formData.Files[i].OriginalSrc, err = getSignedURL(filepath, validAccessTypes[2])
-						if err != nil {
-							return nil, err
-						}
-					}
-					if filetype == "image/png" || filetype == "image/jpeg" || filetype == "image/gif" {
-						var addPlaceholderPath = ""
-						if filetype == "image/gif" {
-							addPlaceholderPath = placeholderPath
-						}
-						if getFileBlur {
-							filepath := formFileIndex + "/" + formIDString + "/" + fileID + addPlaceholderPath + blurPath
-							formData.Files[i].BlurSrc, err = getSignedURL(filepath, validAccessTypes[2])
-							if err != nil {
-								return nil, err
-							}
-						}
-						if getFilePlaceholder {
-							filepath := formFileIndex + "/" + formIDString + "/" + fileID + addPlaceholderPath + originalPath
-							formData.Files[i].PlaceholderSrc, err = getSignedURL(filepath, validAccessTypes[2])
-							if err != nil {
-								return nil, err
-							}
-						}
-					}
-				}
+			if err = getFileURLs(formData, getFileOriginal, getFileBlur, getFilePlaceholder); err != nil {
+				return nil, err
 			}
 			if getFormUpdateToken {
 				// return access token with current claims + project
@@ -415,12 +428,12 @@ var formQueryFields = graphql.Fields{
 			}
 			var elasticUpdateScript string
 			if deleteResponses {
-				elasticUpdateScript = "ctx.views+=1; ctx.responses=0;"
+				elasticUpdateScript = "ctx._source.views+=1; ctx._source.responses=0;"
 				updateDBData["$set"] = bson.M{
 					"responses": 0,
 				}
 			} else {
-				elasticUpdateScript = "ctx.views+=1;"
+				elasticUpdateScript = "ctx._source.views+=1;"
 			}
 			_, err = formCollection.UpdateOne(ctxMongo, bson.M{
 				"_id": formID,
@@ -428,7 +441,7 @@ var formQueryFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			script := elastic.NewScriptInline(elasticUpdateScript).Lang("painless")
+			script := elastic.NewScriptInline(elasticUpdateScript)
 			_, err = elasticClient.Update().
 				Index(formElasticIndex).
 				Type(formElasticType).
@@ -441,6 +454,45 @@ var formQueryFields = graphql.Fields{
 			return formData, nil
 		},
 	},
+}
+
+func getFileURLs(form *Form, getFileOriginal bool, getFileBlur bool, getFilePlaceholder bool) error {
+	var err error
+	formIDString := form.ID
+	if getFileOriginal || getFileBlur || getFilePlaceholder {
+		for i := range form.Files {
+			filetype := form.Files[i].Type
+			fileID := form.Files[i].ID
+			if getFileOriginal {
+				filepath := formFileIndex + "/" + formIDString + "/" + fileID + originalPath
+				form.Files[i].OriginalSrc, err = getSignedURL(filepath, validAccessTypes[2])
+				if err != nil {
+					return err
+				}
+			}
+			if filetype == "image/png" || filetype == "image/jpeg" || filetype == "image/gif" {
+				var addPlaceholderPath = ""
+				if filetype == "image/gif" {
+					addPlaceholderPath = placeholderPath
+				}
+				if getFileBlur {
+					filepath := formFileIndex + "/" + formIDString + "/" + fileID + addPlaceholderPath + blurPath
+					form.Files[i].BlurSrc, err = getSignedURL(filepath, validAccessTypes[2])
+					if err != nil {
+						return err
+					}
+				}
+				if getFilePlaceholder {
+					filepath := formFileIndex + "/" + formIDString + "/" + fileID + addPlaceholderPath + originalPath
+					form.Files[i].PlaceholderSrc, err = getSignedURL(filepath, validAccessTypes[2])
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func deleteAllResponses(formID primitive.ObjectID) error {

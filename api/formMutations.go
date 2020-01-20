@@ -19,7 +19,7 @@ func changeFormProject(formIDString string, oldProjectIDString string, newProjec
 		if err != nil {
 			return err
 		}
-		script := elastic.NewScriptInline("ctx.forms-=1").Lang("painless")
+		script := elastic.NewScriptInline("ctx._source.forms-=1")
 		_, err = elasticClient.Update().
 			Index(projectElasticIndex).
 			Type(projectElasticType).
@@ -32,8 +32,8 @@ func changeFormProject(formIDString string, oldProjectIDString string, newProjec
 		_, err = projectCollection.UpdateOne(ctxMongo, bson.M{
 			"_id": projectID,
 		}, bson.M{
-			"$dec": bson.M{
-				"forms": 1,
+			"$inc": bson.M{
+				"forms": -1,
 			},
 		})
 		if err != nil {
@@ -48,7 +48,7 @@ func changeFormProject(formIDString string, oldProjectIDString string, newProjec
 		if _, _, err := checkProjectAccess(projectID, accessToken, "", editAccessLevel, false); err != nil {
 			return err
 		}
-		script := elastic.NewScriptInline("ctx.forms+=1").Lang("painless")
+		script := elastic.NewScriptInline("ctx._source.forms+=1")
 		_, err = elasticClient.Update().
 			Index(projectElasticIndex).
 			Type(projectElasticType).
@@ -163,9 +163,14 @@ var formMutationFields = graphql.Fields{
 			if !ok {
 				return nil, errors.New("cannot convert plan to string")
 			}
-			planID, err := primitive.ObjectIDFromHex(planIDString)
-			if err != nil {
-				return nil, err
+			var planID primitive.ObjectID
+			if len(planIDString) > 0 {
+				planID, err = primitive.ObjectIDFromHex(planIDString)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				planID = primitive.NilObjectID
 			}
 			productData, err := getProduct(planID, !isDebug())
 			if err != nil {
@@ -271,6 +276,7 @@ var formMutationFields = graphql.Fields{
 				"multiple":  multiple,
 				"views":     0,
 				"responses": 0,
+				"owner":     userIDString,
 				"access": bson.M{
 					userIDString: bson.M{
 						"type":       userAccess[0]["type"].(string),
@@ -287,9 +293,6 @@ var formMutationFields = graphql.Fields{
 			}
 			formID := formCreateRes.InsertedID.(primitive.ObjectID)
 			formIDString := formID.Hex()
-			if _, err = changeUserAccessData(formID, formType, userIDString, categories, tags, userAccess); err != nil {
-				return nil, err
-			}
 			if err = changeFormProject(formIDString, "", project, accessToken); err != nil {
 				return nil, err
 			}
@@ -432,11 +435,35 @@ var formMutationFields = graphql.Fields{
 						if currentAccessType == newAccessType {
 							continue
 						}
-						if currentAccessType == sharedAccessLevel && newAccessType != sharedAccessLevel {
+						if currentAccessType == sharedAccessLevel && newAccessType == noAccessLevel {
 							changeProjectAccess = true
 						}
 						if changeProjectAccess {
-							err = changeUserProjectAccess(projectID, []map[string]interface{}{accessUser})
+							projectAccess := []map[string]interface{}{accessUser}
+							projectUpdateDataDB, err := changeUserAccessData(projectID, projectType, userIDString, nil, nil, projectAccess)
+							if err != nil {
+								return nil, err
+							}
+							script := elastic.NewScript(addRemoveAccessScript).Params(map[string]interface{}{
+								"access":     projectAccess,
+								"tags":       nil,
+								"categories": nil,
+							})
+							_, err = elasticClient.Update().
+								Index(projectElasticIndex).
+								Type(projectElasticType).
+								Id(projectID.Hex()).
+								Script(script).
+								Do(ctxElastic)
+							if err != nil {
+								return nil, err
+							}
+							_, err = projectCollection.UpdateOne(ctxMongo, bson.M{
+								"_id": projectID,
+							}, projectUpdateDataDB)
+							if err != nil {
+								return nil, err
+							}
 						}
 					}
 				}
@@ -552,7 +579,7 @@ var formMutationFields = graphql.Fields{
 			}
 			formData.Access = access
 			if len(access) > 0 {
-				script := elastic.NewScriptInline(addRemoveAccessScript).Lang("painless").Params(map[string]interface{}{
+				script := elastic.NewScriptInline(addRemoveAccessScript).Params(map[string]interface{}{
 					"access":     access,
 					"tags":       tags,
 					"categories": categories,
@@ -823,7 +850,7 @@ func deleteForm(formID primitive.ObjectID, form *Form, userIDString string) (*Fo
 		if err = deleteAllResponses(formID); err != nil {
 			return nil, err
 		}
-		access, tags, categories, err := getFormattedAccessGQLData(form, nil, userIDString)
+		access, tags, categories, err := getFormattedAccessGQLData(form.Access, nil, userIDString)
 		if err != nil {
 			return nil, err
 		}

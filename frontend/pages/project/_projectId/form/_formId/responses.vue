@@ -1,7 +1,7 @@
 <template>
   <b-container class="mt-4">
     <response-list
-      v-if="projectId && formId && responseId"
+      v-if="projectId && formId"
       :form-id="formId"
       :project-id="projectId"
     />

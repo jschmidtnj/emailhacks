@@ -135,7 +135,7 @@ func changeUserAccessData(itemID primitive.ObjectID, itemType string, userIDStri
 					currentUserIDString: 1,
 				}
 			}
-			if currentUserIDString == userIDString {
+			if currentUserIDString == userIDString && categories != nil && tags != nil {
 				itemUpdateData["$set"].(bson.M)["access"].(bson.M)[currentUserIDString] = bson.M{
 					"categories": categories,
 					"tags":       tags,
@@ -150,36 +150,6 @@ func changeUserAccessData(itemID primitive.ObjectID, itemType string, userIDStri
 		itemUpdateData["$set"].(bson.M)["access"].(bson.M)[userIDString].(bson.M)["tags"] = tags
 	}
 	return itemUpdateData, nil
-}
-
-func changeUserProjectAccess(projectID primitive.ObjectID, access []map[string]interface{}) error {
-	for _, accessUser := range access {
-		if err := checkAccessObj(accessUser); err != nil {
-			return err
-		}
-	}
-	for _, accessUser := range access {
-		projectUpdateData := bson.M{}
-		if accessUser["type"] != noAccessLevel {
-			projectUpdateData["$addToSet"] = bson.M{
-				"access": bson.M{
-					"id":   accessUser["id"],
-					"type": accessUser["type"],
-				},
-			}
-		} else {
-			projectUpdateData["$pull"] = bson.M{
-				"access.id": accessUser["id"],
-			}
-		}
-		_, err := projectCollection.UpdateOne(ctxMongo, bson.M{
-			"_id": projectID,
-		}, projectUpdateData)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func rootMutation() *graphql.Object {

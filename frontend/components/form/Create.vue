@@ -420,13 +420,7 @@
           </b-col>
         </b-row>
       </b-container>
-      <b-modal ref="submit-content-modal" hide-footer size="xl" title="Preview">
-        <view-content
-          :form-id="formId"
-          :project-id="projectId"
-          :preview="true"
-        />
-      </b-modal>
+      <submit-modal :form-id="formId" :project-id="projectId" />
     </div>
     <page-loading v-else :loading="true" />
   </div>
@@ -436,8 +430,8 @@
 import Vue from 'vue'
 import gql from 'graphql-tag'
 import TextEditor from '~/components/form/TextEditor.vue'
+import SubmitModal from '~/components/form/SubmitModal.vue'
 import PageLoading from '~/components/PageLoading.vue'
-import ViewContent from '~/components/form/View.vue'
 import { validfiles, validDisplayFiles, autosaveInterval } from '~/assets/config'
 import { clone, arrayMove, checkDefined } from '~/assets/utils'
 const objectType = 'form'
@@ -505,7 +499,7 @@ export default Vue.extend({
   components: {
     TextEditor,
     PageLoading,
-    ViewContent
+    SubmitModal
   },
   props: {
     projectId: {
@@ -535,32 +529,34 @@ export default Vue.extend({
     }
   },
   mounted() {
-    this.$apollo.query({query: gql`
-      query form($id: String!) {
-        form(id: $id, editAccessToken: true){
-          name
-          items{
-            question
-            type
-            options
-            text
-            required
-            files
-          }
-          multiple
-          files{
-            id
+    this.$apollo.query({
+      query: gql`
+        query form($id: String!) {
+          form(id: $id, editAccessToken: true) {
             name
-            width
-            height
-            type
-            originalSrc
+            items{
+              question
+              type
+              options
+              text
+              required
+              files
+            }
+            multiple
+            files{
+              id
+              name
+              width
+              height
+              type
+              originalSrc
+            }
+            updatesAccessToken
           }
-          updatesAccessToken
-        }
-      }
-      `, variables: {id: this.formId}})
-      .then(({ data }) => {
+        }`,
+        variables: {id: this.formId},
+        fetchPolicy: 'network-only'
+      }).then(({ data }) => {
         this.name = data.form.name
         const newEditorContent = {}
         for (let i = 0; i < data.form.items.length; i++) {
@@ -622,7 +618,12 @@ export default Vue.extend({
     submit(evt) {
       evt.preventDefault()
       console.log('submit!')
-      this.$refs['submit-content-modal'].show()
+      if (this.$refs['submit-content-modal']) {
+        console.log('show modal')
+        this.$refs['submit-content-modal'].show()
+      } else {
+        console.log('cannot find modal')
+      }
     },
     getFileData(itemIndex, fileIndex) {
       return {
@@ -715,7 +716,7 @@ export default Vue.extend({
     update() {
       this.updateTimer = null
       this.$apollo.mutate({mutation: gql`
-        mutation updateFormPart($id: String!, $updatesAccessToken: String!, $name: String, $items: [UpdateItemInput!], $multiple: Boolean, $files: [UpdateFileInput!]) {
+        mutation updateFormPart($id: String!, $updatesAccessToken: String!, $name: String, $items: [UpdateFormItemInput!], $multiple: Boolean, $files: [UpdateFileInput!]) {
           updateFormPart(id: $id, updatesAccessToken: $updatesAccessToken, name: $name, items: $items, multiple: $multiple, files: $files) {
             id
           }

@@ -529,8 +529,8 @@ func deleteFiles(c *gin.Context) {
 		_, err = userCollection.UpdateOne(ctxMongo, bson.M{
 			"_id": ownerID,
 		}, bson.M{
-			"$dec": bson.M{
-				"storage": bytesRemoved,
+			"$inc": bson.M{
+				"storage": -1 * bytesRemoved,
 			},
 		})
 		if err != nil {

@@ -295,11 +295,19 @@ export default Vue.extend({
     searchProjects() {
       this.updateCount()
       const sort = this.sortBy ? this.sortBy : this.sortOptions[0].value
-      this.$apollo.query({query: gql`
-        query projects($perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!, $tags: [String!]!, $categories: [String!]!)
-          {projects(perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending, tags: $tags, categories: $categories){name, views, id, updated} }
-        `, variables: {perpage: this.perPage, page: this.currentPage - 1, searchterm: this.search, sort, ascending: !this.sortDesc, tags: [], categories: []}})
-        .then(({ data }) => {
+      this.$apollo.query({
+        query: gql`
+          query projects($perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!, $tags: [String!]!, $categories: [String!]!) {
+            projects(perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending, tags: $tags, categories: $categories) {
+              name,
+              views,
+              id,
+              updated
+            }
+          }`,
+          variables: {perpage: this.perPage, page: this.currentPage - 1, searchterm: this.search, sort, ascending: !this.sortDesc, tags: [], categories: []},
+          fetchPolicy: 'network-only'
+        }).then(({ data }) => {
           const projects = data.projects
           projects.forEach(project => {
             if (project.updated && project.updated.toString().length === 10) {

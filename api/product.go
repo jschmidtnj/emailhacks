@@ -55,24 +55,6 @@ var ProductType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-func processProductFromDB(productData bson.M) (bson.M, error) {
-	productData["id"] = productData["_id"]
-	delete(productData, "_id")
-	plansArray, ok := productData["plans"].(primitive.A)
-	if !ok {
-		return nil, errors.New("cannot cast plans to array")
-	}
-	for i, plan := range plansArray {
-		primitivePlan, ok := plan.(primitive.D)
-		if !ok {
-			return nil, errors.New("cannot cast plan to primitive D")
-		}
-		plansArray[i] = primitivePlan.Map()
-	}
-	productData["plans"] = plansArray
-	return productData, nil
-}
-
 func getProductFromUserData(userData map[string]interface{}) (*Product, error) {
 	var useDefaultPlan = false
 	if userData["plan"] != nil {

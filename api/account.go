@@ -36,10 +36,10 @@ var AccountType = graphql.NewObject(graphql.ObjectConfig{
 			Type: graphql.String,
 		},
 		"created": &graphql.Field{
-			Type: graphql.String,
+			Type: graphql.Int,
 		},
 		"updated": &graphql.Field{
-			Type: graphql.String,
+			Type: graphql.Int,
 		},
 		"emailverified": &graphql.Field{
 			Type: graphql.Boolean,

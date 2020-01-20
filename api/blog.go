@@ -42,10 +42,10 @@ var BlogType = graphql.NewObject(graphql.ObjectConfig{
 			Type: graphql.Int,
 		},
 		"created": &graphql.Field{
-			Type: graphql.String,
+			Type: graphql.Int,
 		},
 		"updated": &graphql.Field{
-			Type: graphql.String,
+			Type: graphql.Int,
 		},
 		"heroimage": &graphql.Field{
 			Type: FileType,

@@ -114,7 +114,7 @@ var responseQueryFields = graphql.Fields{
 				sourceContext := elastic.NewFetchSourceContext(true).Include(fields...)
 				var showEverything = claims["type"] == superAdminType
 				var numMustQueries = 0
-				if !showEverything && !foundForm {
+				if foundForm || !showEverything {
 					numMustQueries = 1
 				}
 				mustQueries := make([]elastic.Query, numMustQueries)
@@ -196,7 +196,7 @@ var responseQueryFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			script := elastic.NewScriptInline("ctx.views+=1").Lang("painless")
+			script := elastic.NewScriptInline("ctx._source.views+=1")
 			_, err = elasticClient.Update().
 				Index(responseElasticIndex).
 				Type(responseElasticType).

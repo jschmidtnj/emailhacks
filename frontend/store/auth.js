@@ -136,7 +136,8 @@ export const actions = {
                 }
               }
             `,
-            variables: {}
+            variables: {},
+            fetchPolicy: 'network-only'
           })
           .then(({ data }) => {
             commit('setUser', data.account)

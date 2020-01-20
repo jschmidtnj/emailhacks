@@ -47,10 +47,10 @@ var FormType = graphql.NewObject(graphql.ObjectConfig{
 			Type: graphql.Int,
 		},
 		"created": &graphql.Field{
-			Type: graphql.String,
+			Type: graphql.Int,
 		},
 		"updated": &graphql.Field{
-			Type: graphql.String,
+			Type: graphql.Int,
 		},
 		"project": &graphql.Field{
 			Type: graphql.String,
@@ -118,6 +118,16 @@ func getForm(formID primitive.ObjectID, updated bool) (*Form, error) {
 	if err != nil {
 		return nil, err
 	}
+	form.Access = form.Access.(bson.D).Map()
+	access := make(map[string]primitive.M, len(form.Access.(bson.M)))
+	for id, accessData := range form.Access.(bson.M) {
+		primitiveAccessDoc, ok := accessData.(primitive.D)
+		if !ok {
+			return nil, errors.New("cannot cast access to primitive D")
+		}
+		access[id] = primitiveAccessDoc.Map()
+	}
+	form.Access = access
 	form.Created = objectidTimestamp(formID).Unix()
 	form.ID = formID.Hex()
 	return &form, nil
@@ -142,7 +152,7 @@ func checkFormAccess(formID primitive.ObjectID, accessToken string, necessaryAcc
 		return form, nil
 	}
 	var userIDString = claims["id"].(string)
-	for currentUserID := range form.Access.(bson.M) {
+	for currentUserID := range form.Access.(map[string]bson.M) {
 		if currentUserID == userIDString {
 			return form, nil
 		}

@@ -111,6 +111,5 @@ func shortLinkRedirect(c *gin.Context) {
 		http.Redirect(response, request, shortlinkURL+"/404", 301)
 		return
 	}
-	logger.Info("got link " + fullLink)
 	http.Redirect(response, request, fullLink, 301)
 }

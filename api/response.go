@@ -36,10 +36,10 @@ var ResponseType = graphql.NewObject(graphql.ObjectConfig{
 			Type: graphql.String,
 		},
 		"created": &graphql.Field{
-			Type: graphql.String,
+			Type: graphql.Int,
 		},
 		"updated": &graphql.Field{
-			Type: graphql.String,
+			Type: graphql.Int,
 		},
 		"items": &graphql.Field{
 			Type: graphql.NewList(ResponseItemType),
@@ -69,7 +69,7 @@ func processResponseFromDB(responseData bson.M, updated bool) (bson.M, error) {
 	responseData["updated"] = updatedTimestamp.Unix()
 	responseData["id"] = id.Hex()
 	delete(responseData, "_id")
-	itemsArray, ok := responseData["item"].(primitive.A)
+	itemsArray, ok := responseData["items"].(primitive.A)
 	if !ok {
 		return nil, errors.New("cannot cast items to array")
 	}
@@ -187,11 +187,7 @@ func countResponses(c *gin.Context) {
 		}
 	}
 	request.ParseForm()
-	var numMustQueries = 0
-	if foundForm {
-		numMustQueries = 1
-	}
-	mustQueries := make([]elastic.Query, numMustQueries)
+	mustQueries := make([]elastic.Query, 1)
 	if foundForm {
 		mustQueries[0] = elastic.NewTermsQuery("form", form)
 	} else {

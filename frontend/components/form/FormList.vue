@@ -109,6 +109,16 @@
           :to="
             `/project/${projectId ? projectId : data.item.project}/form/${
               data.item.id
+            }/responses`
+          "
+          class="btn btn-primary btn-sm no-underline"
+        >
+          Responses
+        </nuxt-link>
+        <nuxt-link
+          :to="
+            `/project/${projectId ? projectId : data.item.project}/form/${
+              data.item.id
             }/edit`
           "
           class="btn btn-primary btn-sm no-underline"
@@ -282,17 +292,20 @@ export default Vue.extend({
       this.updateCount()
       const sort = this.sortBy ? this.sortBy : this.sortOptions[0].value
       console.log(`sort by ${sort}`)
-      this.$apollo.query({query: gql`
-        query forms($perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!, $tags: [String!]!, $categories: [String!]!)
-          {forms(perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending, tags: $tags, categories: $categories){
-            name
-            views
-            id
-            updated
-            project
-           }
-          }
-        `, variables: {perpage: this.perPage, page: this.currentPage - 1, searchterm: this.search, sort, ascending: !this.sortDesc, tags: [], categories: []}})
+      this.$apollo.query({
+        query: gql`
+          query forms($perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!, $tags: [String!]!, $categories: [String!]!) {
+            forms(perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending, tags: $tags, categories: $categories) {
+              name
+              views
+              id
+              updated
+              project
+            }
+          }`,
+          variables: {perpage: this.perPage, page: this.currentPage - 1, searchterm: this.search, sort, ascending: !this.sortDesc, tags: [], categories: []},
+          fetchPolicy: 'network-only'
+        })
         .then(({ data }) => {
           const forms = data.forms
           forms.forEach(form => {

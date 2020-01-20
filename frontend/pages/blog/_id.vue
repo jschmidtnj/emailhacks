@@ -100,11 +100,31 @@ export default Vue.extend({
     if (this.$route.params && this.$route.params.id) {
       this.id = this.$route.params.id
       const useCache = this.$store.state.auth.user && adminTypes.includes(this.$store.state.auth.user.type)
-      this.$apollo.query({query: gql`
-        query blog($id: String!, $cache: Boolean!){blog(id: $id, cache: $cache)
-        {title, caption, content, id, author, views, shortlink, heroimage{name, id}, tileimage{id}, categories, tags} }
-        `, variables: {id: this.id, cache: useCache}})
-        .then(({ data }) => {
+      this.$apollo.query({
+        query: gql`
+          query blog($id: String!, $cache: Boolean!) {
+            blog(id: $id, cache: $cache) {
+              title,
+              caption,
+              content,
+              id,
+              author,
+              views,
+              shortlink,
+              heroimage{
+                name,
+                id
+              },
+              tileimage{
+                id
+              },
+              categories,
+              tags
+            }
+          }`,
+          variables: {id: this.id, cache: useCache},
+          fetchPolicy: useCache ? 'cache-first' : 'network-only'
+        }).then(({ data }) => {
           const blog = data.blog
           this.blog = blog
           // update title for spa

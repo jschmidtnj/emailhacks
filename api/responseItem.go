@@ -26,7 +26,7 @@ var UpdateResponseItemInputType = graphql.NewInputObject(graphql.InputObjectConf
 			Type: graphql.String,
 		},
 		"options": &graphql.InputObjectFieldConfig{
-			Type: graphql.NewList(graphql.Int),
+			Type: graphql.NewList(graphql.String),
 		},
 		"files": &graphql.InputObjectFieldConfig{
 			Type: graphql.NewList(graphql.Int),
@@ -45,7 +45,7 @@ var ResponseItemType = graphql.NewObject(graphql.ObjectConfig{
 			Type: graphql.String,
 		},
 		"options": &graphql.Field{
-			Type: graphql.NewList(graphql.Int),
+			Type: graphql.NewList(graphql.String),
 		},
 		"files": &graphql.Field{
 			Type: graphql.NewList(graphql.Int),
@@ -64,7 +64,7 @@ var ResponseItemInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 			Type: graphql.String,
 		},
 		"options": &graphql.InputObjectFieldConfig{
-			Type: graphql.NewList(graphql.Int),
+			Type: graphql.NewList(graphql.String),
 		},
 		"files": &graphql.InputObjectFieldConfig{
 			Type: graphql.NewList(graphql.Int),

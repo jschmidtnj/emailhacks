@@ -85,7 +85,10 @@
       show-empty
       stacked="md"
     >
-      <template v-slot:cell(user)="data">
+      <template v-if="formId" v-slot:cell(user)="data">
+        {{ data.value }}
+      </template>
+      <template v-else v-slot:cell(form)="data">
         {{ data.value }}
       </template>
       <template v-slot:cell(updated)="data">
@@ -103,7 +106,9 @@
           "
           class="btn btn-primary btn-sm no-underline"
         >
-          View + Edit
+          View{{
+            $store.state.auth.user.id === data.item.user ? ' + Edit' : ''
+          }}
         </nuxt-link>
         <b-button @click="deleteResponse(data.item)" size="sm">
           Delete
@@ -158,9 +163,9 @@ export default Vue.extend({
       items: [],
       fields: [
         {
-          key: 'user',
-          label: 'User Id',
-          sortable: false
+          key: this.formId ? 'user' : 'form',
+          label: this.formId ? 'User Id' : 'Form Id',
+          sortable: true
         },
         {
           key: 'updated',
@@ -287,17 +292,21 @@ export default Vue.extend({
       this.updateCount()
       const sort = this.sortBy ? this.sortBy : this.sortOptions[0].value
       const formIdVal = this.formId ? this.formId : null
-      this.$apollo.query({query: gql`
-        query responses($form: String, $perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!, $tags: [String!]!, $categories: [String!]!)
-          {responses(form: $form, perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending, tags: $tags, categories: $categories){
-            ${this.formId ? 'user' : 'project, form'},
-            views,
-            id,
-            updated
-          }
-        }`, variables: {form: formIdVal, perpage: this.perPage, page: this.currentPage - 1, searchterm: this.search, sort, ascending: !this.sortDesc, tags: [], categories: []}})
-        .then(({ data }) => {
+      this.$apollo.query({
+        query: gql`
+          query responses($form: String, $perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!) {
+            responses(form: $form, perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending) {
+              ${this.formId ? 'user' : 'project, form'},
+              views,
+              id,
+              updated
+            }
+          }`,
+          variables: {form: formIdVal, perpage: this.perPage, page: this.currentPage - 1, searchterm: this.search, sort, ascending: !this.sortDesc, tags: [], categories: []},
+          fetchPolicy: 'network-only'
+        }).then(({ data }) => {
           const responses = data.responses
+          console.log(responses)
           responses.forEach(response => {
             if (response.updated && response.updated.toString().length === 10) {
               response.updated = Number(response.updated) * 1000

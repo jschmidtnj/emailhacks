@@ -67,7 +67,7 @@
                       <b-form-radio-group
                         v-if="item.type === itemTypes[0]"
                         :id="`item-${index}-radio`"
-                        v-model="item.responseItem.options"
+                        v-model="item.responseItem.options[0]"
                         :options="item.options"
                         @change="changedResponse(index)"
                         name="radios-stacked"
@@ -122,7 +122,10 @@
         </b-card-body>
       </b-card>
       <b-container
-        v-if="!preview"
+        v-if="
+          !preview &&
+            (!userIdResponse || userIdResponse === $store.state.auth.user.id)
+        "
         style="margin-top: 3rem; margin-bottom: 2rem;"
       >
         <b-row>
@@ -149,13 +152,13 @@
 import Vue from 'vue'
 import gql from 'graphql-tag'
 import PageLoading from '~/components/PageLoading.vue'
-import { noneAccessType, defaultItem } from '~/assets/config'
+import { noneAccessType } from '~/assets/config'
 import { clone, arrayMove, checkDefined } from '~/assets/utils'
 const itemTypes = ['radio', 'checkbox', 'short', 'text',
   'redgreen', 'fileupload', 'fileattachment', 'media']
 const responseItemTypes = [itemTypes[0], itemTypes[1], itemTypes[2],
   itemTypes[4], itemTypes[5]]
-  const objectType = 'response'
+const objectType = 'response'
 const defaultFile = {
   id: '',
   name: '',
@@ -172,7 +175,15 @@ const defaultResponseItem = {
   uploaded: false,
   updateAction: 'add'
 }
-defaultItem.responseItem = null
+const defaultItem = {
+  question: '',
+  type: itemTypes[0],
+  options: [],
+  text: '',
+  required: false,
+  files: [clone(defaultFile)],
+  responseItem: null
+}
 export default Vue.extend({
   name: 'ViewForm',
   components: {
@@ -212,35 +223,38 @@ export default Vue.extend({
       updatesAccessToken: null,
       connectionId: null,
       userIdResponse: null,
-      responseItems: [],
       editResponseAccessToken: null
     }
   },
   mounted() {
+    this.currentResponseId = this.responseId
     if (this.formId) {
-      this.$apollo.query({query: gql`
-        query form($id: String!, $accessToken: String){
-          form(id: $id, editAccessToken: false, accessToken: $accessToken) {
-            name
-            items {
-              question
-              type
-              options
-              text
-              required
-              files
-            }
-            multiple
-            files {
-              id
+      this.$apollo.query({
+        query: gql`
+          query form($id: String!, $accessToken: String){
+            form(id: $id, editAccessToken: false, accessToken: $accessToken) {
               name
-              type
-              originalSrc
+              items {
+                question
+                type
+                options
+                text
+                required
+                files
+              }
+              multiple
+              files {
+                id
+                name
+                type
+                originalSrc
+              }
+              ${!this.currentResponseId ? 'updatesAccessToken' : ''}
             }
-            ${!this.responseId ? 'updatesAccessToken' : ''}
-          }
-        }
-        `, variables: {id: this.formId, accessToken: this.accessToken}})
+          }`,
+          variables: {id: this.formId, accessToken: this.accessToken},
+          fetchPolicy: 'network-only'
+        })
         .then(({ data }) => {
           console.log(data.form)
           this.name = data.form.name
@@ -277,23 +291,24 @@ export default Vue.extend({
                 }
               }
             }
-            if (responseItemTypes.find(currentItem.type)) {
+            if (responseItemTypes.includes(currentItem.type)) {
               currentItem.responseItem = clone(defaultResponseItem)
             }
           }
           this.updatesAccessToken = data.form.updatesAccessToken
           this.items = data.form.items
           this.multiple = data.form.multiple
-          if (!this.preview && !this.responseId) {
+          if (!this.preview && !this.currentResponseId) {
             this.createSubscription()
           }
-          if (!this.preview && this.responseId) {
+          if (!this.preview && this.currentResponseId) {
             this.getResponseData()
+          } else {
+            this.loading = false
+            this.$forceUpdate()
           }
-          this.loading = false
-          this.$forceUpdate()
         }).catch(err => {
-          console.log(err.message)
+          console.error(err.message)
           this.$toasted.global.error({
             message: `found error: ${err.message}`
           })
@@ -302,76 +317,81 @@ export default Vue.extend({
   },
   methods: {
     getResponseData() {
-      if (this.responseId) {
-        this.$apollo.query({query: gql`
-          query response($id: String!){
-            response(id: $id) {
-              user
-              items {
-                formIndex
-                text
-                options
-                files
+      if (this.currentResponseId) {
+          this.$apollo.query({
+            query: gql`
+              query response($id: String!) {
+                response(id: $id) {
+                  user
+                  items {
+                    formIndex
+                    text
+                    options
+                    files
+                  }
+                  files {
+                    id
+                    name
+                    type
+                    originalSrc
+                  }
+                }
+              }`,
+              variables: {id: this.currentResponseId},
+              fetchPolicy: 'network-only'
+            }).then(({ data }) => {
+              console.log(data.response)
+              this.userIdResponse = data.response.user
+              for (let i = 0; i < data.response.items.length; i++) {
+                if (data.response.items[i].files.length === 0) {
+                  data.response.items[i].files = [clone(defaultFile)]
+                } else {
+                  const newFiles = []
+                  for (let j = 0; j < data.response.items[i].files.length; j++) {
+                    const fileData = data.response.files[data.response.items[i].files[j]]
+                    const fileObj = clone(defaultFile)
+                    for (const key in fileData) {
+                      fileObj[key] = fileData[key]
+                    }
+                    fileObj.uploaded = true
+                    newFiles.push(fileObj)
+                  }
+                  data.response.items[i].files = newFiles
+                }
               }
-              files {
-                id
-                name
-                type
-                originalSrc
-              }
-            }
-          }
-          `, variables: {id: this.responseId}})
-          .then(({ data }) => {
-            console.log(data.response)
-            this.userIdResponse = data.response.user
-            for (let i = 0; i < data.response.items.length; i++) {
-              if (data.response.items[i].files.length === 0) {
-                data.response.items[i].files = [clone(defaultFile)]
-              } else {
-                const newFiles = []
+              // get files
+              for (let i = 0; i < data.response.items.length; i++) {
                 for (let j = 0; j < data.response.items[i].files.length; j++) {
-                  const fileData = data.response.files[data.response.items[i].files[j]]
-                  const fileObj = clone(defaultFile)
-                  for (const key in fileData) {
-                    fileObj[key] = fileData[key]
+                  const fileObj = data.response.items[i].files[j]
+                  if (fileObj.uploaded) {
+                    if (checkDefined(fileObj.originalSrc)) {
+                      fileObj.src = fileObj.originalSrc
+                      delete fileObj.originalSrc
+                    } else {
+                      this.getFileURLRequest(i, j, true)
+                    }
+                    fileObj.updateAction = 'set'
                   }
-                  fileObj.uploaded = true
-                  newFiles.push(fileObj)
-                }
-                data.response.items[i].files = newFiles
-              }
-            }
-            // get files
-            for (let i = 0; i < data.response.items.length; i++) {
-              for (let j = 0; j < data.response.items[i].files.length; j++) {
-                const fileObj = data.response.items[i].files[j]
-                if (fileObj.uploaded) {
-                  if (checkDefined(fileObj.originalSrc)) {
-                    fileObj.src = fileObj.originalSrc
-                    delete fileObj.originalSrc
-                  } else {
-                    this.getFileURLRequest(i, j, true)
-                  }
-                  fileObj.updateAction = 'set'
                 }
               }
-            }
-            this.responseItems = data.response.items
-            for (let i = 0; i < data.response.items; i++) {
-              const currentObj = data.response.items[i]
-              const itemIndex = currentObj.formIndex
-              delete currentObj.formIndex
-              currentObj.uploaded = true
-              currentObj.updateAction = 'set'
-              this.items[itemIndex].responseItem = currentObj
-            }
-          }).catch(err => {
-            console.log(err.message)
-            this.$toasted.global.error({
-              message: `found error: ${err.message}`
+              for (let i = 0; i < data.response.items.length; i++) {
+                const currentObj = data.response.items[i]
+                const itemIndex = currentObj.formIndex
+                delete currentObj.formIndex
+                currentObj.uploaded = true
+                currentObj.updateAction = 'set'
+                this.items[itemIndex].responseItem = currentObj
+              }
+              console.log('done getting items')
+              console.log(this.items[0])
+              this.loading = false
+              this.$forceUpdate()
+            }).catch(err => {
+              console.log(err.message)
+              this.$toasted.global.error({
+                message: `found error: ${err.message}`
+              })
             })
-          })
       }
     },
     checkImageType(type) {
@@ -577,7 +597,7 @@ export default Vue.extend({
       })
     },
     getFileURL(itemIndex, fileIndex, isResponse) {
-      const dataObj = isResponse ? this.items[itemIndex] : this.responseItems[itemIndex].responseItem
+      const dataObj = isResponse ? this.items[itemIndex] : this.items[itemIndex].responseItem
       if (dataObj.files[fileIndex].src) {
         return dataObj.files[fileIndex].src
       } else {
@@ -603,6 +623,7 @@ export default Vue.extend({
         text: this.items[itemIndex].responseItem.text,
         options: this.items[itemIndex].responseItem.options,
         files: [],
+        formIndex: itemIndex,
         updateAction: this.items[itemIndex].responseItem.updateAction
       }
       let currentFileIndex = this.getTotalResponseFileIndex(itemIndex, 0)
@@ -630,13 +651,15 @@ export default Vue.extend({
         const uploadFiles = []
         let responseCount = 0
         for (let i = 0; i < this.items.length; i++) {
-          if (!responseItemTypes.find(this.items[i].type)) continue
+          if (!responseItemTypes.includes(this.items[i].type)) continue
           if (!this.items[i].responseItem.uploaded) {
-            uploadItems.push({
-              index: responseCount,
-              ...this.getResponseItemData(i)
-            })
+            const currentResponse = this.getResponseItemData(i)
+            if (this.currentResponseId) {
+              currentResponse.index = responseCount
+            }
+            uploadItems.push(currentResponse)
             for (let j = 0; j < this.items[i].responseItem.files.length; j++) {
+              if (!this.items[i].responseItem.files[j].file) continue
               const fileObj = this.items[i].responseItem.files[j]
               uploadFiles.push({
                 updateAction: fileObj.updateAction,
@@ -650,10 +673,11 @@ export default Vue.extend({
           }
           responseCount++
         }
+        console.log(uploadItems)
         this.$apollo.mutate({mutation: gql`
-          mutation updateResponse($accessToken: String, $id: String!, $project: String!, $name: String!, $items: [ItemInput!]!, $multiple: Boolean!, $files: [FileInput!]!, $tags: [String!]!, $categories: [String!]!)
+          mutation updateResponse($accessToken: String, $id: String!, $items: [UpdateResponseItemInput!]!, $files: [UpdateFileInput!]!)
           {updateResponse(accessToken: $accessToken, id: $id, items: $items, files: $files){id} }
-          `, variables: {id: this.responseId, items: uploadItems, files: uploadFiles, updateToken: this.editResponseAccessToken}})
+          `, variables: {id: this.currentResponseId, items: uploadItems, files: uploadFiles, accessToken: this.editResponseAccessToken}})
           .then(({ data }) => {
             console.log('submitted!')
           }).catch(err => {
@@ -664,10 +688,12 @@ export default Vue.extend({
           })
       }
       const uploadFiles = () => {
+        let foundFile = false
         for (let i = 0; i < this.items.length; i++) {
           for (let j = 0; j < this.items[i].responseItem.files.length; j++) {
             const fileObj = this.items[i].files[j]
-            if (!fileObj.file) return
+            if (!fileObj.file) continue
+            foundFile = true
             fileObj.uploadProgress = 0
             if (fileObj.uploaded) {
               remainingFileOperations++
@@ -677,7 +703,7 @@ export default Vue.extend({
                     fileids: [
                       fileObj.id
                     ],
-                    postid: this.responseId,
+                    postid: this.currentResponseId,
                     posttype: objectType,
                     updateToken: this.editResponseAccessToken
                   }
@@ -712,7 +738,7 @@ export default Vue.extend({
                 params: {
                   posttype: objectType,
                   filetype: fileObj.file.type,
-                  postid: this.responseId,
+                  postid: this.currentResponseId,
                   updateToken: this.editResponseAccessToken
                 },
                 headers: {
@@ -746,16 +772,22 @@ export default Vue.extend({
               })
           }
         }
+        if (!foundFile) {
+          onFileUploadComplete()
+        }
       }
-      if (!this.responseId) {
+      if (!this.currentResponseId) {
+        console.log(`form id: ${this.formId}`)
         this.$apollo.mutate({mutation: gql`
-          mutation addResponse($accessToken: String, $id: String!, $project: String!, $name: String!, $items: [ItemInput!]!, $multiple: Boolean!, $files: [FileInput!]!, $tags: [String!]!, $categories: [String!]!)
+          mutation addResponse($accessToken: String, $id: String!, $items: [ResponseItemInput!]!, $files: [FileInput!]!)
           {addResponse(accessToken: $accessToken, id: $id, items: $items, files: $files){id editAccessToken} }
           `, variables: {accessToken: this.accessToken, id: this.formId, items: [], files: []}})
           .then(({ data }) => {
-            this.responseId = data.addResponse.id
+            console.log('got response')
+            this.currentResponseId = data.addResponse.id
+            this.userIdResponse = this.$store.state.auth.user.id
             this.editResponseAccessToken = data.addResponse.editAccessToken
-            history.replaceState({}, null, `/project/${this.projectId}/form/${this.formId}/response/${this.responseId}`)
+            history.replaceState({}, null, `/project/${this.projectId}/form/${this.formId}/response/${this.currentResponseId}`)
             uploadFiles()
           }).catch(err => {
             console.error(err)

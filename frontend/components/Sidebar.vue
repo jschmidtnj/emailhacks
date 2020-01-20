@@ -14,7 +14,7 @@
             {{ inProject ? 'Back' : 'All Projects' }}
           </a>
         </li>
-        <li class="nav-item">
+        <!--li class="nav-item">
           <nuxt-link v-if="!inProject" to="/project" class="no-underline">
             <a class="nav-link">New Project</a>
           </nuxt-link>
@@ -22,6 +22,11 @@
         <li v-if="inProject && !inForm" class="nav-item">
           <nuxt-link :to="`/project/${projectId}/form`" class="no-underline">
             <a class="nav-link">New Form</a>
+          </nuxt-link>
+        </li-->
+        <li v-if="!inProject" class="nav-item">
+          <nuxt-link v-if="!inProject" to="/responses" class="no-underline">
+            <a class="nav-link">All Responses</a>
           </nuxt-link>
         </li>
       </ul>
@@ -36,7 +41,8 @@ export default Vue.extend({
   data() {
     return {
       projectPath: '/project/',
-      formPath: '/form/'
+      formPath: '/form/',
+      responsePath: '/response/'
     }
   },
   computed: {
@@ -46,12 +52,26 @@ export default Vue.extend({
     inForm() {
       return this.$nuxt.$route.path.includes(this.formPath)
     },
+    inResponse() {
+      return this.$nuxt.$route.path.includes(this.responsePath)
+    },
     projectId() {
       const projectPathIndex = this.$route.path.indexOf(this.projectPath)
-      if (projectPathIndex > 0)
+      if (projectPathIndex < 0)
         return null
       const after = this.$route.path.substring(projectPathIndex + this.projectPath.length)
-      const extraIndex = this.$route.path.indexOf('/')
+      const extraIndex = after.indexOf('/')
+      if (extraIndex > 0) {
+        return after.substring(0, extraIndex)
+      }
+      return after
+    },
+    formId() {
+      const formPathIndex = this.$route.path.indexOf(this.formPath)
+      if (formPathIndex < 0)
+        return null
+      const after = this.$route.path.substring(formPathIndex + this.formPath.length)
+      const extraIndex = after.indexOf('/')
       if (extraIndex > 0) {
         return after.substring(0, extraIndex)
       }
@@ -61,8 +81,10 @@ export default Vue.extend({
   methods: {
     navigationPath(evt) {
       evt.preventDefault()
-      if (this.inProject) {
-        this.$router.go(-1)
+      if (this.inResponse) {
+        this.$router.push({ path: `/project/${this.projectId}/form/${this.formId}/responses` })
+      } else if (this.inForm) {
+        this.$router.push({ path: `/project/${this.projectId}` })
       } else {
         this.$router.push({ path: '/projects' })
       }

@@ -28,10 +28,10 @@ var ProjectType = graphql.NewObject(graphql.ObjectConfig{
 			Type: graphql.String,
 		},
 		"created": &graphql.Field{
-			Type: graphql.String,
+			Type: graphql.Int,
 		},
 		"updated": &graphql.Field{
-			Type: graphql.String,
+			Type: graphql.Int,
 		},
 		"forms": &graphql.Field{
 			Type: graphql.Int,
@@ -130,7 +130,7 @@ func checkProjectAccess(projectID primitive.ObjectID, accessToken string, otherU
 			userIDString = otherUserIDString
 		}
 		var foundUser = false
-		access := projectData["access"].(map[string]primitive.M)
+		access := projectData["access"].(map[string]bson.M)
 		for currentUserID, accessVal := range access {
 			if currentUserID == userIDString {
 				accessType = accessVal["type"].(string)

@@ -162,7 +162,7 @@ var projectQueryFields = graphql.Fields{
 					projectData["created"] = createdTimestamp.Unix()
 					projectData["id"] = id.Hex()
 					delete(projectData, "_id")
-					access, tags, categories, err := getFormattedAccessGQLData(projectData, nil, userIDString)
+					access, tags, categories, err := getFormattedAccessGQLData(projectData["access"], nil, userIDString)
 					if err != nil {
 						return nil, err
 					}
@@ -199,7 +199,7 @@ var projectQueryFields = graphql.Fields{
 				return nil, err
 			}
 			projectData, _, err := checkProjectAccess(projectID, accessToken, "", editAccessLevel, false)
-			access, tags, categories, err := getFormattedAccessGQLData(projectData, nil, userIDString)
+			access, tags, categories, err := getFormattedAccessGQLData(projectData["access"], nil, userIDString)
 			if err != nil {
 				return nil, err
 			}
@@ -219,7 +219,7 @@ var projectQueryFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			script := elastic.NewScriptInline("ctx.views+=1").Lang("painless")
+			script := elastic.NewScriptInline("ctx._source.views+=1")
 			_, err = elasticClient.Update().
 				Index(projectElasticIndex).
 				Type(projectElasticType).

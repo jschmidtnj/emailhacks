@@ -56,7 +56,7 @@ export default Vue.extend({
     if (this.$route.params && this.$route.params.projectId) {
       this.projectId = this.$route.params.projectId
       this.$apollo.mutate({mutation: gql`
-        mutation addForm($project: String!, $name: String!, $items: [ItemInput!]!, $multiple: Boolean!, $files: [FileInput!]!, $tags: [String!]!, $categories: [String!]!)
+        mutation addForm($project: String!, $name: String!, $items: [FormItemInput!]!, $multiple: Boolean!, $files: [FileInput!]!, $tags: [String!]!, $categories: [String!]!)
         {addForm(project: $project, name: $name, items: $items, multiple: $multiple, files: $files, tags: $tags, categories: $categories){id} }
         `, variables: {project: this.projectId, name: defaultItemName, items: [], multiple: false, files: [], categories: [], tags: []}})
         .then(({ data }) => {

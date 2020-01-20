@@ -165,16 +165,19 @@ var responseMutationFields = graphql.Fields{
 			if params.Args["accessToken"] != nil {
 				useAccessToken = true
 			}
+			logger.Info("add the response")
 			var projectID primitive.ObjectID
 			var userID primitive.ObjectID
 			var accessToken string
 			var userIDString string
 			var ownerIDString string
 			if useAccessToken {
+				logger.Info("use access token")
 				accessToken, ok = params.Args["accessToken"].(string)
 				if !ok {
 					return nil, errors.New("cannot cast access token to string")
 				}
+				logger.Info("access token: " + accessToken)
 				var tokenFormIDString string
 				var projectIDString string
 				tokenFormIDString, projectIDString, ownerIDString, userIDString, err = getResponseAddTokenData(accessToken, viewAccessLevel)
@@ -190,6 +193,7 @@ var responseMutationFields = graphql.Fields{
 				}
 				userID, _ = primitive.ObjectIDFromHex(userIDString)
 			} else {
+				logger.Info("don't use access token")
 				accessToken = params.Context.Value(tokenKey).(string)
 				claims, err := getTokenData(accessToken)
 				if err != nil {
@@ -279,7 +283,7 @@ var responseMutationFields = graphql.Fields{
 				Type: graphql.NewList(UpdateResponseItemInputType),
 			},
 			"files": &graphql.ArgumentConfig{
-				Type: graphql.NewList(FileInputType),
+				Type: graphql.NewList(UpdateFileInputType),
 			},
 			"accessToken": &graphql.ArgumentConfig{
 				Type: graphql.String,
@@ -330,20 +334,48 @@ var responseMutationFields = graphql.Fields{
 					return nil, err
 				}
 			}
-			updateDataDB := bson.M{}
+			updateDataDB := bson.M{
+				"$set": bson.M{},
+			}
 			updateDataElastic := bson.M{}
 			if params.Args["files"] != nil {
-				filesinterface, ok := params.Args["files"].([]interface{})
+				filesUpdateInterface, ok := params.Args["files"].([]interface{})
 				if !ok {
 					return nil, errors.New("problem casting files to interface array")
 				}
-				files, err := interfaceListToMapList(filesinterface)
+				filesUpdate, err := interfaceListToMapList(filesUpdateInterface)
 				if err != nil {
 					return nil, err
 				}
-				for _, file := range files {
+				for _, file := range filesUpdate {
 					if err := checkFileObjUpdate(file); err != nil {
 						return nil, err
+					}
+				}
+				files, ok := responseData["files"].(primitive.A)
+				if !ok {
+					return nil, errors.New("cannot cast items to array")
+				}
+				for _, fileUpdate := range filesUpdate {
+					index := int(fileUpdate["index"].(int))
+					delete(fileUpdate, "index")
+					delete(fileUpdate, "fileIndex")
+					delete(fileUpdate, "itemIndex")
+					action := fileUpdate["updateAction"].(string)
+					delete(fileUpdate, "updateAction")
+					if action == validUpdateMapActions[0] {
+						// add
+						files = append(files, fileUpdate)
+					} else {
+						if action == validUpdateMapActions[1] {
+							// remove
+							if index >= 0 && index < len(files) {
+								files = append(files[:index], files[index+1:]...)
+							}
+						} else if action == validUpdateMapActions[2] {
+							// set to value
+							files[index] = fileUpdate
+						}
 					}
 				}
 				updateDataDB["$set"].(bson.M)["files"] = files
@@ -366,7 +398,7 @@ var responseMutationFields = graphql.Fields{
 				if err != nil {
 					return nil, err
 				}
-				if err = validateResponseItems(formID, itemsUpdate); err != nil {
+				if err = validateResponseItems(formID, &itemsUpdate); err != nil {
 					return nil, err
 				}
 				items, ok := responseData["items"].(primitive.A)
@@ -378,9 +410,10 @@ var responseMutationFields = graphql.Fields{
 					delete(itemUpdate, "updateAction")
 					if action == validUpdateArrayActions[0] {
 						// add
+						delete(itemUpdate, "index")
 						items = append(items, itemUpdate)
 					} else {
-						index := int(itemUpdate["index"].(float64))
+						index := itemUpdate["index"].(int)
 						delete(itemUpdate, "index")
 						if index >= len(items) || index < 0 {
 							continue
@@ -390,7 +423,7 @@ var responseMutationFields = graphql.Fields{
 							items = append(items[:index], items[index+1:]...)
 						} else if action == validUpdateArrayActions[2] {
 							// move to new index
-							newIndex := int(itemUpdate["newIndex"].(float64))
+							newIndex := itemUpdate["newIndex"].(int)
 							delete(itemUpdate, "newIndex")
 							err = moveArray(items, index, newIndex)
 							if err != nil {
@@ -444,37 +477,42 @@ var responseMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			responseData, err := checkResponseAccess(responseID, accessToken, editAccessLevel, false)
-			if err != nil {
-				return nil, err
+			var responseData map[string]interface{}
+			if !justDeleteElastic {
+				responseData, err = checkResponseAccess(responseID, accessToken, editAccessLevel, false)
+				if err != nil {
+					return nil, err
+				}
 			}
 			if err = deleteResponse(responseID, responseData); err != nil {
 				return nil, err
 			}
-			formIDString := responseData["form"].(string)
-			formID, err := primitive.ObjectIDFromHex(formIDString)
-			if err != nil {
-				return nil, err
-			}
-			script := elastic.NewScriptInline("ctx.responses-=1").Lang("painless")
-			_, err = elasticClient.Update().
-				Index(formElasticIndex).
-				Type(formElasticType).
-				Id(formIDString).
-				Script(script).
-				Do(ctxElastic)
-			if err != nil {
-				return nil, err
-			}
-			_, err = formCollection.UpdateOne(ctxMongo, bson.M{
-				"_id": formID,
-			}, bson.M{
-				"$dec": bson.M{
-					"responses": 1,
-				},
-			})
-			if err != nil {
-				return nil, err
+			if !justDeleteElastic {
+				formIDString := responseData["form"].(string)
+				formID, err := primitive.ObjectIDFromHex(formIDString)
+				if err != nil {
+					return nil, err
+				}
+				script := elastic.NewScriptInline("ctx._source.responses-=1")
+				_, err = elasticClient.Update().
+					Index(formElasticIndex).
+					Type(formElasticType).
+					Id(formIDString).
+					Script(script).
+					Do(ctxElastic)
+				if err != nil {
+					return nil, err
+				}
+				_, err = formCollection.UpdateOne(ctxMongo, bson.M{
+					"_id": formID,
+				}, bson.M{
+					"$inc": bson.M{
+						"responses": -1,
+					},
+				})
+				if err != nil {
+					return nil, err
+				}
 			}
 			return responseData, nil
 		},
@@ -602,7 +640,7 @@ func addResponse(itemsInterface []interface{}, filesInterface []interface{}, for
 			return nil, err
 		}
 	}
-	if err = validateResponseItems(formID, items); err != nil {
+	if err = validateResponseItems(formID, &items); err != nil {
 		return nil, err
 	}
 	now := time.Now()
@@ -632,7 +670,7 @@ func addResponse(itemsInterface []interface{}, filesInterface []interface{}, for
 	if err != nil {
 		return nil, err
 	}
-	script := elastic.NewScriptInline("ctx.responses+=1").Lang("painless")
+	script := elastic.NewScriptInline("ctx._source.responses+=1")
 	_, err = elasticClient.Update().
 		Index(formElasticIndex).
 		Type(formElasticType).
@@ -733,14 +771,14 @@ func deleteResponse(responseID primitive.ObjectID, responseData bson.M) error {
 	return nil
 }
 
-func validateResponseItems(formID primitive.ObjectID, responseItems []map[string]interface{}) error {
+func validateResponseItems(formID primitive.ObjectID, responseItems *[]map[string]interface{}) error {
 	formData, err := getForm(formID, false)
 	if err != nil {
 		return err
 	}
 	formItems := formData.Items
 	responseItemIndexes := map[int]bool{}
-	for _, responseItem := range responseItems {
+	for i, responseItem := range *responseItems {
 		formIndex, _ := responseItem["formIndex"].(int)
 		if formIndex >= len(formItems) || formIndex < 0 {
 			return errors.New("response index outside length of form")
@@ -759,7 +797,7 @@ func validateResponseItems(formID primitive.ObjectID, responseItems []map[string
 			if err != nil {
 				return errors.New("problem casting selected options to int array")
 			}
-			if !findInArray(questionType, itemTypesAllowMultipleOptions) && len(selectedOptions) > 0 {
+			if !findInArray(questionType, itemTypesAllowMultipleOptions) && len(selectedOptions) > 1 {
 				return errors.New("cannot select multiple options")
 			}
 			questionOptions := formItemObj.Options
@@ -776,16 +814,24 @@ func validateResponseItems(formID primitive.ObjectID, responseItems []map[string
 			if questionRequired && !foundOption {
 				return errors.New("cannot find a valid selected option")
 			}
-		} else if findInArray(questionType, itemTypesText) {
+		} else {
+			(*responseItems)[i]["options"] = bson.A{}
+		}
+		if findInArray(questionType, itemTypesText) {
 			// text input
 			if questionRequired && len(responseItem["text"].(string)) == 0 {
 				return errors.New("cannot find any text for response item")
 			}
-		} else if findInArray(questionType, itemTypesFile) {
+		} else {
+			(*responseItems)[i]["text"] = ""
+		}
+		if findInArray(questionType, itemTypesFile) {
 			// file input
 			if questionRequired && len(responseItem["files"].([]interface{})) == 0 {
 				return errors.New("cannot find any files for response item")
 			}
+		} else {
+			(*responseItems)[i]["files"] = bson.A{}
 		}
 		responseItemIndexes[formIndex] = true
 	}
