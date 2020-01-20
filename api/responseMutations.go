@@ -306,13 +306,15 @@ var responseMutationFields = graphql.Fields{
 				useAccessToken = true
 			}
 			var accessToken string
+			var userIDString string
 			var responseData *Response
 			if useAccessToken {
 				accessToken, ok = params.Args["accessToken"].(string)
 				if !ok {
 					return nil, errors.New("cannot cast access token to string")
 				}
-				tokenResponseIDString, _, _, err := getResponseEditTokenData(accessToken, editAccessLevel)
+				var tokenResponseIDString string
+				tokenResponseIDString, _, userIDString, err = getResponseEditTokenData(accessToken, editAccessLevel)
 				if err != nil {
 					return nil, err
 				}
@@ -333,6 +335,15 @@ var responseMutationFields = graphql.Fields{
 				if err != nil {
 					return nil, err
 				}
+				claims, err := getTokenData(accessToken)
+				if err != nil {
+					return nil, err
+				}
+				userIDString = claims["id"].(string)
+			}
+			userID, err := primitive.ObjectIDFromHex(userIDString)
+			if err != nil {
+				return nil, err
 			}
 			updateDataDB := bson.M{
 				"$set": bson.M{},
@@ -394,7 +405,7 @@ var responseMutationFields = graphql.Fields{
 				if err != nil {
 					return nil, err
 				}
-				if err = validateResponseItems(formID, &itemsUpdate); err != nil {
+				if err = validateResponseItems(formID, userID, true, &itemsUpdate); err != nil {
 					return nil, err
 				}
 				for _, itemUpdate := range itemsUpdate {
@@ -643,7 +654,7 @@ func addResponse(itemsInterface []interface{}, filesInterface []interface{}, for
 			return nil, err
 		}
 	}
-	if err = validateResponseItems(formID, &items); err != nil {
+	if err = validateResponseItems(formID, userID, false, &items); err != nil {
 		return nil, err
 	}
 	now := time.Now()
@@ -735,13 +746,30 @@ func deleteResponse(responseID primitive.ObjectID, response *Response) (int64, e
 	return bytesRemoved, nil
 }
 
-func validateResponseItems(formID primitive.ObjectID, responseItems *[]map[string]interface{}) error {
+func validateResponseItems(formID primitive.ObjectID, userID primitive.ObjectID, updating bool, responseItems *[]map[string]interface{}) error {
 	formData, err := getForm(formID, false)
 	if err != nil {
 		return err
 	}
-	if !formData.Multiple && formData.Responses == 1 {
-		return errors.New("cannot submit multiple responses")
+	if !formData.Multiple && !updating {
+		mustQueries := make([]elastic.Query, 2)
+		mustQueries[0] = elastic.NewTermsQuery("form", formID.Hex())
+		mustQueries[1] = elastic.NewTermQuery("user", userID.Hex())
+		query := elastic.NewBoolQuery()
+		if len(mustQueries) > 0 {
+			query = query.Must(mustQueries...)
+		}
+		count, err := elasticClient.Count().
+			Type(responseElasticType).
+			Query(query).
+			Pretty(false).
+			Do(ctxElastic)
+		if err != nil {
+			return err
+		}
+		if count != 0 {
+			return errors.New("cannot submit multiple responses")
+		}
 	}
 	formItems := formData.Items
 	responseItemIndexes := map[int]bool{}
