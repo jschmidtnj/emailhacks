@@ -438,9 +438,9 @@ var responseMutationFields = graphql.Fields{
 							// move to new index
 							newIndex := itemUpdate["newIndex"].(int)
 							delete(itemUpdate, "newIndex")
-							err = moveArray(responseData.Items, index, newIndex)
+							err = moveSliceResponseItems(responseData.Items, index, newIndex)
 							if err != nil {
-								logger.Info(err.Error())
+								return nil, err
 							}
 						} else if action == validUpdateArrayActions[3] {
 							// set index to value

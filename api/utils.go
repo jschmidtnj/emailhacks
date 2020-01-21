@@ -79,11 +79,29 @@ func findInArray(thetype string, arr []string) bool {
 	return false
 }
 
-func moveArray(arrInterface interface{}, from int, to int) error {
-	arr, ok := arrInterface.([]interface{})
-	if !ok {
-		return errors.New("cannot convert interface to array")
+func moveSliceFormItems(arr []*FormItem, from int, to int) error {
+	if from > len(arr)-1 || from < 0 || to > len(arr)-1 || to < 0 {
+		return errors.New("array index out of bounds")
 	}
+	if to == from {
+		return nil
+	}
+	movingValue := arr[from]
+	if from < to {
+		for i := from; i < to; i++ {
+			arr[i] = arr[i+1]
+		}
+		arr[to] = movingValue
+	} else {
+		for i := from; i > to; i-- {
+			arr[i] = arr[i-1]
+		}
+		arr[to] = movingValue
+	}
+	return nil
+}
+
+func moveSliceResponseItems(arr []*ResponseItem, from int, to int) error {
 	if from > len(arr)-1 || from < 0 || to > len(arr)-1 || to < 0 {
 		return errors.New("array index out of bounds")
 	}
