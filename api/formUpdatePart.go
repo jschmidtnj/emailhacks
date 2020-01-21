@@ -83,9 +83,9 @@ func updateForm(formIDString string) error {
 					// move to new index
 					newIndex := int(itemUpdate["newIndex"].(float64))
 					delete(itemUpdate, "newIndex")
-					err = moveArray(formData.Items, index, newIndex)
+					err = moveSliceFormItems(formData.Items, index, newIndex)
 					if err != nil {
-						logger.Info(err.Error())
+						return err
 					}
 				} else if action == validUpdateArrayActions[3] {
 					// set index to value
@@ -139,8 +139,31 @@ func updateForm(formIDString string) error {
 				}
 			}
 		}
-		updateDataDB["$set"].(bson.M)["files"] = formData.Files
-		updateDataElastic["files"] = formData.Files
+		fileData := make([]*FileDB, len(formData.Files))
+		for i := range formData.Files {
+			if err = mapstructure.Decode(formData.Files[i], &fileData[i]); err != nil {
+				return err
+			}
+		}
+		updateDataDB["$set"].(bson.M)["files"] = fileData
+		updateDataElastic["files"] = fileData
+	}
+	if formData.Responses > 0 {
+		// delete all previous responses (if there are any)
+		bytesRemoved, err := deleteAllResponses(formID)
+		if err != nil {
+			return err
+		}
+		ownerID, err := primitive.ObjectIDFromHex(formData.Owner)
+		if err != nil {
+			return err
+		}
+		if err = changeUserStorage(ownerID, -1*bytesRemoved); err != nil {
+			return err
+		}
+		formData.Responses = 0
+		updateDataElastic["responses"] = int64(0)
+		updateDataDB["$set"].(bson.M)["responses"] = int64(0)
 	}
 	updateDataElastic["updated"] = time.Now().Unix()
 	delete(updateDataElastic, "created")

@@ -386,22 +386,6 @@ var formQueryFields = graphql.Fields{
 				form.Categories = categories
 				form.Tags = tags
 			}
-			var deleteResponses = needEditAccess && form.Responses > 0
-			if deleteResponses {
-				// delete all previous responses (if there are any)
-				bytesRemoved, err := deleteAllResponses(formID)
-				if err != nil {
-					return nil, err
-				}
-				ownerID, err := primitive.ObjectIDFromHex(form.Owner)
-				if err != nil {
-					return nil, err
-				}
-				if err = changeUserStorage(ownerID, -1*bytesRemoved); err != nil {
-					return nil, err
-				}
-				form.Responses = 0
-			}
 			if err = getFileURLs(form, getFileOriginal, getFileBlur, getFilePlaceholder); err != nil {
 				return nil, err
 			}
@@ -434,22 +418,13 @@ var formQueryFields = graphql.Fields{
 					"views": 1,
 				},
 			}
-			var elasticUpdateScript string
-			if deleteResponses {
-				elasticUpdateScript = "ctx._source.views+=1; ctx._source.responses=0;"
-				updateDBData["$set"] = bson.M{
-					"responses": int64(0),
-				}
-			} else {
-				elasticUpdateScript = "ctx._source.views+=1;"
-			}
 			_, err = formCollection.UpdateOne(ctxMongo, bson.M{
 				"_id": formID,
 			}, updateDBData)
 			if err != nil {
 				return nil, err
 			}
-			script := elastic.NewScriptInline(elasticUpdateScript)
+			script := elastic.NewScriptInline("ctx._source.views+=1;")
 			_, err = elasticClient.Update().
 				Index(formElasticIndex).
 				Type(formElasticType).
@@ -504,6 +479,7 @@ func getFileURLs(form *Form, getFileOriginal bool, getFileBlur bool, getFilePlac
 }
 
 func deleteAllResponses(formID primitive.ObjectID) (int64, error) {
+	logger.Info("delete all responses")
 	formIDString := formID.Hex()
 	sourceContext := elastic.NewFetchSourceContext(true).Include("id")
 	mustQueries := []elastic.Query{
@@ -511,7 +487,7 @@ func deleteAllResponses(formID primitive.ObjectID) (int64, error) {
 	}
 	query := elastic.NewBoolQuery().Must(mustQueries...)
 	searchResult, err := elasticClient.Search().
-		Index(formElasticIndex).
+		Index(responseElasticIndex).
 		Query(query).
 		Pretty(isDebug()).
 		FetchSourceContext(sourceContext).
@@ -531,27 +507,6 @@ func deleteAllResponses(formID primitive.ObjectID) (int64, error) {
 			return 0, err
 		}
 		bytesRemoved += newBytesRemoved
-	}
-	_, err = elasticClient.Update().
-		Index(formElasticIndex).
-		Type(formElasticType).
-		Id(formIDString).
-		Doc(bson.M{
-			"responses": int64(0),
-		}).
-		Do(ctxElastic)
-	if err != nil {
-		return 0, err
-	}
-	_, err = formCollection.UpdateOne(ctxMongo, bson.M{
-		"_id": formID,
-	}, bson.M{
-		"$set": bson.M{
-			"responses": int64(0),
-		},
-	})
-	if err != nil {
-		return 0, err
 	}
 	return bytesRemoved, nil
 }

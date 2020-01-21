@@ -284,6 +284,7 @@
                                 v-else-if="item.files[0].uploaded"
                                 :href="getFileURL(index, 0)"
                                 :download="items[index].files[0].name"
+                                target="_blank"
                                 class="mt-2 mb-2"
                                 >Download</a
                               >
@@ -608,6 +609,7 @@ export default Vue.extend({
             }
           }
         })
+        // save before leave window
       }).catch(err => {
         this.$toasted.global.error({
           message: `found error: ${err.message}`
@@ -769,10 +771,16 @@ export default Vue.extend({
             delete item.updateAction
             delete item.index
             delete item.newIndex
+            let foundFiles = false
             for (const key in item) {
-              if (key === 'files' && (!item.files || item.files.length === 0))
-                continue
-              newItem[key] = item[key]
+              if (key === 'files' && this.items[index].files && this.items[index].files.length > 0) {
+                foundFiles = true
+              } else {
+                newItem[key] = item[key]
+              }
+            }
+            if (foundFiles) {
+              newItem.files = this.items[index].files
             }
             this.items[index] = newItem
             if (this.items[index].type === itemTypes[3].id) {
@@ -840,9 +848,7 @@ export default Vue.extend({
           if (updateAction === 'add' || updateAction === 'set') {
             this.items[itemIndex].files[fileIndex].uploaded = true
             if (this.checkImageType(file.type) || this.checkVideoType(file.type)) {
-              if (!this.items[itemIndex].files[fileIndex].src) {
-                this.getFileURLRequest(itemIndex, fileIndex)
-              }
+              this.getFileURLRequest(itemIndex, fileIndex)
             }
           }
         })
@@ -909,7 +915,9 @@ export default Vue.extend({
       }).then(res => {
         if (res.data.url) {
           this.items[itemIndex].files[fileIndex].src = res.data.url
-          this.$forceUpdate()
+          this.$nextTick(() => {
+            this.$forceUpdate()
+          })
         } else {
           const message = 'cannot find src url in response'
           this.$toasted.global.error({
@@ -1011,9 +1019,14 @@ export default Vue.extend({
         })
         .then(res => {
           if (res.status === 200) {
+            fileObj.name = ''
+            fileObj.width = null
+            fileObj.height = null
+            fileObj.type = ''
             fileObj.uploadProgress = 100
             fileObj.uploaded = true
             fileObj.id = res.data.id
+            fileObj.src = null
             this.updateFileSrc(itemIndex, fileIndex, true)
           } else {
             this.$toasted.global.error({
@@ -1029,6 +1042,7 @@ export default Vue.extend({
           this.$toasted.global.error({
             message
           })
+          fileObj.file = null
         })
     },
     updateFileSrc(itemIndex, fileIndex, justUploaded) {
@@ -1045,6 +1059,7 @@ export default Vue.extend({
         } else if (this.checkImageType(fileObj.type)) {
           this.updateImageSrc(itemIndex, fileIndex, justUploaded)
         } else {
+          this.$forceUpdate()
           this.setUpdates({
             items: [{
               updateAction: 'set',
@@ -1065,6 +1080,7 @@ export default Vue.extend({
       if (!fileObj.file) return
       const img = new Image()
       img.onload = () => {
+        this.$forceUpdate()
         fileObj.width = img.width
         fileObj.height = img.height
         this.setUpdates({
@@ -1209,6 +1225,7 @@ export default Vue.extend({
       }
       if (type.id === itemTypes[3].id) {
         this.items[itemIndex].type = type.id
+        this.$forceUpdate()
         this.$nextTick(() => {
           if (!this.editorContent.hasOwnProperty(itemIndex)) {
             this.editorContent[itemIndex] = this.$refs[`editor-${itemIndex}`][0]._data.editor.getHTML()
@@ -1218,22 +1235,24 @@ export default Vue.extend({
         this.deleteEditorData(itemIndex)
         this.items[itemIndex].text = ''
         this.items[itemIndex].type = type.id
-        if (type.id === itemTypes[7].id) {
-          if (this.validDisplayFiles.includes(this.items[itemIndex].files[0].type)) {
-            this.updateFileSrc(itemIndex, 0, false)
-          } else {
-            const fileObj = this.items[itemIndex].files[0]
-            if (fileObj.uploaded) {
-              this.deleteFile(itemIndex, 0)
-            }
-            this.items[itemIndex].files = [clone(defaultFile)]
+      }
+      if (type.id === itemTypes[7].id) {
+        if (this.validDisplayFiles.includes(this.items[itemIndex].files[0].type)) {
+          this.updateFileSrc(itemIndex, 0, false)
+        } else {
+          const fileObj = this.items[itemIndex].files[0]
+          if (fileObj.uploaded) {
+            this.deleteFile(itemIndex, 0)
           }
-        } else if (this.items[itemIndex].files[0].uploaded &&
-          type.id !== itemTypes[6].id &&
-          type.id !== itemTypes[5].id) {
-          // no file uploads
-          this.deleteFile(itemIndex, 0)
+          this.items[itemIndex].files = [clone(defaultFile)]
         }
+      } else if (this.items[itemIndex].files[0].uploaded &&
+        type.id !== itemTypes[6].id) {
+        // no file uploads
+        this.deleteFile(itemIndex, 0)
+      }
+      if (type.id !== itemTypes[3].id) {
+        this.$forceUpdate()
       }
       this.setUpdates({
         items: [{

@@ -194,6 +194,15 @@ var UpdateFileInputType = graphql.NewInputObject(
 	},
 )
 
+// FileDB object for saving to database
+type FileDB struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Width  int64  `json:"width"`
+	Height int64  `json:"height"`
+	Type   string `json:"type"`
+}
+
 // File object for giving user access
 type File struct {
 	ID             string `json:"id"`
