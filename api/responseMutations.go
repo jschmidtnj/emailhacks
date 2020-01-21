@@ -389,8 +389,14 @@ var responseMutationFields = graphql.Fields{
 						}
 					}
 				}
-				updateDataDB["$set"].(bson.M)["files"] = responseData.Files
-				updateDataElastic["files"] = responseData.Files
+				fileData := make([]*FileDB, len(responseData.Files))
+				for i := range responseData.Files {
+					if err = mapstructure.Decode(responseData.Files[i], &fileData[i]); err != nil {
+						return nil, err
+					}
+				}
+				updateDataDB["$set"].(bson.M)["files"] = fileData
+				updateDataElastic["files"] = fileData
 			}
 			formID, err := primitive.ObjectIDFromHex(responseData.Form)
 			if err != nil {

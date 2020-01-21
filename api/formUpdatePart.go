@@ -139,8 +139,14 @@ func updateForm(formIDString string) error {
 				}
 			}
 		}
-		updateDataDB["$set"].(bson.M)["files"] = formData.Files
-		updateDataElastic["files"] = formData.Files
+		fileData := make([]*FileDB, len(formData.Files))
+		for i := range formData.Files {
+			if err = mapstructure.Decode(formData.Files[i], &fileData[i]); err != nil {
+				return err
+			}
+		}
+		updateDataDB["$set"].(bson.M)["files"] = fileData
+		updateDataElastic["files"] = fileData
 	}
 	updateDataElastic["updated"] = time.Now().Unix()
 	delete(updateDataElastic, "created")

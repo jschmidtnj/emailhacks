@@ -50,9 +50,10 @@
                     <b-row>
                       <b-col>
                         <a
-                          v-if="items[index].file"
+                          v-if="item.files[0].src"
                           :href="getFileURL(index, 0, false)"
-                          :download="items[index].files[0].name"
+                          :download="item.files[0].name"
+                          target="_blank"
                           class="mt-2 mb-2"
                           >Download</a
                         >
@@ -106,18 +107,27 @@
                         name="red-green"
                         switch
                       />
-                      <b-form-file
-                        v-else-if="item.type === itemTypes[5]"
-                        :id="`item-${index}-file-upload`"
-                        v-model="item.responseItem.files[0].file"
-                        @input="updateFileSrc(index, 0)"
-                        @change="changedResponse(index)"
-                        :disabled="!canWrite"
-                        class="mt-2 mb-2"
-                        placeholder="Choose a file or drop it here..."
-                        drop-placeholder="Drop file here..."
-                        style="max-width:30rem;"
-                      />
+                      <div v-else-if="item.type === itemTypes[5]">
+                        <b-form-file
+                          :id="`item-${index}-file-upload`"
+                          v-model="item.responseItem.files[0].file"
+                          @input="updateFileSrc(index, 0)"
+                          @change="changedResponse(index)"
+                          :disabled="!canWrite"
+                          class="mt-2 mb-2"
+                          placeholder="Choose a file or drop it here..."
+                          drop-placeholder="Drop file here..."
+                          style="max-width:30rem;"
+                        />
+                        <a
+                          v-if="item.responseItem.files[0].file"
+                          :href="getFileURL(index, 0, true)"
+                          :download="item.files[0].name"
+                          target="_blank"
+                          class="mt-2 mb-2"
+                          >Download</a
+                        >
+                      </div>
                     </b-container>
                   </b-input-group>
                 </b-container>
@@ -184,7 +194,7 @@ const defaultItem = {
   text: '',
   required: false,
   files: [clone(defaultFile)],
-  responseItem: null
+  responseItem: clone(defaultResponseItem)
 }
 export default Vue.extend({
   name: 'ViewForm',
@@ -299,9 +309,7 @@ export default Vue.extend({
                 }
               }
             }
-            if (responseItemTypes.includes(currentItem.type)) {
-              currentItem.responseItem = clone(defaultResponseItem)
-            }
+            currentItem.responseItem = clone(defaultResponseItem)
           }
           this.updatesAccessToken = data.form.updatesAccessToken
           this.items = data.form.items
@@ -390,8 +398,6 @@ export default Vue.extend({
                 currentObj.updateAction = 'set'
                 this.items[itemIndex].responseItem = currentObj
               }
-              console.log('done getting items')
-              console.log(this.items[0])
               this.loading = false
               this.$forceUpdate()
             }).catch(err => {
@@ -502,10 +508,16 @@ export default Vue.extend({
             delete item.updateAction
             delete item.index
             delete item.newIndex
+            let foundFiles = false
             for (const key in item) {
-              if (key === 'files' && (!item.files || item.files.length === 0))
-                continue
-              newItem[key] = item[key]
+              if (key === 'files' && this.items[index].files && this.items[index].files.length > 0) {
+                foundFiles = true
+              } else {
+                newItem[key] = item[key]
+              }
+            }
+            if (foundFiles) {
+              newItem.files = this.items[index].files
             }
             this.items[index] = newItem
           } else if (item.updateAction === 'move') {
@@ -559,12 +571,10 @@ export default Vue.extend({
             }
           }
           if (updateAction === 'add' || updateAction === 'set') {
-            this.items[itemIndex].files[fileIndex].uploaded = true
-            if (this.checkImageType(file.type) || this.checkVideoType(file.type)) {
-              if (!this.items[itemIndex].files[fileIndex].src) {
-                this.getFileURLRequest(itemIndex, fileIndex, false)
-              }
-            }
+            const fileObj = this.items[itemIndex].files[fileIndex]
+            fileObj.uploaded = true
+            delete fileObj.originalSrc
+            this.getFileURLRequest(itemIndex, fileIndex, false)
           }
         })
       }
@@ -573,7 +583,7 @@ export default Vue.extend({
       }
     },
     getFileURLRequest(itemIndex, fileIndex, isResponse) {
-      const updateObj = isResponse ? this.items[itemIndex] : this.items[itemIndex].responseItem
+      const updateObj = isResponse ? this.items[itemIndex].responseItem : this.items[itemIndex]
       // update file src
       this.$axios.get('/getFile', {
         params: {
@@ -587,7 +597,9 @@ export default Vue.extend({
       }).then(res => {
         if (res.data.url) {
           updateObj.files[fileIndex].src = res.data.url
-          this.$forceUpdate()
+          this.$nextTick(() => {
+            this.$forceUpdate()
+          })
         } else {
           const message = 'cannot find src url in response'
           this.$toasted.global.error({
@@ -605,9 +617,14 @@ export default Vue.extend({
       })
     },
     getFileURL(itemIndex, fileIndex, isResponse) {
-      const dataObj = isResponse ? this.items[itemIndex] : this.items[itemIndex].responseItem
-      if (dataObj.files[fileIndex].src) {
-        return dataObj.files[fileIndex].src
+      if (!isResponse) {
+        if (this.items[itemIndex].files[fileIndex].src) {
+          return this.items[itemIndex].files[fileIndex].src
+        } else {
+          return ''
+        }
+      } else if (this.items[itemIndex].responseItem.files[fileIndex].src) {
+          return this.items[itemIndex].responseItem.files[fileIndex].src
       } else {
         return ''
       }
@@ -698,7 +715,7 @@ export default Vue.extend({
       const uploadFiles = () => {
         let foundFile = false
         for (let i = 0; i < this.items.length; i++) {
-          if (!this.items[i].responseItem) continue
+          if (!responseItemTypes.includes(this.items[i].type)) continue
           for (let j = 0; j < this.items[i].responseItem.files.length; j++) {
             const fileObj = this.items[i].files[j]
             if (!fileObj.file) continue
@@ -812,6 +829,9 @@ export default Vue.extend({
 </script>
 
 <style lang="scss">
+.sampleimage {
+  max-width: 30rem;
+}
 .separate-items {
   margin-top: 2rem;
   margin-bottom: 2rem;
