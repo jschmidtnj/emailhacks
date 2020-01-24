@@ -32,9 +32,6 @@ var AccountType = graphql.NewObject(graphql.ObjectConfig{
 		"email": &graphql.Field{
 			Type: graphql.String,
 		},
-		"password": &graphql.Field{
-			Type: graphql.String,
-		},
 		"created": &graphql.Field{
 			Type: graphql.Int,
 		},

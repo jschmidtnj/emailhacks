@@ -568,7 +568,6 @@ import VueMarkdown from 'vue-markdown'
 import Prism from 'prismjs'
 import { format } from 'date-fns'
 import uuid from 'uuid/v1'
-import axios from 'axios'
 import { Chrome } from 'vue-color'
 import LazyLoad from 'vanilla-lazyload'
 import { ObjectID } from 'bson'
@@ -926,13 +925,14 @@ export default Vue.extend({
           })
         }
         if (theblog.heroimage !== null) {
-          axios
+          this.$axios
             .get(
               `${cloudStorageURLs.static}/${
                 staticStorageIndexes.blogfiles
               }/${this.blogid}/${theblog.heroimage.id + this.paths.original}`,
               {
-                responseType: 'blob'
+                responseType: 'blob',
+                baseURL: ''
               }
             )
             .then(res => {
@@ -983,13 +983,14 @@ export default Vue.extend({
           }
         }
         if (theblog.tileimage !== null) {
-          axios
+          this.$axios
             .get(
               `${cloudStorageURLs.static}/${
                 staticStorageIndexes.blogfiles
               }/${this.blogid}/${theblog.tileimage.id + this.paths.original}`,
               {
-                responseType: 'blob'
+                responseType: 'blob',
+                baseURL: ''
               }
             )
             .then(res => {
@@ -1041,13 +1042,14 @@ export default Vue.extend({
         }
         const getImageFile = filedata => {
           if (!cont) return
-          axios
+          this.$axios
             .get(
               `${cloudStorageURLs.static}/${
                 staticStorageIndexes.blogfiles
               }/${this.blogid}/${filedata.id + this.paths.original}`,
               {
-                responseType: 'blob'
+                responseType: 'blob',
+                baseURL: ''
               }
             )
             .then(res => {

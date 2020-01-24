@@ -131,8 +131,18 @@ export const actions = {
                 account {
                   id
                   email
-                  type
                   emailverified
+                  type
+                  categories {
+                    name
+                    color
+                  }
+                  tags {
+                    name
+                    color
+                  }
+                  plan
+                  purchases
                 }
               }
             `,

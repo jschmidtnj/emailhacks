@@ -421,7 +421,9 @@
           </b-col>
         </b-row>
       </b-container>
-      <submit-modal :form-id="formId" :project-id="projectId" />
+      <b-modal ref="submit-content-modal" hide-footer size="xl" title="Preview">
+        <submit-modal :form-id="formId" :project-id="projectId" />
+      </b-modal>
     </div>
     <page-loading v-else :loading="true" />
   </div>

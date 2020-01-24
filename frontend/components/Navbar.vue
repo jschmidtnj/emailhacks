@@ -33,6 +33,11 @@
             Dashboard
           </b-nav-item>
         </nuxt-link>
+        <nuxt-link v-if="loggedIn" to="/checkout" class="no-underline">
+          <b-nav-item href="/checkout">
+            Checkout
+          </b-nav-item>
+        </nuxt-link>
       </b-navbar-nav>
       <b-navbar-nav v-if="loggedIn" class="ml-auto">
         <b-nav-item-dropdown right>
