@@ -155,19 +155,34 @@ module.exports = {
     'nuxt-webfontloader',
     '@nuxtjs/google-analytics',
     '@nuxtjs/apollo',
-    [
-      'nuxt-i18n',
-      {
-        seo: false, // defined in heads in layout
-        baseUrl: seodata.url,
-        locales: ['en', 'es'],
-        defaultLocale: 'en',
-        vueI18n: {
-          fallbackLocale: 'en'
-        }
-      }
-    ]
+    'nuxt-i18n'
   ],
+  /*
+   ** i8n config
+   */
+  i18n: {
+    seo: false, // defined in heads in layout
+    baseUrl: seodata.url,
+    locales: [
+      {
+        code: 'en',
+        iso: 'en-US'
+      },
+      {
+        code: 'es',
+        iso: 'es-ES'
+      }
+    ],
+    defaultLocale: 'en',
+    vueI18nLoader: true,
+    vueI18n: {
+      fallbackLocale: 'en',
+      messages: {
+        en: {},
+        es: {}
+      }
+    }
+  },
   /*
    ** apollo config
    */

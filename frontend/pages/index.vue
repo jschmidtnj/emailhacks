@@ -13,10 +13,8 @@ export default Vue.extend({
   data() {
     return {}
   },
-  i18n: {
-    messages: {
-      'en': require('~/locales/index/en.js')
-    }
+  beforeCreate() {
+    this.$i18n.setLocaleMessage(this.$i18n.locale, require(`~/locales/index/${this.$i18n.locale}`).default)
   },
   // @ts-ignore
   head() {
