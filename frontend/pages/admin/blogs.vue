@@ -136,7 +136,7 @@
                     <label class="form-required">Categories</label>
                     <span>
                       <client-only>
-                        <v-select
+                        <multiselect
                           v-model="blog.categories"
                           :options="categoryOptions"
                           :multiple="true"
@@ -163,7 +163,7 @@
                     <label class="form-required">Tags</label>
                     <span>
                       <client-only>
-                        <v-select
+                        <multiselect
                           v-model="blog.tags"
                           :options="tagOptions"
                           :multiple="true"
@@ -530,7 +530,7 @@
                     :to="`/blog/${data.value}`"
                     class="btn btn-primary btn-sm no-underline"
                   >
-                    {{ row.value }}
+                    {{ data.value }}
                   </nuxt-link>
                 </template>
                 <template v-slot:cell(actions)="data">
@@ -562,6 +562,7 @@
 
 <script lang="js">
 import Vue from 'vue'
+import Multiselect from 'vue-multiselect'
 import { validationMixin } from 'vuelidate'
 import { required, minLength } from 'vuelidate/lib/validators'
 import VueMarkdown from 'vue-markdown'
@@ -612,7 +613,8 @@ export default Vue.extend({
   layout: 'admin',
   components: {
     VueMarkdown,
-    'color-picker': Chrome
+    'color-picker': Chrome,
+    Multiselect
   },
   mixins: [validationMixin],
   // @ts-ignore
@@ -866,8 +868,9 @@ export default Vue.extend({
       const removedFile = this.blog.files[this.blog.files.length - 1]
       const finished = () => {
         this.blog.files.pop()
-        this.$toasted.global.success({
-          message: `removed file ${removedFile.id}`
+        this.$bvToast.toast(`removed file ${removedFile.id}`, {
+          variant: 'success',
+          title: 'Success'
         })
       }
       if (this.mode === this.modetypes.add || !removedFile.uploaded) {
@@ -887,8 +890,9 @@ export default Vue.extend({
             if (res.status === 200) {
               finished()
             } else {
-              this.$toasted.global.error({
-                message: `got status code of ${res.status} on file delete`
+              this.$bvToast.toast(`got status code of ${res.status} on file delete`, {
+                variant: 'danger',
+                title: 'Error'
               })
             }
           })
@@ -897,13 +901,15 @@ export default Vue.extend({
             if (err.response && err.response.data) {
               message = err.response.data.message
             }
-            this.$toasted.global.error({
-              message
+            this.$bvToast.toast(message, {
+              variant: 'danger',
+              title: 'Error'
             })
           })
       } else {
-        this.$toasted.global.error({
-          message: 'no name or id found, or mode type not edit'
+        this.$bvToast.toast('no name or id found, or mode type not edit', {
+          variant: 'danger',
+          title: 'Error'
         })
       }
     },
@@ -920,8 +926,9 @@ export default Vue.extend({
         const finishedGets = () => {
           this.mode = this.modetypes.edit
           this.blog = theblog
-          this.$toasted.global.success({
-            message: `edit blog with id ${this.blogid}`
+          this.$bvToast.toast(`edit blog with id ${this.blogid}`, {
+            variant: 'success',
+            title: 'Success'
           })
         }
         if (theblog.heroimage !== null) {
@@ -952,21 +959,24 @@ export default Vue.extend({
                     finishedGets()
                   }
                 } else {
-                  this.$toasted.global.error({
-                    message: 'could not get image data'
+                  this.$bvToast.toast('could not get image data', {
+                    variant: 'danger',
+                    title: 'Error'
                   })
                   cont = false
                 }
               } else {
-                this.$toasted.global.error({
-                  message: `got status code of ${res.status} on image upload`
+                this.$bvToast.toast(`got status code of ${res.status} on image upload`, {
+                  variant: 'danger',
+                  title: 'Error'
                 })
                 cont = false
               }
             })
             .catch(err => {
-              this.$toasted.global.error({
-                message: `got error on hero image get: ${err}`
+              this.$bvToast.toast(`got error on hero image get: ${err}`, {
+                variant: 'danger',
+                title: 'Error'
               })
               cont = false
             })
@@ -1010,21 +1020,24 @@ export default Vue.extend({
                     finishedGets()
                   }
                 } else {
-                  this.$toasted.global.error({
-                    message: 'could not get image data'
+                  this.$bvToast.toast('could not get image data', {
+                    variant: 'danger',
+                    title: 'Error'
                   })
                   cont = false
                 }
               } else {
-                this.$toasted.global.error({
-                  message: `got status code of ${res.status} on image download`
+                this.$bvToast.toast(`got status code of ${res.status} on image download`, {
+                  variant: 'danger',
+                  title: 'Error'
                 })
                 cont = false
               }
             })
             .catch(err => {
-              this.$toasted.global.error({
-                message: `got error on tile image get: ${err}`
+              this.$bvToast.toast(`got error on tile image get: ${err}`, {
+                variant: 'danger',
+                title: 'Error'
               })
               cont = false
             })
@@ -1068,21 +1081,24 @@ export default Vue.extend({
                     finishedGets()
                   }
                 } else {
-                  this.$toasted.global.error({
-                    message: 'could not get image data'
+                  this.$bvToast.toast('could not get image data', {
+                    variant: 'danger',
+                    title: 'Error'
                   })
                   cont = false
                 }
               } else {
-                this.$toasted.global.error({
-                  message: `got status code of ${res.status} on image download`
+                this.$bvToast.toast(`got status code of ${res.status} on image download`, {
+                  variant: 'danger',
+                  title: 'Error'
                 })
                 cont = false
               }
             })
             .catch(err => {
-              this.$toasted.global.error({
-                message: `got error on image get: ${err}`
+              this.$bvToast.toast(`got error on image get: ${err}`, {
+                variant: 'danger',
+                title: 'Error'
               })
               cont = false
             })
@@ -1159,8 +1175,9 @@ export default Vue.extend({
           getimages(theblog)
         }).catch(err => {
           console.error(err)
-          this.$toasted.global.error({
-            message: `found error: ${err.message}`
+          this.$bvToast.toast(`found error: ${err.message}`, {
+            variant: 'danger',
+            title: 'Error'
           })
         })
     },
@@ -1174,13 +1191,15 @@ export default Vue.extend({
             this.searchresults.indexOf(searchresult),
             1
           )
-          this.$toasted.global.success({
-            message: 'blog deleted'
+          this.$bvToast.toast('blog deleted', {
+            variant: 'success',
+            title: 'Success'
           })
         }).catch(err => {
           console.error(err)
-          this.$toasted.global.error({
-            message: `found error: ${err.message}`
+          this.$bvToast.toast(`found error: ${err.message}`, {
+            variant: 'danger',
+            title: 'Error'
           })
         })
     },
@@ -1204,15 +1223,17 @@ export default Vue.extend({
             }
           )
           this.searchresults = blogs
-          this.$toasted.global.success({
-            message: `found ${this.searchresults.length} result${
+          this.$bvToast.toast(`found ${this.searchresults.length} result${
               this.searchresults.length === 1 ? '' : 's'
-            }`
+            }`, {
+            variant: 'success',
+            title: 'Success'
           })
         }).catch(err => {
           console.error(err)
-          this.$toasted.global.error({
-            message: `found error: ${err.message}`
+          this.$bvToast.toast(`found error: ${err.message}`, {
+            variant: 'danger',
+            title: 'Error'
           })
         })
     },
@@ -1256,8 +1277,9 @@ export default Vue.extend({
           fileuploads.length
         let finished = false
         const successMessage = () => {
-          this.$toasted.global.success({
-            message: `${this.mode}ed blog with id ${blogid}`
+          this.$bvToast.toast(`${this.mode}ed blog with id ${blogid}`, {
+            variant: 'danger',
+            title: 'Error'
           })
           this.submitting = false
           this.resetblogs(evt)
@@ -1287,8 +1309,9 @@ export default Vue.extend({
                   successMessage()
                 }
               } else {
-                this.$toasted.global.error({
-                  message: `got status code of ${res.status} on file upload`
+                this.$bvToast.toast(`got status code of ${res.status} on file upload`, {
+                  variant: 'danger',
+                  title: 'Error'
                 })
                 cont = false
               }
@@ -1299,8 +1322,9 @@ export default Vue.extend({
                 message = err.response.data.message
               }
               console.log(message)
-              this.$toasted.global.error({
-                message
+              this.$bvToast.toast(message, {
+                variant: 'danger',
+                title: 'Error'
               })
             })
         }
@@ -1396,8 +1420,9 @@ export default Vue.extend({
             upload()
           }).catch(err => {
             console.error(err)
-            this.$toasted.global.error({
-              message: `found error: ${err.message}`
+            this.$bvToast.toast(`found error: ${err.message}`, {
+              variant: 'danger',
+              title: 'Error'
             })
           })
       } else {
@@ -1409,8 +1434,9 @@ export default Vue.extend({
             upload()
           }).catch(err => {
             console.error(err)
-            this.$toasted.global.error({
-              message: `found error: ${err.message}`
+            this.$bvToast.toast(`found error: ${err.message}`, {
+              variant: 'danger',
+              title: 'Error'
             })
           })
       }
@@ -1418,6 +1444,8 @@ export default Vue.extend({
   }
 })
 </script>
+
+<style src="vue-multiselect/dist/vue-multiselect.min.css"></style>
 
 <style lang="scss">
 @import '~/node_modules/prismjs/themes/prism.css';

@@ -31,9 +31,6 @@ var ProductType = graphql.NewObject(graphql.ObjectConfig{
 		"id": &graphql.Field{
 			Type: graphql.String,
 		},
-		"stripeid": &graphql.Field{
-			Type: graphql.String,
-		},
 		"name": &graphql.Field{
 			Type: graphql.String,
 		},
@@ -55,18 +52,15 @@ var ProductType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-func getProductFromUserData(userData map[string]interface{}) (*Product, error) {
+func getProductFromUserData(account *Account) (*Product, error) {
 	var useDefaultPlan = false
-	if userData["plan"] != nil {
-		plan, ok := userData["plan"].(string)
-		useDefaultPlan = !ok || len(plan) == 0
-	}
+	useDefaultPlan = len(account.Plan) == 0
 	var productData *Product
 	var err error
 	if useDefaultPlan {
 		productData, err = getProduct(primitive.NilObjectID, !isDebug())
 	} else {
-		productID, err := primitive.ObjectIDFromHex(userData["plan"].(string))
+		productID, err := primitive.ObjectIDFromHex(account.Plan)
 		if err != nil {
 			return nil, err
 		}
@@ -131,7 +125,7 @@ func getProduct(productID primitive.ObjectID, useCache bool) (*Product, error) {
 }
 
 // user purchase a product
-func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDString string, couponAmount int64, couponPercent bool, interval string, cardToken string) (map[string]interface{}, error) {
+func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDString string, couponAmount int64, couponPercent bool, interval string, cardToken string) (*Account, error) {
 	productData, err := getProduct(productID, !isDebug())
 	if err != nil {
 		return nil, err
@@ -155,22 +149,17 @@ func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDS
 	if !foundPlan {
 		return nil, errors.New("could not find plan")
 	}
-	userData, err := getAccount(userID, true)
+	account, err := getAccount(userID, true)
 	if err != nil {
 		return nil, err
 	}
 	userIDString := userID.Hex()
-	var userStripeID string
 	var newCustomer = true
-	if userData["stripeid"] != nil {
-		var ok bool
-		userStripeID, ok = userData["stripeid"].(string)
-		newCustomer = !ok || len(userStripeID) == 0
-	}
-	userEmail := userData["email"].(string)
+	var ok bool
+	newCustomer = !ok || len(account.StripeID) == 0
 	if newCustomer {
 		newCustomer, err := stripeClient.Customers.New(&stripe.CustomerParams{
-			Email: &userEmail,
+			Email: &account.Email,
 			Source: &stripe.SourceParams{
 				Token: &cardToken,
 			},
@@ -183,13 +172,10 @@ func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDS
 		if err != nil {
 			return nil, err
 		}
-		userStripeID = newCustomer.ID
-	} else if userData["subscriptionid"] != nil {
-		stripeSubscriptionID, ok := userData["subscriptionid"].(string)
-		if ok && len(stripeSubscriptionID) > 0 {
-			if _, err = stripeClient.Subscriptions.Cancel(stripeSubscriptionID, nil); err != nil {
-				return nil, err
-			}
+		account.StripeID = newCustomer.ID
+	} else if len(account.SubscriptionID) > 0 {
+		if _, err = stripeClient.Subscriptions.Cancel(account.SubscriptionID, nil); err != nil {
+			return nil, err
 		}
 	}
 	var newPlan string
@@ -199,7 +185,7 @@ func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDS
 	}
 	if interval != singlePurchase {
 		subscriptionParams := &stripe.SubscriptionParams{
-			Customer:              &userStripeID,
+			Customer:              &account.StripeID,
 			BillingCycleAnchorNow: stripe.Bool(true),
 			Items: []*stripe.SubscriptionItemsParams{&stripe.SubscriptionItemsParams{
 				Plan: &planIDString,
@@ -236,7 +222,7 @@ func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDS
 			}
 		}
 		_, err := stripeClient.Charges.New(&stripe.ChargeParams{
-			Customer: &userStripeID,
+			Customer: &account.StripeID,
 			Currency: &defaultCurrency,
 			Amount:   stripe.Int64(newPrice),
 			Source: &stripe.SourceParams{
@@ -254,7 +240,7 @@ func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDS
 		userUpdateData["$addToSet"].(bson.M)["purchases"] = productIDString
 	}
 	if newCustomer {
-		userUpdateData["$set"].(bson.M)["stripeid"] = userStripeID
+		userUpdateData["$set"].(bson.M)["stripeid"] = account.StripeID
 	}
 	// update user
 	_, err = userCollection.UpdateOne(ctxMongo, bson.M{
@@ -264,7 +250,7 @@ func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDS
 		return nil, err
 	}
 	if interval != singlePurchase {
-		userData["plan"] = newPlan
+		account.Plan = newPlan
 	}
-	return userData, nil
+	return account, nil
 }

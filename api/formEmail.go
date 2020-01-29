@@ -22,9 +22,15 @@ var FormEmailType = graphql.NewObject(graphql.ObjectConfig{
 
 var formEmailTemplate = template.Must(template.ParseFiles("templates/formEmail.html"))
 
-func getFormEmailData(form *Form) (string, error) {
+// SendEmailData send email object
+type SendEmailData struct {
+	Form  *Form  `json:"form"`
+	Email string `json:"email"`
+}
+
+func getFormEmailData(emailData *SendEmailData) (string, error) {
 	var templateData bytes.Buffer
-	err := formEmailTemplate.Execute(&templateData, form)
+	err := formEmailTemplate.Execute(&templateData, emailData)
 	if err != nil {
 		return "", err
 	}

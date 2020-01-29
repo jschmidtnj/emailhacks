@@ -152,6 +152,10 @@ var responseMutationFields = graphql.Fields{
 			"files": &graphql.ArgumentConfig{
 				Type: graphql.NewList(FileInputType),
 			},
+			"accessKey": &graphql.ArgumentConfig{
+				Type:        graphql.String,
+				Description: "sharable link key",
+			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			formIDString, ok := params.Args["id"].(string)
@@ -207,7 +211,14 @@ var responseMutationFields = graphql.Fields{
 				if err != nil {
 					return nil, err
 				}
-				formData, err := checkFormAccess(formID, accessToken, viewAccessLevel, false)
+				var accessKey = ""
+				if params.Args["accessKey"] != nil {
+					accessKey, ok = params.Args["accessKey"].(string)
+					if !ok {
+						return nil, errors.New("cannot cast access key to string")
+					}
+				}
+				formData, err := checkFormAccess(formID, accessToken, accessKey, viewAccessLevel, false)
 				if err != nil {
 					return nil, err
 				}

@@ -87,10 +87,6 @@ var validHexcode *regexp.Regexp
 
 var mainRecaptchaSecret string
 
-var shortlinkRecaptchaSecret string
-
-var shortlinkURL string
-
 var serviceEmail string
 
 var jwtIssuer string
@@ -299,8 +295,6 @@ func main() {
 		logger.Fatal(err.Error())
 	}
 	mainRecaptchaSecret = os.Getenv("MAINRECAPTCHASECRET")
-	shortlinkRecaptchaSecret = os.Getenv("SHORTLINKRECAPTCHASECRET")
-	shortlinkURL = os.Getenv("SHORTLINKURL")
 	stripeKey := os.Getenv("STRIPEKEY")
 	stripeClient = &client.API{}
 	stripeClient.Init(stripeKey, nil)

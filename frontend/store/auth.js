@@ -1,6 +1,8 @@
 import * as jwt from 'jsonwebtoken'
 import gql from 'graphql-tag'
+import { getCurrencyAbbreviation } from 'country-currency-map'
 // import { oauthConfig } from '~/assets/config'
+import { defaultCurrency, defaultCountry } from '~/assets/config'
 
 /**
  * authentication
@@ -9,6 +11,9 @@ import gql from 'graphql-tag'
 export const state = () => ({
   token: null,
   user: null,
+  country: defaultCountry,
+  currency: defaultCurrency,
+  exchangeRate: 1,
   loggedIn: false,
   redirectLogin: false
 })
@@ -17,10 +22,22 @@ export const getters = {
   token: (state) => state.token,
   user: (state) => state.user,
   loggedIn: (state) => state.loggedIn,
-  redirectLogin: (state) => state.redirectLogin
+  redirectLogin: (state) => state.redirectLogin,
+  country: (state) => state.country,
+  currency: (state) => state.currency,
+  exchangeRate: (state) => state.exchangeRate
 }
 
 export const mutations = {
+  setCountry(state, payload) {
+    state.country = payload
+  },
+  setCurrency(state, payload) {
+    state.currency = payload
+  },
+  setExchangeRate(state, payload) {
+    state.exchangeRate = payload
+  },
   setRedirectLogin(state, payload) {
     state.redirectLogin = payload
   },
@@ -29,6 +46,11 @@ export const mutations = {
   },
   setUser(state, payload) {
     state.user = payload
+  },
+  setPlan(state, payload) {
+    if (state.user) {
+      state.user.plan = payload
+    }
   },
   setLoggedIn(state, payload) {
     state.loggedIn = payload
@@ -41,6 +63,61 @@ export const mutations = {
 }
 
 export const actions = {
+  async setCountryGetData({ commit }, countryCode) {
+    return new Promise((resolve, reject) => {
+      const currencyCode = getCurrencyAbbreviation(countryCode)
+      this.$axios
+        .get('https://api.exchangeratesapi.io/latest', {
+          params: {
+            base: defaultCurrency,
+            symbols: currencyCode
+          },
+          baseURL: '',
+          headers: null
+        })
+        .then((res) => {
+          if (res.data) {
+            const exchangeRate = res.data.rates[currencyCode]
+            commit('setCountry', countryCode)
+            commit('setCurrency', currencyCode)
+            commit('setExchangeRate', exchangeRate)
+            resolve('got country and currency')
+          } else {
+            reject(new Error('cannot find exchange rate data'))
+          }
+        })
+        .catch((err) => {
+          reject(err)
+        })
+    })
+  },
+  async getCountry({ dispatch }) {
+    return new Promise((resolve, reject) => {
+      this.$axios
+        .get('https://www.cloudflare.com/cdn-cgi/trace', {
+          baseURL: '',
+          headers: null
+        })
+        .then((res) => {
+          if (res.data) {
+            const ipData = res.data.split('\n')
+            const countryCode = ipData[8].split('=')[1]
+            dispatch('setCountryGetData', countryCode)
+              .then((res) => {
+                resolve(res)
+              })
+              .catch((err) => {
+                reject(err)
+              })
+          } else {
+            reject(new Error('cannot get country data'))
+          }
+        })
+        .catch((err) => {
+          reject(err)
+        })
+    })
+  },
   checkLoggedIn({ state, commit }) {
     let res = true
     try {

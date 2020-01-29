@@ -26,6 +26,7 @@ type Form struct {
 	Items              []*FormItem `json:"items"`
 	Multiple           bool        `json:"multiple"`
 	Access             interface{} `json:"access"`
+	LinkAccess         *LinkAccess `json:"linkaccess"`
 	Public             string      `json:"public"`
 	Views              int64       `json:"Views"`
 	Tags               []string    `json:"tags"`
@@ -67,6 +68,9 @@ var FormType = graphql.NewObject(graphql.ObjectConfig{
 		},
 		"access": &graphql.Field{
 			Type: graphql.NewList(AccessType),
+		},
+		"linkaccess": &graphql.Field{
+			Type: LinkAccessType,
 		},
 		"public": &graphql.Field{
 			Type: graphql.String,
@@ -137,7 +141,7 @@ func getForm(formID primitive.ObjectID, updated bool) (*Form, error) {
 	return &form, nil
 }
 
-func checkFormAccess(formID primitive.ObjectID, accessToken string, necessaryAccess []string, updated bool) (*Form, error) {
+func checkFormAccess(formID primitive.ObjectID, accessToken string, accessKey string, necessaryAccess []string, updated bool) (*Form, error) {
 	form, err := getForm(formID, updated)
 	if err != nil {
 		return nil, err
@@ -153,6 +157,16 @@ func checkFormAccess(formID primitive.ObjectID, accessToken string, necessaryAcc
 	}
 	// admin can do anything
 	if claims["type"].(string) == adminType {
+		return form, nil
+	}
+	// check for valid key
+	if len(accessKey) > 0 {
+		if form.LinkAccess.Secret != accessKey {
+			return nil, errors.New("invalid access key")
+		}
+		if !findInArray(form.LinkAccess.Type, necessaryAccess) {
+			return nil, errors.New("you do not have the necessary access")
+		}
 		return form, nil
 	}
 	var userIDString = claims["id"].(string)

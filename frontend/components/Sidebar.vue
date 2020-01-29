@@ -11,21 +11,21 @@
         </li>
         <li class="nav-item">
           <a @click="navigationPath" href="#" class="nav-link">
-            {{ inProject ? 'Back' : 'All Projects' }}
+            {{ inResponse ? 'Responses' : 'Forms' }}
           </a>
         </li>
         <!--li class="nav-item">
-          <nuxt-link v-if="!inProject" to="/project" class="no-underline">
+          <nuxt-link to="/project" class="no-underline">
             <a class="nav-link">New Project</a>
           </nuxt-link>
         </li>
-        <li v-if="inProject && !inForm" class="nav-item">
-          <nuxt-link :to="`/project/${projectId}/form`" class="no-underline">
+        <li v-if="!inForm" class="nav-item">
+          <nuxt-link :to="`/form`" class="no-underline">
             <a class="nav-link">New Form</a>
           </nuxt-link>
         </li-->
-        <li v-if="!inProject" class="nav-item">
-          <nuxt-link v-if="!inProject" to="/responses" class="no-underline">
+        <li class="nav-item">
+          <nuxt-link to="/responses" class="no-underline">
             <a class="nav-link">All Responses</a>
           </nuxt-link>
         </li>
@@ -40,31 +40,16 @@ export default Vue.extend({
   name: 'Sidebar',
   data() {
     return {
-      projectPath: '/project/',
       formPath: '/form/',
       responsePath: '/response/'
     }
   },
   computed: {
-    inProject() {
-      return this.$nuxt.$route.path.includes(this.projectPath)
-    },
     inForm() {
       return this.$nuxt.$route.path.includes(this.formPath)
     },
     inResponse() {
       return this.$nuxt.$route.path.includes(this.responsePath)
-    },
-    projectId() {
-      const projectPathIndex = this.$route.path.indexOf(this.projectPath)
-      if (projectPathIndex < 0)
-        return null
-      const after = this.$route.path.substring(projectPathIndex + this.projectPath.length)
-      const extraIndex = after.indexOf('/')
-      if (extraIndex > 0) {
-        return after.substring(0, extraIndex)
-      }
-      return after
     },
     formId() {
       const formPathIndex = this.$route.path.indexOf(this.formPath)
@@ -82,11 +67,9 @@ export default Vue.extend({
     navigationPath(evt) {
       evt.preventDefault()
       if (this.inResponse) {
-        this.$router.push({ path: `/project/${this.projectId}/form/${this.formId}/responses` })
-      } else if (this.inForm) {
-        this.$router.push({ path: `/project/${this.projectId}` })
+        this.$router.push({ path: `form/${this.formId}/responses` })
       } else {
-        this.$router.push({ path: '/projects' })
+        this.$router.push({ path: '/dashboard' })
       }
     }
   }

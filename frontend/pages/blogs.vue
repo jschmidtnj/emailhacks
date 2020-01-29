@@ -253,18 +253,21 @@ export default Vue.extend({
               if (res.data.count !== null) {
                 this.totalRows = res.data.count
               } else {
-                this.$toasted.global.error({
-                  message: 'could not find count data'
+                this.$bvToast.toast('could not find count data', {
+                  variant: 'danger',
+                  title: 'Error'
                 })
               }
             } else {
-              this.$toasted.global.error({
-                message: 'could not get data'
+              this.$bvToast.toast('could not get data', {
+                variant: 'danger',
+                title: 'Error'
               })
             }
           } else {
-            this.$toasted.global.error({
-              message: `status code of ${res.status}`
+            this.$bvToast.toast(`status code of ${res.status}`, {
+              variant: 'danger',
+              title: 'Error'
             })
           }
         })
@@ -273,8 +276,9 @@ export default Vue.extend({
           if (err.response && err.response.data) {
             message = err.response.data.message
           }
-          this.$toasted.global.error({
-            message
+          this.$bvToast.toast(message, {
+            variant: 'danger',
+            title: 'Error'
           })
         })
     },
@@ -317,8 +321,9 @@ export default Vue.extend({
             this.items = blogs
           }).catch(err => {
             console.error(err)
-            this.$toasted.global.error({
-              message: `found error: ${err.message}`
+            this.$bvToast.toast(`found error: ${err.message}`, {
+              variant: 'danger',
+              title: 'Error'
             })
           })
     },

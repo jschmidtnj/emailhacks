@@ -33,9 +33,38 @@
             Dashboard
           </b-nav-item>
         </nuxt-link>
-        <nuxt-link v-if="loggedIn" to="/checkout" class="no-underline">
+        <multiselect
+          v-if="loggedIn"
+          v-model="project"
+          :options="projectOptions"
+          :multiple="false"
+          :taggable="false"
+          :searchable="true"
+          :loading="loadingProjects"
+          :internal-search="false"
+          :clear-on-select="false"
+          @search-change="searchProject"
+          @select="changeProject"
+          label="name"
+        />
+        <b-nav-item
+          v-if="loggedIn && upgrade"
+          @click="showUpgrade"
+          class="no-underline"
+          href="#"
+        >
+          Upgrade
+        </b-nav-item>
+        <nuxt-link
+          v-if="loggedIn && hasCartItems"
+          to="/checkout"
+          class="no-underline"
+        >
           <b-nav-item href="/checkout">
-            Checkout
+            <client-only>
+              <font-awesome-icon size="sm" icon="share" />
+            </client-only>
+            Cart
           </b-nav-item>
         </nuxt-link>
       </b-navbar-nav>
@@ -55,22 +84,87 @@
         </b-nav-item-dropdown>
       </b-navbar-nav>
     </b-collapse>
+    <plans-modal ref="plans-modal" v-if="loggedIn" />
   </b-navbar>
 </template>
 
 <script lang="js">
 import Vue from 'vue'
+import gql from 'graphql-tag'
+import Multiselect from 'vue-multiselect'
+import { plans } from '~/assets/config'
+import PlansModal from '~/components/PlansModal.vue'
+const defaultPerPage = 10
+const defaultSortBy = 'name'
 export default Vue.extend({
   name: 'Navbar',
+  components: {
+    PlansModal,
+    Multiselect
+  },
   data() {
-    return {}
+    return {
+      project: this.$store.state.project.project,
+      projectOptions: [],
+      loadingProjects: false,
+      firstTime: true
+    }
   },
   computed: {
     loggedIn() {
       return this.$store.state.auth && this.$store.state.auth.loggedIn
+    },
+    upgrade() {
+      return !this.$store.state.auth.user.plan || this.$store.state.auth.user.plan === plans[0]
+    },
+    hasCartItems() {
+      return this.$store.state.purchase.plan || this.$store.state.purchase.products.length > 0
     }
   },
   methods: {
+    searchProject(searchterm) {
+      this.loadingProjects = true
+      this.$apollo.query({
+          query: gql`
+            query projects($perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!, $tags: [String!]!, $categories: [String!]!) {
+              projects(perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending, tags: $tags, categories: $categories) {
+                id
+                name
+              }
+            }
+          `,
+          variables: {perpage: defaultPerPage, page: 0, searchterm, sort: defaultSortBy, ascending: false, tags: [], categories: []},
+          fetchPolicy: 'network-only'
+        })
+        .then(({ data }) => {
+          this.projectOptions = data.projects
+          this.loadingProjects = false
+        })
+        .catch((err) => {
+          console.error(err)
+          this.$bvToast.toast(err.message, {
+            variant: 'danger',
+            title: 'Error'
+          })
+          this.projectOptions = []
+          this.loadingProjects = false
+        })
+    },
+    changeProject(selectedProject) {
+      this.$store.commit('project/setProject', selectedProject.id)
+    },
+    showUpgrade(evt) {
+      evt.preventDefault()
+      console.log('upgrade!')
+      if (this.$refs['plans-modal']) {
+        this.$refs['plans-modal'].show()
+      } else {
+        this.$bvToast.toast('cannot find plans modal', {
+          variant: 'danger',
+          title: 'Error'
+        })
+      }
+    },
     logout(evt) {
       evt.preventDefault()
       this.$store.dispatch('auth/logout').then(() => {
@@ -87,8 +181,9 @@ export default Vue.extend({
           })
         }
       }).catch(err => {
-        this.$toasted.global.error({
-          message: err
+        this.$bvToast.toast(err, {
+          variant: 'danger',
+          title: 'Error'
         })
       })
 
@@ -96,5 +191,7 @@ export default Vue.extend({
   }
 })
 </script>
+
+<style src="vue-multiselect/dist/vue-multiselect.min.css"></style>
 
 <style lang="scss"></style>

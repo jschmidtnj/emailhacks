@@ -1,11 +1,6 @@
 <template>
   <b-container class="mt-4">
-    <create
-      v-if="projectId && formId"
-      :form-id="formId"
-      :project-id="projectId"
-      :get-initial-data="true"
-    />
+    <create v-if="formId" :form-id="formId" :get-initial-data="true" />
   </b-container>
 </template>
 
@@ -47,13 +42,11 @@ export default Vue.extend({
   },
   data() {
     return {
-      projectId: null,
       formId: null
     }
   },
   mounted() {
-    if (this.$route.params && this.$route.params.projectId && this.$route.params.formId) {
-      this.projectId = this.$route.params.projectId
+    if (this.$route.params && this.$route.params.formId) {
       this.formId = this.$route.params.formId
     } else {
       this.$nuxt.error({

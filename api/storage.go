@@ -294,7 +294,8 @@ func writeFile(c *gin.Context) {
 		handleError("invalid post id found", http.StatusBadRequest, response)
 		return
 	}
-	ownerID, err := validateStorageEditRequest(request, postIDObj, posttype)
+	accessKey := request.URL.Query().Get("accesskey")
+	ownerID, err := validateStorageEditRequest(request, postIDObj, posttype, accessKey)
 	if err != nil {
 		handleError(err.Error(), http.StatusBadRequest, response)
 		return
@@ -321,18 +322,17 @@ func writeFile(c *gin.Context) {
 	}
 	defer file.Close()
 	if posttype == responseType || posttype == formType {
-		userData, err := getAccount(ownerID, false)
+		account, err := getAccount(ownerID, false)
 		if err != nil {
 			handleError(err.Error(), http.StatusBadRequest, response)
 			return
 		}
-		usedStorage := userData["storage"].(int64)
-		productData, err := getProductFromUserData(userData)
+		productData, err := getProductFromUserData(account)
 		if err != nil {
 			handleError(err.Error(), http.StatusUnauthorized, response)
 			return
 		}
-		storageRemaining := int64(productData.MaxStorage) - usedStorage
+		storageRemaining := int64(productData.MaxStorage) - account.Storage
 		if fileHeader.Size > int64(storageRemaining) {
 			handleError("not enough storage remaining", http.StatusBadRequest, response)
 			return
@@ -498,19 +498,20 @@ func deleteFiles(c *gin.Context) {
 		handleError("invalid post id found", http.StatusBadRequest, response)
 		return
 	}
-	if posttype == formType {
-		_, err = checkFormAccess(postIDObj, authToken, editAccessLevel, false)
-		if err != nil {
-			handleError(err.Error(), http.StatusBadRequest, response)
-			return
-		}
-	}
 	fileids, ok := filedata["fileids"].([]interface{})
 	if !ok {
 		handleError("file ids cannot be cast to interface array", http.StatusBadRequest, response)
 		return
 	}
-	ownerID, err := validateStorageEditRequest(request, postIDObj, posttype)
+	var accessKey = ""
+	if filedata["accesskey"] != nil {
+		accessKey, ok = filedata["accesskey"].(string)
+		if ok {
+			handleError("cannot cast access key to string", http.StatusBadRequest, response)
+			return
+		}
+	}
+	ownerID, err := validateStorageEditRequest(request, postIDObj, posttype, accessKey)
 	if err != nil {
 		handleError(err.Error(), http.StatusBadRequest, response)
 		return
@@ -553,7 +554,7 @@ func changeUserStorage(ownerID primitive.ObjectID, amountChange int64) error {
 	return nil
 }
 
-func validateStorageEditRequest(request *http.Request, postID primitive.ObjectID, posttype string) (primitive.ObjectID, error) {
+func validateStorageEditRequest(request *http.Request, postID primitive.ObjectID, posttype string, accessKey string) (primitive.ObjectID, error) {
 	accessToken := request.URL.Query().Get("updateToken")
 	postIDString := postID.Hex()
 	var ownerString string
@@ -583,7 +584,7 @@ func validateStorageEditRequest(request *http.Request, postID primitive.ObjectID
 			if posttype == blogType {
 				return primitive.NilObjectID, errors.New("you need to be admin to edit blogs")
 			} else if posttype == formType {
-				formData, err := checkFormAccess(postID, accessToken, editAccessLevel, false)
+				formData, err := checkFormAccess(postID, accessToken, accessKey, editAccessLevel, false)
 				if err != nil {
 					return primitive.NilObjectID, err
 				}
@@ -661,11 +662,12 @@ func getFile(c *gin.Context) {
 		handleError("error getting file type from query", http.StatusBadRequest, response)
 		return
 	}
+	accessKey := request.URL.Query().Get("accesskey")
 	updateToken := request.URL.Query().Get("updateToken")
 	if posttype == formType {
 		if updateToken == "" {
 			accessToken := getAuthToken(request)
-			_, err := checkFormAccess(postIDObj, accessToken, viewAccessLevel, false)
+			_, err := checkFormAccess(postIDObj, accessToken, accessKey, viewAccessLevel, false)
 			if err != nil {
 				handleError("no form access: "+err.Error(), http.StatusUnauthorized, response)
 				return

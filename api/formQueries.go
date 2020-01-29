@@ -10,6 +10,7 @@ import (
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/language/ast"
 	json "github.com/json-iterator/go"
+	"github.com/mitchellh/mapstructure"
 	"github.com/olivere/elastic/v7"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -31,6 +32,14 @@ var formQueryFields = graphql.Fields{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
+			"accessKey": &graphql.ArgumentConfig{
+				Type:        graphql.String,
+				Description: "sharable link key",
+			},
+			"email": &graphql.ArgumentConfig{
+				Type:        graphql.String,
+				Description: "email to send to",
+			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			accessToken := params.Context.Value(tokenKey).(string)
@@ -49,14 +58,31 @@ var formQueryFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			form, err := checkFormAccess(formID, accessToken, viewAccessLevel, false)
+			if params.Args["email"] == nil {
+				return nil, errors.New("no email argument provided")
+			}
+			email, ok := params.Args["email"].(string)
+			if !ok {
+				return nil, errors.New("cannot cast email to string")
+			}
+			var accessKey = ""
+			if params.Args["accessKey"] != nil {
+				accessKey, ok = params.Args["accessKey"].(string)
+				if !ok {
+					return nil, errors.New("cannot cast access key to string")
+				}
+			}
+			form, err := checkFormAccess(formID, accessToken, accessKey, viewAccessLevel, false)
 			if err != nil {
 				return nil, err
 			}
 			if err = getFileURLs(form, true, true, true); err != nil {
 				return nil, err
 			}
-			formEmail, err := getFormEmailData(form)
+			formEmail, err := getFormEmailData(&SendEmailData{
+				Form:  form,
+				Email: email,
+			})
 			if err != nil {
 				return nil, err
 			}
@@ -95,6 +121,10 @@ var formQueryFields = graphql.Fields{
 			"tags": &graphql.ArgumentConfig{
 				Type: graphql.NewList(graphql.String),
 			},
+			"accessKey": &graphql.ArgumentConfig{
+				Type:        graphql.String,
+				Description: "sharable link key for project",
+			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			// see this: https://github.com/olivere/elastic/issues/483
@@ -122,7 +152,14 @@ var formQueryFields = graphql.Fields{
 					if err != nil {
 						return nil, err
 					}
-					_, accessType, err := checkProjectAccess(projectID, accessToken, "", viewAccessLevel, false)
+					var accessKey = ""
+					if params.Args["accessKey"] != nil {
+						accessKey, ok = params.Args["accessKey"].(string)
+						if !ok {
+							return nil, errors.New("cannot cast access key to string")
+						}
+					}
+					_, accessType, err := checkProjectAccess(projectID, accessToken, accessKey, viewAccessLevel, false)
 					if err != nil {
 						return nil, err
 					}
@@ -188,7 +225,7 @@ var formQueryFields = graphql.Fields{
 				}
 				fields[i] = fieldast.Name.Value
 			}
-			var forms []map[string]interface{}
+			var forms []*Form
 			if len(fields) > 0 {
 				sourceContext := elastic.NewFetchSourceContext(true).Include(fields...)
 				var numtags = len(tags)
@@ -226,7 +263,7 @@ var formQueryFields = graphql.Fields{
 				if err != nil {
 					return nil, err
 				}
-				forms = make([]map[string]interface{}, len(searchResult.Hits.Hits))
+				forms = make([]*Form, len(searchResult.Hits.Hits))
 				for i, hit := range searchResult.Hits.Hits {
 					if hit.Source == nil {
 						return nil, errors.New("no hit source found")
@@ -240,18 +277,30 @@ var formQueryFields = graphql.Fields{
 					if err != nil {
 						return nil, err
 					}
-					createdTimestamp := objectidTimestamp(id)
-					formData["created"] = createdTimestamp.Unix()
-					formData["id"] = id.Hex()
-					delete(formData, "_id")
-					access, tags, categories, err := getFormattedAccessGQLData(formData["access"], nil, userIDString)
+					var currentForm Form
+					if err = mapstructure.Decode(formData, &currentForm); err != nil {
+						return nil, err
+					}
+					currentForm.ID = id.Hex()
+					currentForm.Created = objectidTimestamp(id).Unix()
+					access, tags, categories, currentAccessType, err := getFormattedAccessGQLData(currentForm.Access, nil, userIDString)
 					if err != nil {
 						return nil, err
 					}
-					formData["access"] = access
-					formData["categories"] = categories
-					formData["tags"] = tags
-					forms[i] = formData
+					needEditAccessLevelForLink := findInArray(currentForm.LinkAccess.Type, editAccessLevel)
+					necessaryAccessLevel := viewAccessLevel
+					if needEditAccessLevelForLink {
+						necessaryAccessLevel = editAccessLevel
+					}
+					if !findInArray(currentAccessType, necessaryAccessLevel) {
+						currentForm.LinkAccess = nil
+						currentForm.Access = nil
+					} else {
+						currentForm.Access = access
+					}
+					currentForm.Categories = categories
+					currentForm.Tags = tags
+					forms[i] = &currentForm
 				}
 			}
 			return forms, nil
@@ -270,6 +319,10 @@ var formQueryFields = graphql.Fields{
 			"accessToken": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
+			"accessKey": &graphql.ArgumentConfig{
+				Type:        graphql.String,
+				Description: "sharable link key",
+			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			if params.Args["id"] == nil {
@@ -282,6 +335,13 @@ var formQueryFields = graphql.Fields{
 			formID, err := primitive.ObjectIDFromHex(formIDString)
 			if err != nil {
 				return nil, err
+			}
+			var accessKey = ""
+			if params.Args["accessKey"] != nil {
+				accessKey, ok = params.Args["accessKey"].(string)
+				if !ok {
+					return nil, errors.New("cannot cast access key to string")
+				}
 			}
 			var getFormUpdateToken = false
 			var getFileOriginal = false
@@ -363,7 +423,7 @@ var formQueryFields = graphql.Fields{
 			}
 			var form *Form
 			if !useAccessToken {
-				form, err = checkFormAccess(formID, accessToken, necessaryAccessLevel, false)
+				form, err = checkFormAccess(formID, accessToken, accessKey, necessaryAccessLevel, false)
 				if err != nil {
 					return nil, err
 				}
@@ -378,11 +438,21 @@ var formQueryFields = graphql.Fields{
 				form.Categories = []string{}
 				form.Tags = []string{}
 			} else {
-				access, tags, categories, err := getFormattedAccessGQLData(form.Access, nil, userIDString)
+				access, tags, categories, currentAccessType, err := getFormattedAccessGQLData(form.Access, nil, userIDString)
 				if err != nil {
 					return nil, err
 				}
-				form.Access = access
+				needEditAccessLevelForLink := findInArray(form.LinkAccess.Type, editAccessLevel)
+				necessaryAccessLevelForLink := viewAccessLevel
+				if needEditAccessLevelForLink {
+					necessaryAccessLevelForLink = editAccessLevel
+				}
+				if !findInArray(currentAccessType, necessaryAccessLevelForLink) {
+					form.LinkAccess = nil
+					form.Access = nil
+				} else {
+					form.Access = access
+				}
 				form.Categories = categories
 				form.Tags = tags
 			}

@@ -173,7 +173,7 @@ import css from 'highlight.js/lib/languages/css'
 import go from 'highlight.js/lib/languages/go'
 import java from 'highlight.js/lib/languages/java'
 import cpp from 'highlight.js/lib/languages/cpp'
-import Emoji from '~/components/form/Emoji'
+import Emoji from '~/assets/Emoji'
 // tried to get emojis working, following this:
 // https://github.com/scrumpy/tiptap/blob/master/examples/Components/Routes/Suggestions/index.vue
 // turns out the tooltip doesn't want to work:

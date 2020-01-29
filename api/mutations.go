@@ -9,23 +9,29 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func getFormattedAccessGQLData(currentAccess interface{}, changedAccess []map[string]interface{}, userIDString string) ([]*Access, []string, []string, error) {
+func getFormattedAccessGQLData(currentAccess interface{}, changedAccess []map[string]interface{}, userIDString string) ([]*Access, []string, []string, string, error) {
 	if currentAccess == nil || len(userIDString) == 0 {
-		return []*Access{}, []string{}, []string{}, nil
+		return []*Access{}, []string{}, []string{}, "", nil
 	}
 	userData := currentAccess.(map[string]bson.M)[userIDString]
 	tags := []string{}
 	categories := []string{}
+	var accessType string
 	if userData != nil {
 		// you're not an admin
 		var err error
 		tags, err = interfaceListToStringList(userData["tags"].(bson.A))
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, "", err
 		}
 		categories, err = interfaceListToStringList(userData["categories"].(bson.A))
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, "", err
+		}
+		var ok bool
+		accessType, ok = userData["type"].(string)
+		if !ok {
+			return nil, nil, nil, "", err
 		}
 	}
 	newAccessMap := make(map[string]*Access, len(currentAccess.(map[string]bson.M)))
@@ -52,7 +58,7 @@ func getFormattedAccessGQLData(currentAccess interface{}, changedAccess []map[st
 		}
 		i++
 	}
-	return newAccess, tags, categories, nil
+	return newAccess, tags, categories, accessType, nil
 }
 
 func checkAccessObj(accessObj map[string]interface{}) error {

@@ -170,6 +170,19 @@ func register(c *gin.Context) {
 		"subscriptionid": "",
 		"purchases":      bson.A{},
 		"storage":        int64(0),
+		"billing": bson.M{
+			"firstname": "",
+			"lastname":  "",
+			"company":   "",
+			"address1":  "",
+			"address2":  "",
+			"city":      "",
+			"state":     "",
+			"zip":       "",
+			"country":   "",
+			"phone":     "",
+			"email":     "",
+		},
 	})
 	if err != nil {
 		handleError("error inserting user to database: "+err.Error(), http.StatusBadRequest, response)

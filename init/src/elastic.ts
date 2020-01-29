@@ -71,6 +71,17 @@ export const formMappings = {
     access: {
       type: 'object'
     },
+    linkaccess: {
+      shortlink: {
+        type: 'keyword'
+      },
+      secret: {
+        type: 'keyword'
+      },
+      type: {
+        type: 'keyword'
+      }
+    },
     views: {
       type: 'integer'
     },
@@ -110,6 +121,17 @@ export const projectMappings = {
     },
     access: {
       type: 'object'
+    },
+    linkaccess: {
+      shortlink: {
+        type: 'keyword'
+      },
+      secret: {
+        type: 'keyword'
+      },
+      type: {
+        type: 'keyword'
+      }
     },
     views: {
       type: 'integer'

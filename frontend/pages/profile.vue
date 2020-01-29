@@ -8,17 +8,22 @@
     <b-btn @click="deleteAccount">
       Delete
     </b-btn>
+    <organize-edit />
   </b-card>
 </template>
 
 <script lang="js">
 import Vue from 'vue'
 import gql from 'graphql-tag'
+import OrganizeEdit from '~/components/profile/OrganizeEdit.vue'
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({
   // @ts-ignore
   layout: 'secure',
+  components: {
+    OrganizeEdit
+  },
   // @ts-ignore
   head() {
     const title = 'Account'
@@ -58,8 +63,9 @@ export default Vue.extend({
           path: '/login'
         })
       }).catch(err => {
-        this.$toasted.global.error({
-          message: err
+        this.$bvToast.toast(err, {
+          variant: 'danger',
+          title: 'Error'
         })
       })
     },
@@ -69,16 +75,18 @@ export default Vue.extend({
         mutation deleteAccount(){deleteAccount(){id}}
         `, variables: {}})
         .then(({ data }) => {
-          this.$toasted.global.success({
-            message: 'account deleted'
+          this.$bvToast.toast('account deleted', {
+            variant: 'success',
+            title: 'Success'
           })
           this.$router.push({
             path: '/login'
           })
         }).catch(err => {
           console.error(err)
-          this.$toasted.global.error({
-            message: `found error: ${err.message}`
+          this.$bvToast.toast(`found error: ${err.message}`, {
+            variant: 'danger',
+            title: 'Error'
           })
         })
     }

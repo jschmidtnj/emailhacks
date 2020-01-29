@@ -100,9 +100,7 @@
       <template v-slot:cell(actions)="data">
         <nuxt-link
           :to="
-            `/project/${projectId ? projectId : data.item.project}/form/${
-              formId ? formId : data.item.form
-            }/response/${data.item.id}`
+            `form/${formId ? formId : data.item.form}/response/${data.item.id}`
           "
           class="btn btn-primary btn-sm no-underline"
         >
@@ -110,7 +108,11 @@
             $store.state.auth.user.id === data.item.user ? ' + Edit' : ''
           }}
         </nuxt-link>
-        <b-button @click="deleteResponse(data.item)" size="sm">
+        <b-button
+          v-if="editAccess"
+          @click="deleteResponse(data.item)"
+          size="sm"
+        >
           Delete
         </b-button>
       </template>
@@ -132,8 +134,8 @@
       </b-col>
     </b-row>
     <nuxt-link
-      v-if="projectId && formId"
-      :to="`/project/${projectId}/form/${formId}/view`"
+      v-if="formId"
+      :to="`form/${formId}/view`"
       class="btn btn-primary btn-sm no-underline mt-4"
     >
       Create New Response
@@ -145,6 +147,7 @@
 import Vue from 'vue'
 import { formatRelative } from 'date-fns'
 import gql from 'graphql-tag'
+// Advanced search for responses
 export default Vue.extend({
   name: 'Responses',
   layout: 'secure',
@@ -153,9 +156,9 @@ export default Vue.extend({
       type: String,
       default: null
     },
-    projectId: {
-      type: String,
-      default: null
+    editAccess: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
@@ -234,13 +237,15 @@ export default Vue.extend({
         `, variables: {id: response.id}})
         .then(({ data }) => {
           this.items.splice(this.items.indexOf(response), 1)
-          this.$toasted.global.success({
-            message: 'response deleted'
+          this.$bvToast.toast('response deleted', {
+            variant: 'success',
+            title: 'Success'
           })
         }).catch(err => {
           console.error(err)
-          this.$toasted.global.error({
-            message: `found error: ${err.message}`
+          this.$bvToast.toast(`found error: ${err.message}`, {
+            variant: 'danger',
+            title: 'Error'
           })
         })
     },
@@ -263,18 +268,21 @@ export default Vue.extend({
               if (res.data.count !== null) {
                 this.totalRows = res.data.count
               } else {
-                this.$toasted.global.error({
-                  message: 'could not find count data'
+                this.$bvToast.toast('could not find count data', {
+                  variant: 'danger',
+                  title: 'Error'
                 })
               }
             } else {
-              this.$toasted.global.error({
-                message: 'could not get data'
+              this.$bvToast.toast('could not get data', {
+                variant: 'danger',
+                title: 'Error'
               })
             }
           } else {
-            this.$toasted.global.error({
-              message: `status code of ${res.status}`
+            this.$bvToast.toast(`status code of ${res.status}`, {
+              variant: 'danger',
+              title: 'Error'
             })
           }
         })
@@ -283,8 +291,9 @@ export default Vue.extend({
           if (err.response && err.response.data) {
             message = err.response.data.message
           }
-          this.$toasted.global.error({
-            message
+          this.$bvToast.toast(message, {
+            variant: 'danger',
+            title: 'Error'
           })
         })
     },
@@ -321,8 +330,9 @@ export default Vue.extend({
           })
         }).catch(err => {
           console.error(err)
-          this.$toasted.global.error({
-            message: `found error: ${err.message}`
+          this.$bvToast.toast(`found error: ${err.message}`, {
+            variant: 'danger',
+            title: 'Error'
           })
         })
     },

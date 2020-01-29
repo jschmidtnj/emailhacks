@@ -206,10 +206,6 @@ export default Vue.extend({
       type: String,
       default: null
     },
-    projectId: {
-      type: String,
-      default: null
-    },
     responseId: {
       type: String,
       default: null
@@ -221,6 +217,10 @@ export default Vue.extend({
     preview: {
       type: Boolean,
       default: false
+    },
+    formData: {
+      type: Object,
+      default: null
     }
   },
   data() {
@@ -247,88 +247,96 @@ export default Vue.extend({
   mounted() {
     this.currentResponseId = this.responseId
     if (this.formId) {
-      this.$apollo.query({
-        query: gql`
-          query form($id: String!, $accessToken: String){
-            form(id: $id, editAccessToken: false, accessToken: $accessToken) {
-              name
-              items {
-                question
-                type
-                options
-                text
-                required
-                files
-              }
-              multiple
-              files {
-                id
-                name
-                type
-                originalSrc
-              }
-              ${!this.currentResponseId ? 'updatesAccessToken' : ''}
-            }
-          }`,
-          variables: {id: this.formId, accessToken: this.accessToken},
-          fetchPolicy: 'network-only'
-        })
-        .then(({ data }) => {
-          console.log(data.form)
-          this.name = data.form.name
-          this.isPublic = data.form.public === noneAccessType
-          this.$store.commit('auth/setRedirectLogin', this.isPublic)
-          for (let i = 0; i < data.form.items.length; i++) {
-            if (data.form.items[i].files.length === 0) {
-              data.form.items[i].files = [clone(defaultFile)]
-            } else {
-              const newFiles = []
-              for (let j = 0; j < data.form.items[i].files.length; j++) {
-                const fileData = data.form.files[data.form.items[i].files[j]]
-                const fileObj = clone(defaultFile)
-                for (const key in fileData) {
-                  fileObj[key] = fileData[key]
-                }
-                fileObj.uploaded = true
-                newFiles.push(fileObj)
-              }
-              data.form.items[i].files = newFiles
-            }
-          }
-          // get files
-          for (let i = 0; i < data.form.items.length; i++) {
-            const currentItem = data.form.items[i]
-            for (let j = 0; j < currentItem.files.length; j++) {
-              const fileObj = currentItem.files[j]
-              if (fileObj.uploaded && (this.checkImageType(fileObj.type) || this.checkVideoType(fileObj.type))) {
-                if (checkDefined(fileObj.originalSrc)) {
-                  fileObj.src = fileObj.originalSrc
-                  delete fileObj.originalSrc
-                } else {
-                  this.getFileURLRequest(i, j, false)
-                }
-              }
-            }
-            currentItem.responseItem = clone(defaultResponseItem)
-          }
-          this.updatesAccessToken = data.form.updatesAccessToken
-          this.items = data.form.items
-          this.multiple = data.form.multiple
-          if (!this.preview && !this.currentResponseId) {
-            this.createSubscription()
-          }
-          if (!this.preview && this.currentResponseId) {
-            this.getResponseData()
+      const processData = (form) => {
+        console.log(form)
+        this.name = form.name
+        this.isPublic = form.public === noneAccessType
+        this.$store.commit('auth/setRedirectLogin', this.isPublic)
+        for (let i = 0; i < form.items.length; i++) {
+          if (form.items[i].files.length === 0) {
+            form.items[i].files = [clone(defaultFile)]
           } else {
-            this.loading = false
-            this.$forceUpdate()
+            const newFiles = []
+            for (let j = 0; j < form.items[i].files.length; j++) {
+              const fileData = form.files[form.items[i].files[j]]
+              const fileObj = clone(defaultFile)
+              for (const key in fileData) {
+                fileObj[key] = fileData[key]
+              }
+              fileObj.uploaded = true
+              newFiles.push(fileObj)
+            }
+            form.items[i].files = newFiles
           }
-        }).catch(err => {
-          console.error(err.message)
-          this.$toasted.global.error({
-            message: `found error: ${err.message}`
+        }
+        // get files
+        for (let i = 0; i < form.items.length; i++) {
+          const currentItem = form.items[i]
+          for (let j = 0; j < currentItem.files.length; j++) {
+            const fileObj = currentItem.files[j]
+            if (fileObj.uploaded && (this.checkImageType(fileObj.type) || this.checkVideoType(fileObj.type))) {
+              if (checkDefined(fileObj.originalSrc)) {
+                fileObj.src = fileObj.originalSrc
+                delete fileObj.originalSrc
+              } else {
+                this.getFileURLRequest(i, j, false)
+              }
+            }
+          }
+          currentItem.responseItem = clone(defaultResponseItem)
+        }
+        this.updatesAccessToken = form.updatesAccessToken
+        this.items = form.items
+        this.multiple = form.multiple
+        if (!this.preview && !this.currentResponseId) {
+          this.createSubscription()
+        }
+        if (!this.preview && this.currentResponseId) {
+          this.getResponseData()
+        } else {
+          this.loading = false
+          this.$forceUpdate()
+        }
+      }
+      if (this.formData) {
+        processData(clone(this.formData))
+      } else {
+        this.$apollo.query({
+          query: gql`
+            query form($id: String!, $accessToken: String){
+              form(id: $id, editAccessToken: false, accessToken: $accessToken) {
+                name
+                items {
+                  question
+                  type
+                  options
+                  text
+                  required
+                  files
+                }
+                multiple
+                files {
+                  id
+                  name
+                  type
+                  originalSrc
+                }
+                ${!this.currentResponseId ? 'updatesAccessToken' : ''}
+              }
+            }`,
+            variables: {id: this.formId, accessToken: this.accessToken},
+            fetchPolicy: 'network-only'
           })
-        })
+          .then(({ data }) => {
+            processData(data.form)
+          }).catch(err => {
+            console.error(err.message)
+            this.$bvToast.toast(`found error: ${err.message}`, {
+              variant: 'danger',
+              title: 'Error'
+            })
+          })
+      }
     }
   },
   methods: {
@@ -402,8 +410,9 @@ export default Vue.extend({
               this.$forceUpdate()
             }).catch(err => {
               console.log(err.message)
-              this.$toasted.global.error({
-                message: `found error: ${err.message}`
+              this.$bvToast.toast(`found error: ${err.message}`, {
+                variant: 'danger',
+                title: 'Error'
               })
             })
       }
@@ -466,8 +475,9 @@ export default Vue.extend({
         },
         error(error) {
           const message = `got error: ${error.message}`
-          this.$toasted.global.error({
-            message
+          this.$bvToast.toast(message, {
+            variant: 'danger',
+            title: 'Error'
           })
         }
       })
@@ -602,8 +612,9 @@ export default Vue.extend({
           })
         } else {
           const message = 'cannot find src url in response'
-          this.$toasted.global.error({
-            message
+          this.$bvToast.toast(message, {
+            variant: 'danger',
+            title: 'Error'
           })
         }
       }).catch(err => {
@@ -611,8 +622,9 @@ export default Vue.extend({
         if (err.response && err.response.data) {
           message = err.response.data.message
         }
-        this.$toasted.global.error({
-          message
+        this.$bvToast.toast(message, {
+          variant: 'danger',
+          title: 'Error'
         })
       })
     },
@@ -707,8 +719,9 @@ export default Vue.extend({
             console.log('submitted!')
           }).catch(err => {
             console.error(err)
-            this.$toasted.global.error({
-              message: `found error: ${err.message}`
+            this.$bvToast.toast(`found error: ${err.message}`, {
+              variant: 'danger',
+              title: 'Error'
             })
           })
       }
@@ -742,8 +755,9 @@ export default Vue.extend({
                       onFileUploadComplete()
                     }
                   } else {
-                    this.$toasted.global.error({
-                      message: `got status code of ${res.status} on file delete`
+                    this.$bvToast.toast(`got status code of ${res.status} on file delete`, {
+                      variant: 'danger',
+                      title: 'Error'
                     })
                   }
                 })
@@ -752,8 +766,9 @@ export default Vue.extend({
                   if (err.response && err.response.data) {
                     message = err.response.data.message
                   }
-                  this.$toasted.global.error({
-                    message
+                  this.$bvToast.toast(message, {
+                    variant: 'danger',
+                    title: 'Error'
                   })
                 })
             }
@@ -782,8 +797,9 @@ export default Vue.extend({
                     onFileUploadComplete()
                   }
                 } else {
-                  this.$toasted.global.error({
-                    message: `got status code of ${res.status} on file upload`
+                  this.$bvToast.toast(`got status code of ${res.status} on file upload`, {
+                    variant: 'danger',
+                    title: 'Error'
                   })
                 }
               })
@@ -792,8 +808,9 @@ export default Vue.extend({
                 if (err.response && err.response.data) {
                   message = err.response.data.message
                 }
-                this.$toasted.global.error({
-                  message
+                this.$bvToast.toast(message, {
+                  variant: 'danger',
+                  title: 'Error'
                 })
               })
           }
@@ -812,12 +829,13 @@ export default Vue.extend({
             this.currentResponseId = data.addResponse.id
             this.userIdResponse = this.$store.state.auth.user.id
             this.editResponseAccessToken = data.addResponse.editAccessToken
-            history.replaceState({}, null, `/project/${this.projectId}/form/${this.formId}/response/${this.currentResponseId}`)
+            history.replaceState({}, null, `form/${this.formId}/response/${this.currentResponseId}`)
             uploadFiles()
           }).catch(err => {
             console.error(err)
-            this.$toasted.global.error({
-              message: `found error: ${err.message}`
+            this.$bvToast.toast(`found error: ${err.message}`, {
+              variant: 'danger',
+              title: 'Error'
             })
           })
       } else {

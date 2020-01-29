@@ -1,10 +1,6 @@
 <template>
   <b-container class="mt-4">
-    <view-project
-      v-if="projectId"
-      :project-id="projectId"
-      :get-initial-data="false"
-    />
+    <view-project :get-initial-data="false" />
   </b-container>
 </template>
 
@@ -14,6 +10,7 @@ import gql from 'graphql-tag'
 import ViewProject from '~/components/project/View.vue'
 import { defaultItemName } from '~/assets/config'
 const seo = JSON.parse(process.env.seoconfig)
+// create a new project
 export default Vue.extend({
   name: 'NewProject',
   layout: 'secure',
@@ -47,22 +44,42 @@ export default Vue.extend({
     }
   },
   data() {
-    return {
-      projectId: null
-    }
+    return {}
   },
   mounted() {
-    this.$apollo.mutate({mutation: gql`
-      mutation addProject($name: String!, $tags: [String!]!, $categories: [String!]!)
-      {addProject(name: $name, tags: $tags, categories: $categories){id} }
-      `, variables: {name: defaultItemName, categories: [], tags: []}})
+    this.$apollo
+      .mutate({
+        mutation: gql`
+          mutation addProject(
+            $name: String!
+            $tags: [String!]!
+            $categories: [String!]!
+          ) {
+            addProject(name: $name, tags: $tags, categories: $categories) {
+              id
+            }
+          }
+        `,
+        variables: { name: defaultItemName, categories: [], tags: [] }
+      })
       .then(({ data }) => {
-        this.projectId = data.addProject.id
-        history.replaceState({}, null, `/project/${this.projectId}`)
-      }).catch(err => {
-        console.error(err)
-        this.$toasted.global.error({
-          message: `found error: ${err.message}`
+        if (data.addProject && data.addProject.id) {
+          this.$store.commit('project/setProject', data.addProject.id)
+          this.$bvToast.toast('added project', {
+            variant: 'success',
+            title: 'Success'
+          })
+        } else {
+          this.$bvToast.toast('cannot find project id', {
+            variant: 'danger',
+            title: 'Error'
+          })
+        }
+      })
+      .catch((err) => {
+        this.$bvToast.toast(`found error: ${err.message}`, {
+          variant: 'danger',
+          title: 'Error'
         })
       })
   }

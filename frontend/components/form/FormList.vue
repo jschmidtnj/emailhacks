@@ -10,7 +10,7 @@
                 (evt) => {
                   evt.preventDefault()
                   currentPage = 1
-                  searchForms()
+                  searchForms(false)
                 }
               "
               placeholder="Type to Search"
@@ -21,7 +21,7 @@
                 @click="
                   search = ''
                   currentPage = 1
-                  searchForms()
+                  searchForms(false)
                 "
               >
                 Clear
@@ -30,164 +30,66 @@
           </b-input-group>
         </b-form-group>
       </b-col>
-      <b-col md="6" class="my-1">
-        <b-form-group label-cols-sm="3" label="Sort" class="mb-0">
-          <b-input-group>
-            <b-form-select
-              v-model="sortBy"
-              :options="sortOptions"
-              @change="
-                currentPage = 1
-                searchForms()
-              "
-            >
-              <option slot="first" :value="null">
-                -- none --
-              </option>
-            </b-form-select>
-            <b-form-select
-              slot="prepend"
-              v-model="sortDesc"
-              :disabled="!sortBy"
-              @change="
-                currentPage = 1
-                searchForms()
-              "
-            >
-              <option :value="false">
-                Asc
-              </option>
-              <option :value="true">
-                Desc
-              </option>
-            </b-form-select>
-          </b-input-group>
-        </b-form-group>
-      </b-col>
-      <b-col md="6" class="my-1">
-        <b-form-group label-cols-sm="3" label="Per page" class="mb-0">
-          <b-form-select
-            v-model="perPage"
-            :options="pageOptions"
-            @change="
-              currentPage = 1
-              searchForms()
-            "
-          />
-        </b-form-group>
-      </b-col>
     </b-row>
-    <b-table
-      :items="items"
-      :fields="fields"
-      :no-local-sorting="true"
-      @sort-changed="sort"
-      show-empty
-      stacked="md"
+    <b-container
+      v-infinite-scroll="searchForms(true)"
+      infinite-scroll-disabled="gettingData"
+      infinite-scroll-distance="10"
     >
-      <template v-slot:cell(name)="data">
-        {{ data.value }}
-      </template>
-      <template v-slot:cell(updated)="data">
-        {{ formatDate(data.value) }}
-      </template>
-      <template v-slot:cell(views)="data">
-        {{ data.value }}
-      </template>
-      <template v-slot:cell(actions)="data">
-        <nuxt-link
-          :to="
-            `/project/${projectId ? projectId : data.item.project}/form/${
-              data.item.id
-            }/view`
-          "
-          class="btn btn-primary btn-sm no-underline"
-        >
-          View
-        </nuxt-link>
-        <nuxt-link
-          :to="
-            `/project/${projectId ? projectId : data.item.project}/form/${
-              data.item.id
-            }/responses`
-          "
-          class="btn btn-primary btn-sm no-underline"
-        >
-          Responses
-        </nuxt-link>
-        <nuxt-link
-          :to="
-            `/project/${projectId ? projectId : data.item.project}/form/${
-              data.item.id
-            }/edit`
-          "
-          class="btn btn-primary btn-sm no-underline"
-        >
-          Edit
-        </nuxt-link>
-        <b-button @click="deleteForm(data.item)" size="sm">
-          Delete
-        </b-button>
-      </template>
-    </b-table>
-    <b-row>
-      <b-col md="6" class="my-1">
-        <b-pagination
-          v-model="currentPage"
-          :total-rows="totalRows"
-          :per-page="perPage"
-          @change="
-            (newpage) => {
-              currentPage = newpage
-              searchForms()
-            }
-          "
-          class="my-0"
-        />
-      </b-col>
-    </b-row>
+      <b-card v-for="(item, index) in items" :key="`item-${index}`" no-body>
+        <b-card-body>
+          <b-row>
+            <b-col>
+              {{ item.name }}
+            </b-col>
+            <b-col class="text-right">
+              <nuxt-link
+                :to="`form/${item.id}`"
+                class="btn btn-primary btn-sm no-underline"
+              >
+                View
+              </nuxt-link>
+            </b-col>
+            <b-col class="text-right">
+              <b-button @click="deleteForm(item)" size="sm">
+                Delete
+              </b-button>
+            </b-col>
+            <b-col class="text-right">
+              <b-button
+                @click="(evt) => share(evt, item.id)"
+                pill
+                variant="primary"
+                class="share-button"
+              >
+                <client-only>
+                  <font-awesome-icon size="md" icon="share" />
+                </client-only>
+              </b-button>
+            </b-col>
+          </b-row>
+        </b-card-body>
+      </b-card>
+    </b-container>
+    <share-modal ref="share-modal" :id="currentFormId" type="form" />
   </b-container>
 </template>
 
 <script lang="js">
 import Vue from 'vue'
-import { formatRelative } from 'date-fns'
 import gql from 'graphql-tag'
+import ShareModal from '~/components/ShareModal.vue'
+const defaultSort = 'updated'
 export default Vue.extend({
   name: 'Forms',
-  props: {
-    projectId: {
-      type: String,
-      default: null
-    }
+  components: {
+    ShareModal
   },
   data() {
     return {
+      gettingData: true,
       items: [],
-      fields: [
-        {
-          key: 'name',
-          label: 'Name',
-          sortable: false
-        },
-        {
-          key: 'updated',
-          label: 'Updated',
-          sortable: true,
-          class: 'text-center'
-        },
-        {
-          key: 'views',
-          label: 'Views',
-          sortable: true,
-          sortDirection: 'desc'
-        },
-        {
-          key: 'actions',
-          label: 'Actions',
-          sortable: false
-        }
-      ],
+      currentFormId: null,
       totalRows: 0,
       currentPage: 1,
       perPage: 5,
@@ -195,16 +97,6 @@ export default Vue.extend({
       sortBy: null,
       sortDesc: true,
       search: ''
-    }
-  },
-  computed: {
-    sortOptions() {
-      // Create an options list from our fields
-      return this.fields
-        .filter(f => f.sortable)
-        .map(f => {
-          return { text: f.label, value: f.key }
-        })
     }
   },
   mounted() {
@@ -216,36 +108,45 @@ export default Vue.extend({
         this.currentPage = parseInt(this.$route.query.currentpage)
       if (this.$route.query.sortdescending)
         this.sortDesc = this.$route.query.sortdescending === 'true'
-      if (
-        this.$route.query.sortby &&
-        this.fields.some(field => field.key === this.$route.query.sortby)
-      )
+      if (this.$route.query.sortby)
         this.sortBy = this.$route.query.sortby
     }
-    this.searchForms()
+    if (!this.sortBy) {
+      this.sortBy = defaultSort
+    }
+    this.searchForms(false)
   },
   methods: {
+    share(evt, formId) {
+      evt.preventDefault()
+      console.log('share!')
+      this.currentFormId = formId
+      if (this.$refs['share-modal']) {
+        this.$refs['submit-modal'].show()
+      } else {
+        this.$bvToast.toast('cannot find share modal', {
+          variant: 'danger',
+          title: 'Error'
+        })
+      }
+    },
     deleteForm(form) {
       this.$apollo.mutate({mutation: gql`
         mutation deleteForm($id: String!){deleteForm(id: $id){id} }
         `, variables: {id: form.id}})
         .then(({ data }) => {
           this.items.splice(this.items.indexOf(form), 1)
-          this.$toasted.global.success({
-            message: 'form deleted'
+          this.$bvToast.toast('form deleted', {
+            variant: 'success',
+            title: 'Success'
           })
         }).catch(err => {
           console.error(err)
-          this.$toasted.global.error({
-            message: `found error: ${err.message}`
+          this.$bvToast.toast(`found error: ${err.message}`, {
+            variant: 'danger',
+            title: 'Error'
           })
         })
-    },
-    sort(ctx) {
-      this.sortBy = ctx.sortBy //   ==> Field key for sorting by (or null for no sorting)
-      this.sortDesc = ctx.sortDesc // ==> true if sorting descending, false otherwise
-      this.currentPage = 1
-      this.searchForms()
     },
     updateCount() {
       this.$axios
@@ -263,18 +164,21 @@ export default Vue.extend({
                 this.totalRows = res.data.count
                 console.log(res.data.count)
               } else {
-                this.$toasted.global.error({
-                  message: 'could not find count data'
+                this.$bvToast.toast('could not find count data', {
+                  variant: 'danger',
+                  title: 'Error'
                 })
               }
             } else {
-              this.$toasted.global.error({
-                message: 'could not get data'
+              this.$bvToast.toast('could not get data', {
+                variant: 'danger',
+                title: 'Error'
               })
             }
           } else {
-            this.$toasted.global.error({
-              message: `status code of ${res.status}`
+            this.$bvToast.toast(`status code of ${res.status}`, {
+              variant: 'danger',
+              title: 'Error'
             })
           }
         })
@@ -283,27 +187,27 @@ export default Vue.extend({
           if (err.response && err.response.data) {
             message = err.response.data.message
           }
-          this.$toasted.global.error({
-            message
+          this.$bvToast.toast(message, {
+            variant: 'danger',
+            title: 'Error'
           })
         })
     },
-    searchForms() {
+    searchForms(append) {
+      this.gettingData = true
       this.updateCount()
-      const sort = this.sortBy ? this.sortBy : this.sortOptions[0].value
-      console.log(`sort by ${sort}`)
+      console.log(`sort by ${this.sortBy}`)
       this.$apollo.query({
         query: gql`
-          query forms($perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!, $tags: [String!]!, $categories: [String!]!) {
-            forms(perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending, tags: $tags, categories: $categories) {
+          query forms($project: String!, $perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!, $tags: [String!]!, $categories: [String!]!) {
+            forms(project: $project, perpage: $perpage, page: $page, searchterm: $searchterm, sort: $sort, ascending: $ascending, tags: $tags, categories: $categories) {
               name
               views
               id
               updated
-              project
             }
           }`,
-          variables: {perpage: this.perPage, page: this.currentPage - 1, searchterm: this.search, sort, ascending: !this.sortDesc, tags: [], categories: []},
+          variables: {project: this.$store.state.project.project, perpage: this.perPage, page: this.currentPage - 1, searchterm: this.search, sort: this.sortBy, ascending: !this.sortDesc, tags: [], categories: []},
           fetchPolicy: 'network-only'
         })
         .then(({ data }) => {
@@ -316,22 +220,34 @@ export default Vue.extend({
               form.created = Number(form.created) * 1000
             }
           })
-          this.items = forms
-          this.$nextTick(() => {
-            this.$forceUpdate()
-          })
+          if (append) {
+            this.items.concat(forms)
+          } else {
+            this.items = forms
+          }
+          this.gettingData = false
+          /*
+            this.$nextTick(() => {
+              this.$forceUpdate()
+            })
+          */
         }).catch(err => {
           console.error(err)
-          this.$toasted.global.error({
-            message: `found error: ${err.message}`
+          this.$bvToast.toast(`found error: ${err.message}`, {
+            variant: 'danger',
+            title: 'Error'
           })
         })
-    },
-    formatDate(dateUTC) {
-      return formatRelative(dateUTC, new Date())
     }
   }
 })
 </script>
 
-<style lang="scss"></style>
+<style lang="scss">
+.share-button {
+  height: 2rem;
+  width: 2rem;
+  text-align: center;
+  line-height: 50%;
+}
+</style>

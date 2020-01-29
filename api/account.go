@@ -9,6 +9,12 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// Organize object for tags, categories, etc.
+type Organize struct {
+	Name  string `json:"name"`
+	Color string `json:"color"`
+}
+
 // OrganizeType type for a name and count of that object
 var OrganizeType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "Organize",
@@ -21,6 +27,79 @@ var OrganizeType = graphql.NewObject(graphql.ObjectConfig{
 		},
 	},
 })
+
+// Billing object for billing settings
+type Billing struct {
+	FirstName string `json:"firstname"`
+	LastName  string `json:"lastname"`
+	Company   string `json:"company"`
+	Address1  string `json:"address1"`
+	Address2  string `json:"address2"`
+	City      string `json:"city"`
+	State     string `json:"state"`
+	Zip       string `json:"zip"`
+	Country   string `json:"country"`
+	Phone     string `json:"phone"`
+	Email     string `json:"email"`
+}
+
+// BillingType billing type object for user billing settings graphql
+var BillingType = graphql.NewObject(graphql.ObjectConfig{
+	Name: "Billing",
+	Fields: graphql.Fields{
+		"firstname": &graphql.Field{
+			Type: graphql.String,
+		},
+		"lastname": &graphql.Field{
+			Type: graphql.String,
+		},
+		"company": &graphql.Field{
+			Type: graphql.String,
+		},
+		"address1": &graphql.Field{
+			Type: graphql.String,
+		},
+		"address2": &graphql.Field{
+			Type: graphql.String,
+		},
+		"city": &graphql.Field{
+			Type: graphql.String,
+		},
+		"state": &graphql.Field{
+			Type: graphql.String,
+		},
+		"zip": &graphql.Field{
+			Type: graphql.String,
+		},
+		"country": &graphql.Field{
+			Type: graphql.String,
+		},
+		"phone": &graphql.Field{
+			Type: graphql.String,
+		},
+		"email": &graphql.Field{
+			Type: graphql.String,
+		},
+	},
+})
+
+// Account object for users
+type Account struct {
+	ID             string      `json:"id"`
+	Email          string      `json:"email"`
+	Created        int64       `json:"created"`
+	Updated        int64       `json:"updated"`
+	EmailVerified  bool        `json:"emailverified"`
+	Type           string      `json:"type"`
+	Categories     []*Organize `json:"categories"`
+	Tags           []*Organize `json:"tags"`
+	Plan           string      `json:"plan"`
+	Purchases      []string    `json:"purchases"`
+	SubscriptionID string      `json:"subscriptionid"`
+	StripeID       string      `json:"stripid"`
+	Storage        int64       `json:"storage"`
+	Billing        *Billing    `json:"billing"`
+}
 
 // AccountType account type object for user accounts graphql
 var AccountType = graphql.NewObject(graphql.ObjectConfig{
@@ -57,6 +136,9 @@ var AccountType = graphql.NewObject(graphql.ObjectConfig{
 		"purchases": &graphql.Field{
 			Type:        graphql.NewList(graphql.String),
 			Description: "one-time purchases",
+		},
+		"billing": &graphql.Field{
+			Type: BillingType,
 		},
 	},
 })
@@ -117,31 +199,18 @@ func processUserFromDB(userData bson.M, updated bool) (bson.M, error) {
 	return userData, nil
 }
 
-func getAccount(accountID primitive.ObjectID, updated bool) (map[string]interface{}, error) {
-	userDataCursor, err := userCollection.Find(ctxMongo, bson.M{
+func getAccount(accountID primitive.ObjectID, updated bool) (*Account, error) {
+	var account Account
+	err := userCollection.FindOne(ctxMongo, bson.M{
 		"_id": accountID,
-	})
-	defer userDataCursor.Close(ctxMongo)
+	}).Decode(&account)
 	if err != nil {
 		return nil, err
 	}
-	var userData map[string]interface{}
-	var foundUser = false
-	for userDataCursor.Next(ctxMongo) {
-		foundUser = true
-		userPrimitive := &bson.D{}
-		err = userDataCursor.Decode(userPrimitive)
-		if err != nil {
-			return nil, err
-		}
-		userData, err = processUserFromDB(userPrimitive.Map(), updated)
-		if err != nil {
-			return nil, err
-		}
-		break
+	account.Created = objectidTimestamp(accountID).Unix()
+	if updated {
+		account.Updated = time.Now().Unix()
 	}
-	if !foundUser {
-		return nil, errors.New("user not found with given id")
-	}
-	return userData, nil
+	account.ID = accountID.Hex()
+	return &account, nil
 }

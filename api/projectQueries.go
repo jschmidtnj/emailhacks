@@ -7,6 +7,7 @@ import (
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/language/ast"
 	json "github.com/json-iterator/go"
+	"github.com/mitchellh/mapstructure"
 	"github.com/olivere/elastic/v7"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -37,6 +38,9 @@ var projectQueryFields = graphql.Fields{
 			},
 			"tags": &graphql.ArgumentConfig{
 				Type: graphql.NewList(graphql.String),
+			},
+			"onlyshared": &graphql.ArgumentConfig{
+				Type: graphql.Boolean,
 			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
@@ -69,6 +73,13 @@ var projectQueryFields = graphql.Fields{
 				searchterm, ok = params.Args["searchterm"].(string)
 				if !ok {
 					return nil, errors.New("searchterm could not be cast to string")
+				}
+			}
+			var onlyShared = false
+			if params.Args["onlyshared"] != nil {
+				onlyShared, ok = params.Args["onlyshared"].(bool)
+				if !ok {
+					return nil, errors.New("only shared could not be cast to bool")
 				}
 			}
 			if params.Args["sort"] == nil {
@@ -109,7 +120,7 @@ var projectQueryFields = graphql.Fields{
 				}
 				fields[i] = fieldast.Name.Value
 			}
-			var projects []map[string]interface{}
+			var projects []*Project
 			if len(fields) > 0 {
 				sourceContext := elastic.NewFetchSourceContext(true).Include(fields...)
 				var numtags = len(tags)
@@ -120,7 +131,11 @@ var projectQueryFields = graphql.Fields{
 				}
 				mustQueries := make([]elastic.Query, numtags+len(categories)+startIndex)
 				if !showEverything {
-					mustQueries[0] = elastic.NewTermsQuery(fmt.Sprintf("access.%s.type", userIDString), stringListToInterfaceList(viewAccessLevel)...)
+					necessaryAccessLevel := viewAccessLevel
+					if onlyShared {
+						necessaryAccessLevel = []string{sharedAccessLevel}
+					}
+					mustQueries[0] = elastic.NewTermsQuery(fmt.Sprintf("access.%s.type", userIDString), stringListToInterfaceList(necessaryAccessLevel)...)
 				}
 				for i, tag := range tags {
 					mustQueries[i+startIndex] = elastic.NewTermQuery(fmt.Sprintf("access.%s.tags", userIDString), tag)
@@ -144,7 +159,7 @@ var projectQueryFields = graphql.Fields{
 				if err != nil {
 					return nil, err
 				}
-				projects = make([]map[string]interface{}, len(searchResult.Hits.Hits))
+				projects = make([]*Project, len(searchResult.Hits.Hits))
 				for i, hit := range searchResult.Hits.Hits {
 					if hit.Source == nil {
 						return nil, errors.New("no hit source found")
@@ -158,18 +173,30 @@ var projectQueryFields = graphql.Fields{
 					if err != nil {
 						return nil, err
 					}
-					createdTimestamp := objectidTimestamp(id)
-					projectData["created"] = createdTimestamp.Unix()
-					projectData["id"] = id.Hex()
-					delete(projectData, "_id")
-					access, tags, categories, err := getFormattedAccessGQLData(projectData["access"], nil, userIDString)
+					var currentProject Project
+					if err = mapstructure.Decode(projectData, &currentProject); err != nil {
+						return nil, err
+					}
+					currentProject.ID = id.Hex()
+					currentProject.Created = objectidTimestamp(id).Unix()
+					access, tags, categories, currentAccessType, err := getFormattedAccessGQLData(projectData["access"], nil, userIDString)
 					if err != nil {
 						return nil, err
 					}
-					projectData["access"] = access
+					needEditAccessLevelForLink := findInArray(currentProject.LinkAccess.Type, editAccessLevel)
+					necessaryAccessLevelForLink := viewAccessLevel
+					if needEditAccessLevelForLink {
+						necessaryAccessLevelForLink = editAccessLevel
+					}
+					if !findInArray(currentAccessType, necessaryAccessLevelForLink) {
+						delete(projectData, "linkaccess")
+						delete(projectData, "access")
+					} else {
+						projectData["access"] = access
+					}
 					projectData["categories"] = categories
 					projectData["tags"] = tags
-					projects[i] = projectData
+					projects[i] = &currentProject
 				}
 			}
 			return projects, nil
@@ -181,6 +208,10 @@ var projectQueryFields = graphql.Fields{
 		Args: graphql.FieldConfigArgument{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
+			},
+			"accessKey": &graphql.ArgumentConfig{
+				Type:        graphql.String,
+				Description: "sharable link key for project",
 			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
@@ -198,14 +229,31 @@ var projectQueryFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			projectData, _, err := checkProjectAccess(projectID, accessToken, "", editAccessLevel, false)
-			access, tags, categories, err := getFormattedAccessGQLData(projectData["access"], nil, userIDString)
+			var accessKey = ""
+			if params.Args["accessKey"] != nil {
+				accessKey, ok = params.Args["accessKey"].(string)
+				if !ok {
+					return nil, errors.New("cannot cast access key to string")
+				}
+			}
+			project, _, err := checkProjectAccess(projectID, accessToken, accessKey, editAccessLevel, false)
+			access, tags, categories, currentAccessType, err := getFormattedAccessGQLData(project.Access, nil, userIDString)
 			if err != nil {
 				return nil, err
 			}
-			projectData["access"] = access
-			projectData["categories"] = categories
-			projectData["tags"] = tags
+			needEditAccessLevelForLink := findInArray(project.LinkAccess.Type, editAccessLevel)
+			necessaryAccessLevelForLink := viewAccessLevel
+			if needEditAccessLevelForLink {
+				necessaryAccessLevelForLink = editAccessLevel
+			}
+			if !findInArray(currentAccessType, necessaryAccessLevelForLink) {
+				project.LinkAccess = nil
+				project.Access = nil
+			} else {
+				project.Access = access
+			}
+			project.Categories = categories
+			project.Tags = tags
 			if err != nil {
 				return nil, err
 			}
@@ -229,7 +277,7 @@ var projectQueryFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			return projectData, nil
+			return project, nil
 		},
 	},
 }

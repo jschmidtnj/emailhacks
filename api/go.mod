@@ -1,4 +1,4 @@
-module github.com/jschmidtnj/emailhacks
+module github.com/jschmidtnj/emailhacks/api
 
 go 1.12
 

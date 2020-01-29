@@ -8,14 +8,25 @@
           </b-input-group>
         </b-form-group>
       </b-form>
+      <b-row>
+        <b-col>
+          <form-list />
+        </b-col>
+        <b-col>
+          Project analytics go here...
+        </b-col>
+      </b-row>
     </b-container>
-    <form-list :project-id="projectId" />
-    <nuxt-link
-      :to="`/project/${projectId}/form`"
-      class="btn btn-primary btn-sm no-underline mt-4"
+    <b-button
+      @click="newForm"
+      pill
+      variant="primary"
+      class="new-form-button shadow-lg"
     >
-      Create New Form
-    </nuxt-link>
+      <client-only>
+        <font-awesome-icon size="3x" icon="plus" />
+      </client-only>
+    </b-button>
   </b-container>
 </template>
 
@@ -32,10 +43,6 @@ export default Vue.extend({
     FormList
   },
   props: {
-    projectId: {
-      type: String,
-      default: null
-    },
     getInitialData: {
       type: Boolean,
       default: true
@@ -82,6 +89,12 @@ export default Vue.extend({
     }
   },
   methods: {
+    newForm(evt) {
+      evt.preventDefault()
+      this.$router.push({
+        path: '/form'
+      })
+    },
     getProject() {
       this.$apollo.query({
         query: gql`
@@ -91,7 +104,7 @@ export default Vue.extend({
               public
             }
           }`,
-          variables: {id: this.projectId},
+          variables: {id: this.$store.state.project.project},
           fetchPolicy: 'network-only'
         }).then(({ data }) => {
           this.name = data.project.name
@@ -99,8 +112,9 @@ export default Vue.extend({
           this.$store.commit('auth/setRedirectLogin', this.isPublic)
         }).catch(err => {
           console.error(err)
-          this.$toasted.global.error({
-            message: `found error: ${err.message}`
+          this.$bvToast.toast(`found error: ${err.message}`, {
+            variant: 'danger',
+            title: 'Error'
           })
         })
     },
@@ -108,13 +122,14 @@ export default Vue.extend({
       evt.preventDefault()
       this.$apollo.mutate({mutation: gql`
         mutation updateProject($id: String!, $name: String!){updateProject(id: $id, name: $name){id} }
-        `, variables: {id: this.projectId, name: this.name}})
+        `, variables: {id: this.$store.state.project.project, name: this.name}})
         .then(({ data }) => {
           console.log('updated!')
         }).catch(err => {
           console.error(err)
-          this.$toasted.global.error({
-            message: `found error: ${err.message}`
+          this.$bvToast.toast(`found error: ${err.message}`, {
+            variant: 'danger',
+            title: 'Error'
           })
         })
     }
@@ -122,4 +137,15 @@ export default Vue.extend({
 })
 </script>
 
-<style lang="scss"></style>
+<style lang="scss">
+.new-form-button {
+  height: 6rem;
+  width: 6rem;
+  text-align: center;
+  line-height: 50%;
+  z-index: 99;
+  position: fixed;
+  bottom: 3rem;
+  right: 3rem;
+}
+</style>

@@ -103,12 +103,12 @@ func shortLinkRedirect(c *gin.Context) {
 	request := c.Request
 	id := request.URL.Query().Get("id")
 	if len(id) != 20 {
-		http.Redirect(response, request, shortlinkURL+"/404", 301)
+		http.Redirect(response, request, websiteURL+"/404", 301)
 		return
 	}
 	fullLink, err := getShortLink(id)
 	if err != nil {
-		http.Redirect(response, request, shortlinkURL+"/404", 301)
+		http.Redirect(response, request, websiteURL+"/404", 301)
 		return
 	}
 	http.Redirect(response, request, fullLink, 301)

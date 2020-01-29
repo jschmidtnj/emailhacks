@@ -1,10 +1,6 @@
 <template>
   <b-container class="mt-4">
-    <create
-      v-if="formId && projectId"
-      :form-id="formId"
-      :project-id="projectId"
-    />
+    <create v-if="formId" :form-id="formId" />
   </b-container>
 </template>
 
@@ -48,32 +44,24 @@ export default Vue.extend({
   },
   data() {
     return {
-      projectId: null,
       formId: null
     }
   },
   mounted() {
-    if (this.$route.params && this.$route.params.projectId) {
-      this.projectId = this.$route.params.projectId
-      this.$apollo.mutate({mutation: gql`
-        mutation addForm($project: String!, $name: String!, $items: [FormItemInput!]!, $multiple: Boolean!, $files: [FileInput!]!, $tags: [String!]!, $categories: [String!]!)
-        {addForm(project: $project, name: $name, items: $items, multiple: $multiple, files: $files, tags: $tags, categories: $categories){id} }
-        `, variables: {project: this.projectId, name: defaultItemName, items: [], multiple: false, files: [], categories: [], tags: []}})
-        .then(({ data }) => {
-          this.formId = data.addForm.id
-          history.replaceState({}, null, `/project/${this.projectId}/form/${this.formId}/edit`)
-        }).catch(err => {
-          console.error(err)
-          this.$toasted.global.error({
-            message: `found error: ${err.message}`
-          })
+    this.$apollo.mutate({mutation: gql`
+      mutation addForm($project: String!, $name: String!, $items: [FormItemInput!]!, $multiple: Boolean!, $files: [FileInput!]!, $tags: [String!]!, $categories: [String!]!)
+      {addForm(project: $project, name: $name, items: $items, multiple: $multiple, files: $files, tags: $tags, categories: $categories){id} }
+      `, variables: {project: this.$store.state.project.project, name: defaultItemName, items: [], multiple: false, files: [], categories: [], tags: []}})
+      .then(({ data }) => {
+        this.formId = data.addForm.id
+        history.replaceState({}, null, `form/${this.formId}/edit`)
+      }).catch(err => {
+        console.error(err)
+        this.$bvToast.toast(`found error: ${err.message}`, {
+          variant: 'danger',
+          title: 'Error'
         })
-    } else {
-      this.$nuxt.error({
-        statusCode: 404,
-        message: 'could not find project id'
       })
-    }
   }
 })
 </script>
