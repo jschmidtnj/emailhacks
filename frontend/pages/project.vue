@@ -1,13 +1,13 @@
 <template>
   <b-container class="mt-4">
-    <view-project :get-initial-data="false" />
+    <page-loading :loading="true" />
   </b-container>
 </template>
 
 <script lang="js">
 import Vue from 'vue'
 import gql from 'graphql-tag'
-import ViewProject from '~/components/project/View.vue'
+import PageLoading from '~/components/PageLoading.vue'
 import { defaultItemName } from '~/assets/config'
 const seo = JSON.parse(process.env.seoconfig)
 // create a new project
@@ -15,7 +15,7 @@ export default Vue.extend({
   name: 'NewProject',
   layout: 'secure',
   components: {
-    ViewProject
+    PageLoading
   },
   head() {
     const title = 'New Project'
@@ -64,10 +64,14 @@ export default Vue.extend({
       })
       .then(({ data }) => {
         if (data.addProject && data.addProject.id) {
-          this.$store.commit('project/setProject', data.addProject.id)
+          this.$store.commit('project/setProjectId', data.addProject.id)
+          this.$store.commit('project/setProjectName', defaultItemName)
           this.$bvToast.toast('added project', {
             variant: 'success',
             title: 'Success'
+          })
+          this.$router.push({
+            path: '/dashboard'
           })
         } else {
           this.$bvToast.toast('cannot find project id', {

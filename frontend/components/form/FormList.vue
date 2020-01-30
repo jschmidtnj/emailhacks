@@ -1,18 +1,13 @@
 <template>
-  <b-container fluid>
+  <b-container v-if="!loading" fluid>
     <b-row>
-      <b-col md="6" class="my-1">
-        <b-form-group label-cols-sm="3" label="search" class="mb-0">
+      <b-col class="my-1">
+        {{ `${numForms} form${numForms === 1 ? '' : 's'}` }}
+        <b-form-group class="mb-0">
           <b-input-group>
             <b-form-input
               v-model="search"
-              @keyup.enter.native="
-                (evt) => {
-                  evt.preventDefault()
-                  currentPage = 1
-                  searchForms(false)
-                }
-              "
+              @keyup.enter.native="updatedSearchTerm"
               placeholder="Type to Search"
             />
             <b-input-group-append>
@@ -33,7 +28,7 @@
     </b-row>
     <b-container
       v-infinite-scroll="searchForms(true)"
-      infinite-scroll-disabled="gettingData"
+      infinite-scroll-disabled="scrollDisabled"
       infinite-scroll-distance="10"
     >
       <b-card v-for="(item, index) in items" :key="`item-${index}`" no-body>
@@ -71,33 +66,39 @@
         </b-card-body>
       </b-card>
     </b-container>
-    <share-modal ref="share-modal" :id="currentFormId" type="form" />
+    <!--share-modal ref="share-modal" :id="currentFormId" type="form" /-->
   </b-container>
 </template>
 
 <script lang="js">
 import Vue from 'vue'
 import gql from 'graphql-tag'
-import ShareModal from '~/components/ShareModal.vue'
+// import ShareModal from '~/components/ShareModal.vue'
+const searchIntervalDuration = 750 // update search every ms after change
 const defaultSort = 'updated'
 export default Vue.extend({
   name: 'Forms',
   components: {
-    ShareModal
+    // ShareModal
   },
   data() {
     return {
-      gettingData: true,
+      scrollDisabled: true,
       items: [],
       currentFormId: null,
-      totalRows: 0,
+      numForms: 0,
       currentPage: 1,
       perPage: 5,
       pageOptions: [5, 10, 15],
       sortBy: null,
       sortDesc: true,
-      search: ''
+      search: '',
+      loading: true,
+      searchInterval: null
     }
+  },
+  beforeDestroy() {
+    this.clearSearchInterval()
   },
   mounted() {
     if (this.$route.query) {
@@ -114,7 +115,8 @@ export default Vue.extend({
     if (!this.sortBy) {
       this.sortBy = defaultSort
     }
-    this.searchForms(false)
+    console.log(`start sort by ${this.sortBy}`)
+    this.loading = false
   },
   methods: {
     share(evt, formId) {
@@ -148,6 +150,17 @@ export default Vue.extend({
           })
         })
     },
+    clearSearchInterval() {
+      if (this.searchInterval) {
+        clearInterval(this.searchInterval)
+      }
+    },
+    updatedSearchTerm(evt) {
+      evt.preventDefault()
+      this.currentPage = 1
+      this.clearSearchInterval()
+      this.searchInterval = setInterval(this.searchForms(false), searchIntervalDuration)
+    },
     updateCount() {
       this.$axios
         .get('/countForms', {
@@ -161,8 +174,7 @@ export default Vue.extend({
           if (res.status === 200) {
             if (res.data) {
               if (res.data.count !== null) {
-                this.totalRows = res.data.count
-                console.log(res.data.count)
+                this.numForms = res.data.count
               } else {
                 this.$bvToast.toast('could not find count data', {
                   variant: 'danger',
@@ -184,6 +196,7 @@ export default Vue.extend({
         })
         .catch(err => {
           let message = `got error: ${err}`
+          console.log(message)
           if (err.response && err.response.data) {
             message = err.response.data.message
           }
@@ -194,9 +207,8 @@ export default Vue.extend({
         })
     },
     searchForms(append) {
-      this.gettingData = true
-      this.updateCount()
-      console.log(`sort by ${this.sortBy}`)
+      this.scrollDisabled = true
+      // this.updateCount()
       this.$apollo.query({
         query: gql`
           query forms($project: String!, $perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!, $tags: [String!]!, $categories: [String!]!) {
@@ -207,7 +219,7 @@ export default Vue.extend({
               updated
             }
           }`,
-          variables: {project: this.$store.state.project.project, perpage: this.perPage, page: this.currentPage - 1, searchterm: this.search, sort: this.sortBy, ascending: !this.sortDesc, tags: [], categories: []},
+          variables: {project: this.$store.state.project.projectId, perpage: this.perPage, page: this.currentPage - 1, searchterm: this.search, sort: this.sortBy, ascending: !this.sortDesc, tags: [], categories: []},
           fetchPolicy: 'network-only'
         })
         .then(({ data }) => {
@@ -222,10 +234,14 @@ export default Vue.extend({
           })
           if (append) {
             this.items.concat(forms)
+            if (this.items.length > 0) {
+              this.currentPage++
+              this.scrollDisabled = false
+            }
           } else {
             this.items = forms
+            this.scrollDisabled = false
           }
-          this.gettingData = false
           /*
             this.$nextTick(() => {
               this.$forceUpdate()

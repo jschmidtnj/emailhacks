@@ -43,7 +43,7 @@
           :loading="loadingProjects"
           :internal-search="false"
           :clear-on-select="false"
-          @search-change="searchProject"
+          @search-change="updatedProjectSearchTerm"
           @select="changeProject"
           label="name"
         />
@@ -95,7 +95,8 @@ import Multiselect from 'vue-multiselect'
 import { plans } from '~/assets/config'
 import PlansModal from '~/components/PlansModal.vue'
 const defaultPerPage = 10
-const defaultSortBy = 'name'
+const defaultSortBy = 'updated'
+const searchIntervalDuration = 750 // update search every ms after change
 export default Vue.extend({
   name: 'Navbar',
   components: {
@@ -104,10 +105,14 @@ export default Vue.extend({
   },
   data() {
     return {
-      project: this.$store.state.project.project,
+      project: {
+        name: this.$store.state.project.projectId,
+        id: this.$store.state.project.projectName
+      },
       projectOptions: [],
       loadingProjects: false,
-      firstTime: true
+      firstTime: true,
+      searchInterval: null
     }
   },
   computed: {
@@ -115,15 +120,27 @@ export default Vue.extend({
       return this.$store.state.auth && this.$store.state.auth.loggedIn
     },
     upgrade() {
-      return !this.$store.state.auth.user.plan || this.$store.state.auth.user.plan === plans[0]
+      return this.$store.state.auth.user && (!this.$store.state.auth.user.plan || this.$store.state.auth.user.plan === plans[0])
     },
     hasCartItems() {
       return this.$store.state.purchase.plan || this.$store.state.purchase.products.length > 0
     }
   },
+  beforeDestroy() {
+    this.clearSearchInterval()
+  },
   methods: {
-    searchProject(searchterm) {
+    clearSearchInterval() {
+      if (this.searchInterval) {
+        clearInterval(this.searchInterval)
+      }
+    },
+    updatedProjectSearchTerm(searchterm) {
       this.loadingProjects = true
+      this.clearSearchInterval()
+      this.searchInterval = setInterval(this.searchProject(searchterm), searchIntervalDuration)
+    },
+    searchProject(searchterm) {
       this.$apollo.query({
           query: gql`
             query projects($perpage: Int!, $page: Int!, $searchterm: String!, $sort: String!, $ascending: Boolean!, $tags: [String!]!, $categories: [String!]!) {
@@ -151,7 +168,8 @@ export default Vue.extend({
         })
     },
     changeProject(selectedProject) {
-      this.$store.commit('project/setProject', selectedProject.id)
+      this.$store.commit('project/setProjectId', selectedProject.id)
+      this.$store.commit('project/setProjectName', selectedProject.name)
     },
     showUpgrade(evt) {
       evt.preventDefault()

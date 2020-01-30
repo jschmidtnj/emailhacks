@@ -322,7 +322,7 @@ export default Vue.extend({
               project
             }
           }`,
-          variables: {project: this.$store.state.project.project, perpage: this.perPage, page: this.currentPage - 1, searchterm: this.search, sort, ascending: !this.sortDesc, tags: [], categories: []},
+          variables: {project: this.$store.state.project.projectId, perpage: this.perPage, page: this.currentPage - 1, searchterm: this.search, sort, ascending: !this.sortDesc, tags: [], categories: []},
           fetchPolicy: 'network-only'
         })
         .then(({ data }) => {

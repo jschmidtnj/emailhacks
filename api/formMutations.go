@@ -323,6 +323,7 @@ var formMutationFields = graphql.Fields{
 			if err = changeFormProject(formIDString, "", project, accessToken, accessKey); err != nil {
 				return nil, err
 			}
+			delete(formData, "_id")
 			formData["created"] = now.Unix()
 			_, err = elasticClient.Index().
 				Index(formElasticIndex).

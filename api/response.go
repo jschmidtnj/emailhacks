@@ -49,9 +49,6 @@ var ResponseType = graphql.NewObject(graphql.ObjectConfig{
 		"project": &graphql.Field{
 			Type: graphql.String,
 		},
-		"linkaccess": &graphql.Field{
-			Type: LinkAccessType,
-		},
 		"created": &graphql.Field{
 			Type: graphql.Int,
 		},

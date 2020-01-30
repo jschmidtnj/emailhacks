@@ -1,7 +1,14 @@
 <template>
   <b-container class="mt-4">
-    <view-project-data v-if="$store.state.project.project" />
-    <nuxt-link to="/project" class="btn btn-primary btn-sm no-underline mt-4">
+    {{ $store.state.project.projectId }}
+    <view-project-data
+      v-if="$store.state.project.projectId && $store.state.project.projectName"
+    />
+    <nuxt-link
+      v-else
+      to="/project"
+      class="btn btn-primary btn-sm no-underline mt-4"
+    >
       Create New Project
     </nuxt-link>
   </b-container>
@@ -51,7 +58,15 @@ export default Vue.extend({
   },
   mounted() {
     if (this.$route.query && this.$route.query.project) {
-      this.$store.commit('project/setProject', this.$route.query.project)
+      this.$store.commit('project/setProjectId', this.$route.query.project)
+      this.$store.dispatch('project/getProjectName').then(res => {
+        console.log(res)
+      }).catch(err => {
+        this.$bvToast.toast(err, {
+          variant: 'danger',
+          title: 'Error'
+        })
+      })
     }
   }
 })

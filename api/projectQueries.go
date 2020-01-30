@@ -183,6 +183,7 @@ var projectQueryFields = graphql.Fields{
 					if err != nil {
 						return nil, err
 					}
+					logger.Info(currentProject.LinkAccess.Type)
 					needEditAccessLevelForLink := findInArray(currentProject.LinkAccess.Type, editAccessLevel)
 					necessaryAccessLevelForLink := viewAccessLevel
 					if needEditAccessLevelForLink {

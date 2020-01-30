@@ -5,6 +5,24 @@ import { elasticuri } from './config'
  * elastic functions - initialize elasticsearch
  */
 
+const fileMappings = {
+  id: {
+    type: 'keyword'
+  },
+  name: {
+    type: 'keyword'
+  },
+  width: {
+    type: 'integer'
+  },
+  height: {
+    type: 'integer'
+  },
+  type: {
+    type: 'keyword'
+  }
+}
+
 export const blogMappings = {
   properties: {
     title: {
@@ -40,17 +58,32 @@ export const blogMappings = {
       format: 'epoch_millis'
     },
     heroimage: {
-      type: 'nested'
+      type: 'nested',
+      properties: fileMappings
     },
     tileimage: {
-      type: 'nested'
+      type: 'nested',
+      properties: fileMappings
     },
     files: {
-      type: 'nested'
+      type: 'nested',
+      properties: fileMappings
     },
     comments: {
       type: 'nested'
     }
+  }
+}
+
+const linkAccessMappings = {
+  shortlink: {
+    type: 'keyword'
+  },
+  secret: {
+    type: 'keyword'
+  },
+  type: {
+    type: 'keyword'
   }
 }
 
@@ -72,15 +105,8 @@ export const formMappings = {
       type: 'object'
     },
     linkaccess: {
-      shortlink: {
-        type: 'keyword'
-      },
-      secret: {
-        type: 'keyword'
-      },
-      type: {
-        type: 'keyword'
-      }
+      type: 'object',
+      properties: linkAccessMappings
     },
     views: {
       type: 'integer'
@@ -92,7 +118,8 @@ export const formMappings = {
       type: 'keyword'
     },
     files: {
-      type: 'nested'
+      type: 'nested',
+      properties: fileMappings
     },
     created: {
       type: 'date',
@@ -123,15 +150,8 @@ export const projectMappings = {
       type: 'object'
     },
     linkaccess: {
-      shortlink: {
-        type: 'keyword'
-      },
-      secret: {
-        type: 'keyword'
-      },
-      type: {
-        type: 'keyword'
-      }
+      type: 'object',
+      properties: linkAccessMappings
     },
     views: {
       type: 'integer'
@@ -158,6 +178,9 @@ export const responseMappings = {
     user: {
       type: 'keyword'
     },
+    owner: {
+      type: 'keyword'
+    },
     form: {
       type: 'keyword'
     },
@@ -174,6 +197,10 @@ export const responseMappings = {
     },
     items: {
       type: 'nested'
+    },
+    files: {
+      type: 'nested',
+      properties: fileMappings
     }
   }
 }

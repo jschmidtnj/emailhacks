@@ -51,7 +51,7 @@ export default Vue.extend({
     this.$apollo.mutate({mutation: gql`
       mutation addForm($project: String!, $name: String!, $items: [FormItemInput!]!, $multiple: Boolean!, $files: [FileInput!]!, $tags: [String!]!, $categories: [String!]!)
       {addForm(project: $project, name: $name, items: $items, multiple: $multiple, files: $files, tags: $tags, categories: $categories){id} }
-      `, variables: {project: this.$store.state.project.project, name: defaultItemName, items: [], multiple: false, files: [], categories: [], tags: []}})
+      `, variables: {project: this.$store.state.project.projectId, name: defaultItemName, items: [], multiple: false, files: [], categories: [], tags: []}})
       .then(({ data }) => {
         this.formId = data.addForm.id
         history.replaceState({}, null, `form/${this.formId}/edit`)

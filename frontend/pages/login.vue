@@ -220,13 +220,27 @@ export default Vue.extend({
             })
             .then(token => {
               this.$store.dispatch('auth/setToken', token).then(() => {
-                this.$bvToast.toast('logged in', {
-                  variant: 'success',
-                  title: 'Success'
-                })
-                this.$router.push({
-                  path: this.redirect_uri ? this.redirect_uri : '/dashboard'
-                })
+                const success = () => {
+                  this.$bvToast.toast('logged in', {
+                    variant: 'success',
+                    title: 'Success'
+                  })
+                  this.$router.push({
+                    path: this.redirect_uri ? this.redirect_uri : '/dashboard'
+                  })
+                }
+                if (this.$store.state.project.projectId) {
+                  this.$store.dispatch('project/getProjectName').then(res => {
+                    success()
+                  }).catch(err => {
+                    this.$bvToast.toast(err, {
+                      variant: 'danger',
+                      title: 'Error'
+                    })
+                  })
+                } else {
+                  success()
+                }
               })
               .catch(err => {
                 this.$bvToast.toast(err, {

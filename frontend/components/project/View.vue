@@ -34,7 +34,7 @@
 import Vue from 'vue'
 import gql from 'graphql-tag'
 import FormList from '~/components/form/FormList.vue'
-import { defaultItemName, noneAccessType } from '~/assets/config'
+import { defaultItemName, noneTypeAccess } from '~/assets/config'
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({
@@ -51,7 +51,8 @@ export default Vue.extend({
   data() {
     return {
       name: '',
-      isPublic: false
+      numForms: 0,
+      publicAccess: noneTypeAccess
     }
   },
   // @ts-ignore
@@ -83,9 +84,11 @@ export default Vue.extend({
   },
   mounted() {
     if (this.getInitialData) {
-      this.getProject()
+      this.getProjectData()
     } else {
       this.name = defaultItemName
+      this.numForms = 0
+      this.publicAccess = noneTypeAccess
     }
   },
   methods: {
@@ -95,21 +98,21 @@ export default Vue.extend({
         path: '/form'
       })
     },
-    getProject() {
+    getProjectData() {
       this.$apollo.query({
         query: gql`
           query project($id: String!) {
             project(id: $id) {
-              name
+              forms
               public
             }
           }`,
-          variables: {id: this.$store.state.project.project},
+          variables: {id: this.$store.state.project.projectId},
           fetchPolicy: 'network-only'
         }).then(({ data }) => {
-          this.name = data.project.name
-          this.isPublic = data.project.public === noneAccessType
-          this.$store.commit('auth/setRedirectLogin', this.isPublic)
+          this.numForms = data.project.forms
+          this.publicAccess = data.project.public
+          this.$store.commit('auth/setRedirectLogin', this.publicAccess !== noneTypeAccess)
         }).catch(err => {
           console.error(err)
           this.$bvToast.toast(`found error: ${err.message}`, {
@@ -122,7 +125,7 @@ export default Vue.extend({
       evt.preventDefault()
       this.$apollo.mutate({mutation: gql`
         mutation updateProject($id: String!, $name: String!){updateProject(id: $id, name: $name){id} }
-        `, variables: {id: this.$store.state.project.project, name: this.name}})
+        `, variables: {id: this.$store.state.project.projectId, name: this.name}})
         .then(({ data }) => {
           console.log('updated!')
         }).catch(err => {

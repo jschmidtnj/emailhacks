@@ -146,6 +146,7 @@ var projectMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
+			delete(projectData, "_id")
 			projectData["created"] = now.Unix()
 			_, err = elasticClient.Index().
 				Index(projectElasticIndex).

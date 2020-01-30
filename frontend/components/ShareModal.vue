@@ -1,11 +1,11 @@
 <template>
   <b-modal ref="share-modal" @ok="share" size="xl" title="Share">
     <b-container>
-      <b-container v-if="linkShareAccess !== shareAccessLevels[0]">
+      <b-container v-if="newLinkShareAccess !== shareAccessLevels[0]">
         <b-dropdown
           v-model="newLinkShareAccess"
           @change="changedLinkShareAccess"
-          :text="`Anyone with the link can ${linkShareAccess}`"
+          :text="`Anyone with the link can ${newLinkShareAccess}`"
         >
           <b-dropdown-item>View</b-dropdown-item>
           <b-dropdown-item>Edit</b-dropdown-item>
@@ -51,7 +51,7 @@
           <b-dropdown
             v-model="changedAccess[index].type"
             @change="(evt) => changedUserAccess(evt, index)"
-            :text="linkShareAccess"
+            :text="changedAccess[index].type"
           >
             <b-dropdown-item>View</b-dropdown-item>
             <b-dropdown-item>Edit</b-dropdown-item>
@@ -312,7 +312,7 @@ export default Vue.extend({
     },
     enableLinkShare(evt) {
       evt.preventDefault()
-      this.linkShareAccess = this.shareAccessLevels[1]
+      this.newLinkShareAccess = this.shareAccessLevels[1]
     },
     copyToClipboard(evt) {
       evt.preventDefault()
