@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"strconv"
 
 	"github.com/graphql-go/graphql"
 
@@ -13,7 +14,12 @@ func getFormattedAccessGQLData(currentAccess interface{}, changedAccess []map[st
 	if currentAccess == nil || len(userIDString) == 0 {
 		return []*Access{}, []string{}, []string{}, "", nil
 	}
-	userData := currentAccess.(map[string]bson.M)[userIDString]
+	logger.Info("found access")
+	currentAccessMap, ok := currentAccess.(map[string]bson.M)
+	if !ok {
+		return nil, nil, nil, "", errors.New("cannot convert current access to map")
+	}
+	userData := currentAccessMap[userIDString]
 	tags := []string{}
 	categories := []string{}
 	var accessType string
@@ -34,7 +40,13 @@ func getFormattedAccessGQLData(currentAccess interface{}, changedAccess []map[st
 			return nil, nil, nil, "", err
 		}
 	}
-	newAccessMap := make(map[string]*Access, len(currentAccess.(map[string]bson.M)))
+	newAccessMap := make(map[string]*Access, len(currentAccessMap))
+	for currentUserID, accessUser := range currentAccessMap {
+		newAccessMap[currentUserID] = &Access{
+			Type: accessUser["type"].(string),
+		}
+	}
+	logger.Info("old access len: " + strconv.Itoa(len(currentAccessMap)))
 	if changedAccess != nil {
 		for _, accessUser := range changedAccess {
 			currentUserID := accessUser["id"].(string)
@@ -58,6 +70,7 @@ func getFormattedAccessGQLData(currentAccess interface{}, changedAccess []map[st
 		}
 		i++
 	}
+	logger.Info("new access len: " + strconv.Itoa(len(newAccess)))
 	return newAccess, tags, categories, accessType, nil
 }
 

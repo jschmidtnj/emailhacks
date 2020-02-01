@@ -106,8 +106,8 @@ export default Vue.extend({
   data() {
     return {
       project: {
-        name: this.$store.state.project.projectId,
-        id: this.$store.state.project.projectName
+        id: this.$store.state.project.projectId,
+        name: this.$store.state.project.projectName
       },
       projectOptions: [],
       loadingProjects: false,

@@ -183,12 +183,17 @@ var projectQueryFields = graphql.Fields{
 					if err != nil {
 						return nil, err
 					}
-					logger.Info(currentProject.LinkAccess.Type)
+					var linkAccessData LinkAccess
+					if err = mapstructure.Decode(projectData["linkaccess"], &linkAccessData); err != nil {
+						return nil, err
+					}
+					currentProject.LinkAccess = &linkAccessData
 					needEditAccessLevelForLink := findInArray(currentProject.LinkAccess.Type, editAccessLevel)
 					necessaryAccessLevelForLink := viewAccessLevel
 					if needEditAccessLevelForLink {
 						necessaryAccessLevelForLink = editAccessLevel
 					}
+					logger.Info("testb")
 					if !findInArray(currentAccessType, necessaryAccessLevelForLink) {
 						delete(projectData, "linkaccess")
 						delete(projectData, "access")

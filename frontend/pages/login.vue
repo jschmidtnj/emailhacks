@@ -233,10 +233,12 @@ export default Vue.extend({
                   this.$store.dispatch('project/getProjectName').then(res => {
                     success()
                   }).catch(err => {
-                    this.$bvToast.toast(err, {
+                    console.log(err)
+                    this.$bvToast.toast('cannot find current project', {
                       variant: 'danger',
                       title: 'Error'
                     })
+                    success()
                   })
                 } else {
                   success()

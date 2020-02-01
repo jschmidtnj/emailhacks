@@ -19,7 +19,7 @@ export const mutations = {
 }
 
 export const actions = {
-  async getProjectName({ store, commit }) {
+  async getProjectName({ state, commit }) {
     const client = this.app.apolloProvider.defaultClient
     return new Promise((resolve, reject) => {
       client
@@ -31,7 +31,7 @@ export const actions = {
               }
             }
           `,
-          variables: { id: store.projectId },
+          variables: { id: state.projectId },
           fetchPolicy: 'network-only'
         })
         .then(({ data }) => {

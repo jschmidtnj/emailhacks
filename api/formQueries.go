@@ -287,6 +287,11 @@ var formQueryFields = graphql.Fields{
 					if err != nil {
 						return nil, err
 					}
+					var linkAccessData LinkAccess
+					if err = mapstructure.Decode(formData["linkaccess"], &linkAccessData); err != nil {
+						return nil, err
+					}
+					currentForm.LinkAccess = &linkAccessData
 					needEditAccessLevelForLink := findInArray(currentForm.LinkAccess.Type, editAccessLevel)
 					necessaryAccessLevel := viewAccessLevel
 					if needEditAccessLevelForLink {

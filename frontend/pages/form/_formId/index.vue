@@ -9,6 +9,12 @@
         />
       </b-col>
       <b-col>
+        <nuxt-link
+          :to="`/form/${formId}/view`"
+          class="btn btn-primary btn-sm no-underline mt-4"
+        >
+          view
+        </nuxt-link>
         <b-container v-if="!responseId">
           <vc-donut
             :size="200"
@@ -122,6 +128,10 @@ export default Vue.extend({
                 text
                 required
                 files
+              }
+              access {
+                id
+                type
               }
               multiple
               files {

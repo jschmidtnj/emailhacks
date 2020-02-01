@@ -7,7 +7,7 @@
           <b-input-group>
             <b-form-input
               v-model="search"
-              @keyup.enter.native="updatedSearchTerm"
+              @keyup="updatedSearchTerm"
               placeholder="Type to Search"
             />
             <b-input-group-append>
@@ -27,7 +27,7 @@
       </b-col>
     </b-row>
     <b-container
-      v-infinite-scroll="searchForms(true)"
+      v-infinite-scroll="() => console.log('scroll search now')"
       infinite-scroll-disabled="scrollDisabled"
       infinite-scroll-distance="10"
     >
@@ -46,7 +46,7 @@
               </nuxt-link>
             </b-col>
             <b-col class="text-right">
-              <b-button @click="deleteForm(item)" size="sm">
+              <b-button @click="deleteForm(item)">
                 Delete
               </b-button>
             </b-col>
@@ -58,7 +58,7 @@
                 class="share-button"
               >
                 <client-only>
-                  <font-awesome-icon size="md" icon="share" />
+                  <font-awesome-icon icon="share" />
                 </client-only>
               </b-button>
             </b-col>
@@ -74,7 +74,7 @@
 import Vue from 'vue'
 import gql from 'graphql-tag'
 // import ShareModal from '~/components/ShareModal.vue'
-const searchIntervalDuration = 750 // update search every ms after change
+const searchTimeoutDuration = 500 // update search every ms after change
 const defaultSort = 'updated'
 export default Vue.extend({
   name: 'Forms',
@@ -94,11 +94,11 @@ export default Vue.extend({
       sortDesc: true,
       search: '',
       loading: true,
-      searchInterval: null
+      searchTimeout: null
     }
   },
   beforeDestroy() {
-    this.clearSearchInterval()
+    this.clearSearchTimeout()
   },
   mounted() {
     if (this.$route.query) {
@@ -117,6 +117,9 @@ export default Vue.extend({
     }
     console.log(`start sort by ${this.sortBy}`)
     this.loading = false
+    this.$nextTick(() => {
+      this.searchForms(false)
+    })
   },
   methods: {
     share(evt, formId) {
@@ -150,16 +153,16 @@ export default Vue.extend({
           })
         })
     },
-    clearSearchInterval() {
-      if (this.searchInterval) {
-        clearInterval(this.searchInterval)
+    clearSearchTimeout() {
+      if (this.searchTimeout) {
+        clearTimeout(this.searchTimeout)
       }
     },
     updatedSearchTerm(evt) {
       evt.preventDefault()
       this.currentPage = 1
-      this.clearSearchInterval()
-      this.searchInterval = setInterval(this.searchForms(false), searchIntervalDuration)
+      this.clearSearchTimeout()
+      this.searchTimeout = setTimeout(this.searchForms, searchTimeoutDuration, false)
     },
     updateCount() {
       this.$axios

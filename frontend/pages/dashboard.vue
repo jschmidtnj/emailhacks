@@ -1,6 +1,5 @@
 <template>
   <b-container class="mt-4">
-    {{ $store.state.project.projectId }}
     <view-project-data
       v-if="$store.state.project.projectId && $store.state.project.projectName"
     />

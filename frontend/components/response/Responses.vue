@@ -1,18 +1,12 @@
 <template>
-  <b-container fluid>
+  <b-container v-if="!loading" fluid>
     <b-row>
       <b-col md="6" class="my-1">
         <b-form-group label-cols-sm="3" label="search" class="mb-0">
           <b-input-group>
             <b-form-input
               v-model="search"
-              @keyup.enter.native="
-                (evt) => {
-                  evt.preventDefault()
-                  currentPage = 1
-                  searchResponses(false)
-                }
-              "
+              @keyup="updatedSearchTerm"
               placeholder="Type to Search"
             />
             <b-input-group-append>
@@ -32,8 +26,8 @@
       </b-col>
     </b-row>
     <b-container
-      v-infinite-scroll="searchResponses(true)"
-      infinite-scroll-disabled="gettingData"
+      v-infinite-scroll="() => console.log('scroll search now')"
+      infinite-scroll-disabled="scrollDisabled"
       infinite-scroll-distance="10"
     >
       <b-card v-for="(item, index) in items" :key="`item-${index}`" no-body>
@@ -71,6 +65,7 @@
 <script lang="js">
 import Vue from 'vue'
 import gql from 'graphql-tag'
+const searchTimeoutDuration = 500 // update search every ms after change
 const defaultSort = 'updated'
 export default Vue.extend({
   name: 'Responses',
@@ -89,15 +84,20 @@ export default Vue.extend({
     return {
       hasEditAccess: false,
       items: [],
-      gettingData: true,
+      scrollDisabled: true,
       totalRows: 0,
       currentPage: 1,
       perPage: 5,
       pageOptions: [5, 10, 15],
       sortBy: null,
       sortDesc: true,
-      search: ''
+      search: '',
+      loading: true,
+      searchTimeout: null
     }
+  },
+  beforeDestroy() {
+    this.clearSearchTimeout()
   },
   mounted() {
     if (this.$route.query) {
@@ -115,7 +115,10 @@ export default Vue.extend({
       this.sortBy = defaultSort
     }
     this.hasEditAccess = this.editAccess
-    this.searchResponses(false)
+    this.loading = false
+    this.$nextTick(() => {
+      this.searchResponses(false)
+    })
   },
   methods: {
     deleteResponse(response) {
@@ -135,6 +138,18 @@ export default Vue.extend({
             title: 'Error'
           })
         })
+    },
+    clearSearchTimeout() {
+      if (this.searchTimeout) {
+        clearTimeout(this.searchTimeout)
+        this.searchTimeout = null
+      }
+    },
+    updatedSearchTerm(evt) {
+      evt.preventDefault()
+      this.currentPage = 1
+      this.clearSearchTimeout()
+      this.searchTimeout = setTimeout(this.searchResponses, searchTimeoutDuration, false)
     },
     updateCount() {
       const getParams = {
@@ -185,8 +200,8 @@ export default Vue.extend({
         })
     },
     searchResponses(append) {
-      this.gettingData = true
-      this.updateCount()
+      this.scrollDisabled = true
+      // this.updateCount()
       const formIdVal = this.formId ? this.formId : null
       this.$apollo.query({
         query: gql`
@@ -202,7 +217,6 @@ export default Vue.extend({
           fetchPolicy: 'network-only'
         }).then(({ data }) => {
           const responses = data.responses
-          console.log(responses)
           responses.forEach(response => {
             if (response.updated && response.updated.toString().length === 10) {
               response.updated = Number(response.updated) * 1000
@@ -213,20 +227,25 @@ export default Vue.extend({
           })
           if (append) {
             this.items.concat(responses)
+            if (this.items.length > 0) {
+              this.currentPage++
+              this.scrollDisabled = false
+            }
           } else {
             this.items = responses
+            this.scrollDisabled = false
           }
-          this.$nextTick(() => {
-            this.$forceUpdate()
-          })
-          this.gettingData = false
+          /*
+            this.$nextTick(() => {
+              this.$forceUpdate()
+            })
+          */
         }).catch(err => {
           console.error(err)
           this.$bvToast.toast(`found error: ${err.message}`, {
             variant: 'danger',
             title: 'Error'
           })
-          this.gettingData = false
         })
     }
   }

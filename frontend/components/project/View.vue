@@ -34,7 +34,7 @@
 import Vue from 'vue'
 import gql from 'graphql-tag'
 import FormList from '~/components/form/FormList.vue'
-import { defaultItemName, noneTypeAccess } from '~/assets/config'
+import { defaultItemName, noneAccessType } from '~/assets/config'
 // @ts-ignore
 const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({
@@ -52,7 +52,7 @@ export default Vue.extend({
     return {
       name: '',
       numForms: 0,
-      publicAccess: noneTypeAccess
+      publicAccess: noneAccessType
     }
   },
   // @ts-ignore
@@ -85,10 +85,11 @@ export default Vue.extend({
   mounted() {
     if (this.getInitialData) {
       this.getProjectData()
+      this.name = this.$store.state.project.projectName
     } else {
       this.name = defaultItemName
       this.numForms = 0
-      this.publicAccess = noneTypeAccess
+      this.publicAccess = noneAccessType
     }
   },
   methods: {
@@ -112,7 +113,7 @@ export default Vue.extend({
         }).then(({ data }) => {
           this.numForms = data.project.forms
           this.publicAccess = data.project.public
-          this.$store.commit('auth/setRedirectLogin', this.publicAccess !== noneTypeAccess)
+          this.$store.commit('auth/setRedirectLogin', this.publicAccess !== noneAccessType)
         }).catch(err => {
           console.error(err)
           this.$bvToast.toast(`found error: ${err.message}`, {
@@ -128,6 +129,7 @@ export default Vue.extend({
         `, variables: {id: this.$store.state.project.projectId, name: this.name}})
         .then(({ data }) => {
           console.log('updated!')
+          this.$store.commit('project/setProjectName', this.name)
         }).catch(err => {
           console.error(err)
           this.$bvToast.toast(`found error: ${err.message}`, {
