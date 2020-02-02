@@ -34,6 +34,7 @@
 
 <script lang="js">
 import Vue from 'vue'
+import gql from 'graphql-tag'
 import { validationMixin } from 'vuelidate'
 import { required, email } from 'vuelidate/lib/validators'
 import * as clipboard from 'clipboard-polyfill'
@@ -52,7 +53,8 @@ export default Vue.extend({
   },
   data() {
     return {
-      email: ''
+      email: '',
+      emailContent: null
     }
   },
   validations: {
@@ -72,15 +74,63 @@ export default Vue.extend({
         })
       }
     },
+    async getEmailContent() {
+      return new Promise((resolve, reject) => {
+        this.$apollo.query({query: gql`
+            query formEmail($id: String!, $email: String!) {
+              formEmail(id: $id, email: $email) {
+                data
+              }
+            }
+            `, variables: {
+              id: this.formId,
+              email: this.email
+            },
+            fetchPolicy: 'network-only'
+          })
+          .then(({ data }) => {
+            if (!data.formEmail) {
+              const message = 'invalid coupon'
+              this.$bvToast.toast(message, {
+                variant: 'danger',
+                title: 'Error'
+              })
+              reject(new Error(message))
+            } else {
+              this.emailContent = data.formEmail.data
+              resolve('got email data')
+            }
+          }).catch(err => {
+            const message = `found error: ${err.message}`
+            this.$bvToast.toast(message, {
+              variant: 'danger',
+              title: 'Error'
+            })
+            reject(new Error(message))
+          })
+      })
+    },
     copyToClipboard(evt) {
       evt.preventDefault()
-      const dt = new clipboard.DT()
-      dt.setData('text/html', '<h1>test data</h1>')
-      clipboard.write(dt)
-      this.$bvToast.toast('Email copied!', {
-        variant: 'success',
-        title: 'Success'
-      })
+      const success = () => {
+        const dt = new clipboard.DT()
+        dt.setData('text/html', this.emailContent)
+        clipboard.write(dt)
+        this.$bvToast.toast('Email copied!', {
+          variant: 'success',
+          title: 'Success'
+        })
+      }
+      if (!this.emailContent) {
+        this.getEmailContent().then(res => {
+          console.log(res)
+          success()
+        }).catch(err => {
+          console.error(err)
+        })
+      } else {
+        success()
+      }
     }
   }
 })

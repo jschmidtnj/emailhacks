@@ -25,6 +25,7 @@ func rootQuery() *graphql.Object {
 			"userPublic":  userQueryFields["userPublic"],
 			"responses":   responseQueryFields["responses"],
 			"response":    responseQueryFields["response"],
+			"formEmail":   formQueryFields["formEmail"],
 			"forms":       formQueryFields["forms"],
 			"form":        formQueryFields["form"],
 			"projects":    projectQueryFields["projects"],
