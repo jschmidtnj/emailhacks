@@ -1445,8 +1445,6 @@ export default Vue.extend({
 })
 </script>
 
-<style src="vue-multiselect/dist/vue-multiselect.min.css"></style>
-
 <style lang="scss">
 @import '~/node_modules/prismjs/themes/prism.css';
 .arrow-size-edit {

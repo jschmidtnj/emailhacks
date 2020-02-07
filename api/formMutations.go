@@ -519,7 +519,7 @@ var formMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			if !findInArray(currentAccessType, editAccessLevel) {
+			if !findInArray(currentAccessType, editAccessLevel) && currentAccessType != "" {
 				form.LinkAccess = nil
 				form.Access = nil
 			} else {
@@ -929,7 +929,7 @@ func deleteForm(formID primitive.ObjectID, form *Form, userIDString string) (*Fo
 		if err != nil {
 			return nil, err
 		}
-		if !findInArray(currentAccessType, editAccessLevel) {
+		if !findInArray(currentAccessType, editAccessLevel) && currentAccessType != "" {
 			form.LinkAccess = nil
 			form.Access = nil
 		} else {

@@ -1,7 +1,7 @@
 <template>
-  <div class="container-fluid">
-    <div id="admin-cards" class="container">
-      <div class="row my-4">
+  <b-container fluid>
+    <b-container id="admin-cards">
+      <b-row class="my-4">
         <div class="col-lg-6 my-2">
           <section class="card h-100 py-0">
             <div class="card-body">
@@ -240,6 +240,20 @@
             <div class="card-body">
               <b-form @submit="searchproducts" @reset="clearsearch">
                 <span class="card-text">
+                  <h2 class="mb-4">Currencies</h2>
+                  <client-only>
+                    <multiselect
+                      v-if="!loading"
+                      v-model="selectedCurrencies"
+                      :options="currencyOptions"
+                      :multiple="true"
+                      @select="addCurrency"
+                      @remove="removeCurrency"
+                      label="currencyName"
+                      track-by="currencyCode"
+                      class="mb-2"
+                    />
+                  </client-only>
                   <h2 class="mb-4">Search</h2>
                   <b-form-group>
                     <label class="form-required">Query</label>
@@ -320,14 +334,16 @@
             </div>
           </section>
         </div>
-      </div>
-    </div>
-  </div>
+      </b-row>
+    </b-container>
+  </b-container>
 </template>
 
 <script lang="js">
 import Vue from 'vue'
+import gql from 'graphql-tag'
 import Multiselect from 'vue-multiselect'
+import getSymbolFromCurrency from 'currency-symbol-map'
 import { validationMixin } from 'vuelidate'
 import { required, minLength, minValue, integer } from 'vuelidate/lib/validators'
 import { formatRelative } from 'date-fns'
@@ -348,7 +364,7 @@ const intervalOptions = [
     interval: 'year'
   }
 ]
-const validInterval = (interval) => interval && intervalOptions.some(curr => curr.interval === interval)
+const validInterval = (selected) => selected && intervalOptions.some(curr => curr.interval === selected.interval)
 /**
  * products edit
  */
@@ -382,6 +398,9 @@ export default Vue.extend({
   data() {
     return {
       submitting: false,
+      loading: true,
+      selectedCurrencies: [],
+      currencyOptions: [],
       modetypes,
       mode: modetypes.add,
       productid: null,
@@ -430,18 +449,17 @@ export default Vue.extend({
         integer,
         minValue: minValue(0)
       },
-      maxfiles: {
-        required,
-        integer,
-        minValue: minValue(0)
-      },
       maxstorage: {
         required,
         integer,
         minValue: minValue(0)
       },
+      maxforms: {
+        required,
+        integer,
+        minValue: minValue(0)
+      },
       plans: {
-        minLength: minLength(1),
         $each: {
           interval: {
             required,
@@ -483,10 +501,113 @@ export default Vue.extend({
       ]
     }
   },
+  mounted() {
+    this.$apollo.query({query: gql`
+      query currencyOptions {
+        currencyOptions
+      }
+      `, variables: {},
+      fetchPolicy: 'network-only'
+      })
+      .then(({ data }) => {
+        if (!data.currencyOptions) {
+          this.$bvToast.toast('cannot find currency options', {
+            variant: 'danger',
+            title: 'Error'
+          })
+        } else {
+          this.currencyOptions = data.currencyOptions.map((code) => {
+            return {
+              currencyCode: code.toLowerCase(),
+              currencyName: `${getSymbolFromCurrency(code)} ${code.toUpperCase()}`
+            }
+          })
+          const setSelectedCurrencies = () => {
+            this.selectedCurrencies = this.$store.state.purchase.currencyOptions.map(currencyCode =>
+              this.currencyOptions.find(elem => elem.currencyCode === currencyCode)
+            )
+            this.loading = false
+          }
+          if (this.$store.state.purchase.currencyOptions.length === 0) {
+            this.$store.dispatch('purchase/getCurrencyOptions', false).then((res) => {
+              console.log('updated currency options')
+              setSelectedCurrencies()
+            }).catch((err) => {
+              this.$bvToast.toast(err.message, {
+                variant: 'danger',
+                title: 'Error'
+              })
+            })
+          } else {
+            setSelectedCurrencies()
+          }
+        }
+      }).catch(err => {
+        this.$bvToast.toast(err.message, {
+          variant: 'danger',
+          title: 'Error'
+        })
+      })
+  },
   /* eslint-disable */
   methods: {
     mongoidToDate(id) {
       return parseInt(id.substring(0, 8), 16) * 1000
+    },
+    addCurrency(selectedOption) {
+      console.log('add currency')
+      const currency = selectedOption.currencyCode
+      this.$apollo.mutate({
+        mutation: gql`
+          mutation addCurrency($currency: String!) {
+            addCurrency(currency: $currency)
+          }
+        `, variables: {
+          currency
+        }
+      })
+      .then(({ data }) => {
+        this.$store.commit('purchase/addCurrencyOption', currency)
+        this.$bvToast.toast('added currency', {
+          variant: 'success',
+          title: 'Success'
+        })
+      })
+      .catch((err) => {
+        console.error(err)
+        this.$bvToast.toast(`found error: ${err.message}`, {
+          variant: 'danger',
+          title: 'Error'
+        })
+        this.selectedCurrencies = this.selectedCurrencies.slice(selectedOption, 1)
+      })
+    },
+    removeCurrency(selectedOption) {
+      const currency = selectedOption.currencyCode
+      this.$apollo.mutate({
+        mutation: gql`
+          mutation deleteCurrency($currency: String!) {
+            deleteCurrency(currency: $currency)
+          }
+        `, variables: {
+          currency
+        }
+      })
+      .then(({ data }) => {
+        this.$store.commit('purchase/removeCurrencyOption', currency)
+        this.$bvToast.toast('removed currency', {
+          variant: 'success',
+          title: 'Success'
+        })
+      })
+      .catch((err) => {
+        console.error(err)
+        this.$bvToast.toast(`found error: ${err.message}`, {
+          variant: 'danger',
+          title: 'Error'
+        })
+        this.selectedCurrencies.push(selectedOption)
+      })
     },
     editProduct(searchresult) {
       this.productid = searchresult.id
@@ -495,12 +616,12 @@ export default Vue.extend({
         query: gql`
           query product($id: String!) {
             product(id: $id) {
-              name,
-              maxprojects,
-              maxforms,
-              maxstorage,
+              name
+              maxprojects
+              maxforms
+              maxstorage
               plans {
-                amount,
+                amount
                 interval
               }
             }
@@ -509,6 +630,7 @@ export default Vue.extend({
           fetchPolicy: 'network-only'
         }).then(({ data }) => {
           this.mode = this.modetypes.edit
+          data.product.plans.map(plan => plan.interval = intervalOptions.find(planOptions => planOptions.interval === plan.interval))
           this.product = data.product
           this.$bvToast.toast(`edit product with id ${this.productid}`, {
             variant: 'success',
@@ -524,7 +646,7 @@ export default Vue.extend({
     },
     addPlan(evt) {
       evt.preventDefault()
-      this.products.plans.push(clone(defaultPlan))
+      this.product.plans.push(clone(defaultPlan))
     },
     removePlan(evt) {
       evt.preventDefault()
@@ -559,8 +681,8 @@ export default Vue.extend({
       evt.preventDefault()
       this.$apollo.query({
         query: gql`
-          query products() {
-            products() {
+          query products {
+            products {
               name,
               id
             }
@@ -606,19 +728,22 @@ export default Vue.extend({
       this.submitting = true
       const onSuccess = () => {
         this.$bvToast.toast(`${this.mode}ed product with id ${productid}`, {
-          variant: 'danger',
-          title: 'Error'
+          variant: 'success',
+          title: 'Sucess'
         })
         this.submitting = false
         this.resetproduct(null)
       }
+      const plans = clone(this.product.plans)
+      plans.map(plan => plan.interval = plan.interval.interval)
+      console.log(plans)
       if (this.mode === this.modetypes.add) {
         this.$apollo.mutate({mutation: gql`
           mutation addProduct($name: String!, $maxprojects: Int!, $maxstorage: Int!, $maxforms: Int!, $plans: [PlanInput!]!) {
             addProduct(name: $name, maxprojects: $maxprojects, maxstorage: $maxstorage, maxforms: $maxforms, plans: $plans) {
               id
             }
-          }`, variables: {name: this.product.name, maxprojects: this.product.maxstorage, maxforms: this.product.maxforms, plans: this.product.plans}})
+          }`, variables: {name: this.product.name, maxstorage: this.product.maxstorage, maxprojects: this.product.maxstorage, maxforms: this.product.maxforms, plans}})
           .then(({ data }) => {
             productid = data.addProduct.id
             onSuccess()
@@ -633,7 +758,7 @@ export default Vue.extend({
         this.$apollo.mutate({mutation: gql`
           mutation updateProduct($id: String!, $name: String!, $maxprojects: Int!, $maxstorage: Int!, $maxforms: Int!, $plans: [PlanInput!]!)
           {updateProduct(id: $id, name: $name, maxprojects: $maxprojects, maxstorage: $maxstorage, maxforms: $maxforms, plans: $plans){id} }
-          `, variables: {id: this.productid, name: this.product.name, maxprojects: this.product.maxstorage, maxforms: this.product.maxforms, plans: this.product.plans}})
+          `, variables: {id: this.productid, name: this.product.name, maxstorage: this.product.maxstorage, maxprojects: this.product.maxstorage, maxforms: this.product.maxforms, plans}})
           .then(({ data }) => {
             onSuccess()
           }).catch(err => {
@@ -648,7 +773,5 @@ export default Vue.extend({
   }
 })
 </script>
-
-<style src="vue-multiselect/dist/vue-multiselect.min.css"></style>
 
 <style lang="scss"></style>

@@ -125,7 +125,7 @@ func checkResponseAccess(responseID primitive.ObjectID, accessToken string, nece
 		return nil, err
 	}
 	// admin can do anything
-	if claims["type"] == adminType {
+	if claims["type"].(string) == adminType || claims["type"].(string) == superAdminType {
 		return response, nil
 	}
 	// check if user submitted the response

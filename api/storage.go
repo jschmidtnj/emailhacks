@@ -679,7 +679,7 @@ func getFile(c *gin.Context) {
 				return
 			}
 			if tokenFormIDString != postid {
-				handleError("view token for wrong form: "+err.Error(), http.StatusUnauthorized, response)
+				handleError("view token for wrong form", http.StatusUnauthorized, response)
 				return
 			}
 		}
@@ -698,7 +698,7 @@ func getFile(c *gin.Context) {
 				return
 			}
 			if tokenResponseIDString != postid {
-				handleError("view token for wrong response: "+err.Error(), http.StatusUnauthorized, response)
+				handleError("view token for wrong response", http.StatusUnauthorized, response)
 				return
 			}
 		}

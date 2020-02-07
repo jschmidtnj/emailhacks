@@ -1,6 +1,5 @@
 import * as jwt from 'jsonwebtoken'
 import gql from 'graphql-tag'
-import { getCurrencyAbbreviation } from 'country-currency-map'
 // import { oauthConfig } from '~/assets/config'
 import { defaultCurrency, defaultCountry } from '~/assets/config'
 
@@ -11,7 +10,7 @@ import { defaultCurrency, defaultCountry } from '~/assets/config'
 export const state = () => ({
   token: null,
   user: null,
-  country: defaultCountry,
+  currentCountry: defaultCountry,
   currency: defaultCurrency,
   exchangeRate: 1,
   loggedIn: false,
@@ -23,14 +22,14 @@ export const getters = {
   user: (state) => state.user,
   loggedIn: (state) => state.loggedIn,
   redirectLogin: (state) => state.redirectLogin,
-  country: (state) => state.country,
+  currentCountry: (state) => state.currentCountry,
   currency: (state) => state.currency,
   exchangeRate: (state) => state.exchangeRate
 }
 
 export const mutations = {
-  setCountry(state, payload) {
-    state.country = payload
+  setCurrentCountry(state, payload) {
+    state.currentCountry = payload
   },
   setCurrency(state, payload) {
     state.currency = payload
@@ -59,39 +58,45 @@ export const mutations = {
     state.token = null
     state.user = null
     state.loggedIn = false
+  },
+  setBillingCurrency(state, payload) {
+    if (state.user && state.user.billing) {
+      state.user.billing.currency = payload
+    }
   }
 }
 
 export const actions = {
-  async setCountryGetData({ commit }, countryCode) {
+  async getExchangeRate({ commit }, currencyCode) {
+    const client = this.app.apolloProvider.defaultClient
     return new Promise((resolve, reject) => {
-      const currencyCode = getCurrencyAbbreviation(countryCode)
-      this.$axios
-        .get('https://api.exchangeratesapi.io/latest', {
-          params: {
-            base: defaultCurrency,
-            symbols: currencyCode
-          },
-          baseURL: '',
-          headers: null
+      client
+        .query({
+          query: gql`
+            query exchangerate($currency: String!) {
+              exchangerate(currency: $currency)
+            }
+          `,
+          variables: { currency: currencyCode }
         })
-        .then((res) => {
-          if (res.data) {
-            const exchangeRate = res.data.rates[currencyCode]
-            commit('setCountry', countryCode)
+        .then(({ data }) => {
+          if (data && data.exchangerate) {
+            const exchangeRate = data.exchangerate
             commit('setCurrency', currencyCode)
+            console.log(`set currency to ${currencyCode}`)
             commit('setExchangeRate', exchangeRate)
-            resolve('got country and currency')
+            resolve('got currency')
           } else {
             reject(new Error('cannot find exchange rate data'))
           }
         })
         .catch((err) => {
+          console.error(err)
           reject(err)
         })
     })
   },
-  async getCountry({ dispatch }) {
+  async getCountry({ commit }) {
     return new Promise((resolve, reject) => {
       this.$axios
         .get('https://www.cloudflare.com/cdn-cgi/trace', {
@@ -102,13 +107,8 @@ export const actions = {
           if (res.data) {
             const ipData = res.data.split('\n')
             const countryCode = ipData[8].split('=')[1]
-            dispatch('setCountryGetData', countryCode)
-              .then((res) => {
-                resolve(res)
-              })
-              .catch((err) => {
-                reject(err)
-              })
+            commit('setCurrentCountry', countryCode)
+            resolve(res)
           } else {
             reject(new Error('cannot get country data'))
           }
@@ -163,7 +163,7 @@ export const actions = {
         })
     })
   },
-  async loginLocal({ commit }, payload) {
+  async loginLocal({}, payload) {
     return new Promise((resolve, reject) => {
       this.$axios
         .put('/loginEmailPassword', {
@@ -220,6 +220,10 @@ export const actions = {
                   }
                   plan
                   purchases
+                  billing {
+                    country
+                    currency
+                  }
                 }
               }
             `,

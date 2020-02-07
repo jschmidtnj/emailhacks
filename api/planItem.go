@@ -6,11 +6,17 @@ import (
 	"github.com/graphql-go/graphql"
 )
 
+// PlanCurrency object - map of currencies to stripe ids
+type PlanCurrency struct {
+	Currency string `json:"currency"`
+	StripeID string `json:"stripeid"`
+}
+
 // Plan object
 type Plan struct {
-	Interval string `json:"interval"`
-	Amount   int64  `json:"amount"`
-	StripeID string `json:"stripeid"`
+	Interval   string          `json:"interval"`
+	Currencies []*PlanCurrency `json:"currencies"`
+	Amount     int64           `json:"amount"` // in USD - convert to currency client-side
 }
 
 // PlanType provides pricing and interval for product
@@ -22,9 +28,6 @@ var PlanType = graphql.NewObject(graphql.ObjectConfig{
 		},
 		"amount": &graphql.Field{
 			Type: graphql.Int,
-		},
-		"stripeid": &graphql.Field{
-			Type: graphql.String,
 		},
 	},
 })

@@ -72,7 +72,11 @@ export default Vue.extend({
     deleteAccount(evt) {
       evt.preventDefault()
       this.$apollo.mutate({mutation: gql`
-        mutation deleteAccount(){deleteAccount(){id}}
+        mutation deleteAccount {
+          deleteAccount {
+            id
+          }
+        }
         `, variables: {}})
         .then(({ data }) => {
           this.$bvToast.toast('account deleted', {

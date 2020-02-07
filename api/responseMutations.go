@@ -813,9 +813,6 @@ func validateResponseItems(formID primitive.ObjectID, userID primitive.ObjectID,
 				return errors.New("cannot select multiple options")
 			}
 			questionOptions := formItemObj.Options
-			if err != nil {
-				return errors.New("problem casting question options to string array")
-			}
 			var foundOption = false
 			for _, option := range selectedOptions {
 				if !findInArray(option, questionOptions) {

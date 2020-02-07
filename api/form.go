@@ -156,7 +156,7 @@ func checkFormAccess(formID primitive.ObjectID, accessToken string, accessKey st
 		return nil, err
 	}
 	// admin can do anything
-	if claims["type"].(string) == adminType {
+	if claims["type"].(string) == adminType || claims["type"].(string) == superAdminType {
 		return form, nil
 	}
 	// check for valid key

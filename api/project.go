@@ -114,7 +114,7 @@ func checkProjectAccess(projectID primitive.ObjectID, accessToken string, access
 		return nil, "", err
 	}
 	// admin can do anything
-	if claims["type"].(string) == adminType {
+	if claims["type"].(string) == adminType || claims["type"].(string) == superAdminType {
 		return project, editAccessLevel[0], nil
 	}
 	// check for valid key

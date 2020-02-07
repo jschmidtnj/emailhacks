@@ -220,38 +220,46 @@ export default Vue.extend({
             })
             .then(token => {
               this.$store.dispatch('auth/setToken', token).then(() => {
-                const success = () => {
-                  this.$bvToast.toast('logged in', {
-                    variant: 'success',
-                    title: 'Success'
-                  })
-                  this.$router.push({
-                    path: this.redirect_uri ? this.redirect_uri : '/dashboard'
-                  })
-                }
-                if (this.$store.state.project.projectId) {
-                  this.$store.dispatch('project/getProjectName').then(res => {
-                    success()
-                  }).catch(err => {
-                    console.log(err)
-                    this.$bvToast.toast('cannot find current project', {
-                      variant: 'danger',
-                      title: 'Error'
+                this.$store.dispatch('auth/getUser').then(() => {
+                  const success = () => {
+                    this.$bvToast.toast('logged in', {
+                      variant: 'success',
+                      title: 'Success'
                     })
+                    this.$router.push({
+                      path: this.redirect_uri ? this.redirect_uri : '/dashboard'
+                    })
+                  }
+                  if (this.$store.state.project.projectId) {
+                    this.$store.dispatch('project/getProjectName').then(res => {
+                      success()
+                    }).catch(err => {
+                      console.log(err)
+                      this.$bvToast.toast('cannot find current project', {
+                        variant: 'danger',
+                        title: 'Error'
+                      })
+                      success()
+                    })
+                  } else {
                     success()
+                  }
+                })
+                .catch(err => {
+                  this.$bvToast.toast(err.message, {
+                    variant: 'danger',
+                    title: 'Error'
                   })
-                } else {
-                  success()
-                }
+                })
               })
               .catch(err => {
-                this.$bvToast.toast(err, {
+                this.$bvToast.toast(err.message, {
                   variant: 'danger',
                   title: 'Error'
                 })
               })
             }).catch(err => {
-              this.$bvToast.toast(err, {
+              this.$bvToast.toast(err.message, {
                 variant: 'danger',
                 title: 'Error'
               })

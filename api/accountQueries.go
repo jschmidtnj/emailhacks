@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/graphql-go/graphql"
+	"github.com/mitchellh/mapstructure"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -21,31 +22,22 @@ var userQueryFields = graphql.Fields{
 			if accountdata["email"] == nil {
 				return nil, errors.New("email not found in token")
 			}
-			cursor, err := userCollection.Find(ctxMongo, bson.M{"email": accountdata["email"].(string)})
-			defer cursor.Close(ctxMongo)
+			var account Account
+			accountData := map[string]interface{}{}
+			err = userCollection.FindOne(ctxMongo, bson.M{
+				"email": accountdata["email"].(string),
+			}).Decode(&accountData)
 			if err != nil {
 				return nil, err
 			}
-			var userData map[string]interface{}
-			var foundstuff = false
-			for cursor.Next(ctxMongo) {
-				userDataPrimitive := &bson.D{}
-				err = cursor.Decode(userDataPrimitive)
-				if err != nil {
-					return nil, err
-				}
-				userData = userDataPrimitive.Map()
-				id := userData["_id"].(primitive.ObjectID)
-				userData["created"] = objectidTimestamp(id).Unix()
-				userData["id"] = id.Hex()
-				delete(userData, "_id")
-				foundstuff = true
-				break
+			accountID := accountData["_id"].(primitive.ObjectID)
+			delete(accountData, "_id")
+			if err = mapstructure.Decode(accountData, &account); err != nil {
+				return nil, err
 			}
-			if !foundstuff {
-				return nil, errors.New("account data not found")
-			}
-			return userData, nil
+			account.Created = objectidTimestamp(accountID).Unix()
+			account.ID = accountID.Hex()
+			return &account, nil
 		},
 	},
 	"user": &graphql.Field{
@@ -72,32 +64,11 @@ var userQueryFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			cursor, err := userCollection.Find(ctxMongo, bson.M{
-				"_id": id,
-			})
-			defer cursor.Close(ctxMongo)
+			account, err := getAccount(id, false)
 			if err != nil {
 				return nil, err
 			}
-			var userData map[string]interface{}
-			var foundstuff = false
-			for cursor.Next(ctxMongo) {
-				userDataPrimitive := &bson.D{}
-				err = cursor.Decode(userDataPrimitive)
-				if err != nil {
-					return nil, err
-				}
-				userData = userDataPrimitive.Map()
-				userData["created"] = objectidTimestamp(id).Unix()
-				userData["id"] = idstring
-				delete(userData, "_id")
-				foundstuff = true
-				break
-			}
-			if !foundstuff {
-				return nil, errors.New("account data not found")
-			}
-			return userData, nil
+			return account, nil
 		},
 	},
 	"userPublic": &graphql.Field{
@@ -151,4 +122,29 @@ var userQueryFields = graphql.Fields{
 			return publicUserData, nil
 		},
 	},
+}
+
+func getAccounts() (*[]Account, error) {
+	cursor, err := userCollection.Find(ctxMongo, bson.M{})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctxMongo)
+	accounts := []Account{}
+	for cursor.Next(ctxMongo) {
+		accountData := bson.M{}
+		err = cursor.Decode(&accountData)
+		if err != nil {
+			return nil, err
+		}
+		accountID := accountData["_id"].(primitive.ObjectID)
+		var currentAccount Account
+		if err = mapstructure.Decode(accountData, &currentAccount); err != nil {
+			return nil, err
+		}
+		currentAccount.Created = objectidTimestamp(accountID).Unix()
+		currentAccount.ID = accountID.Hex()
+		accounts = append(accounts, currentAccount)
+	}
+	return &accounts, nil
 }

@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"strconv"
 
 	"github.com/graphql-go/graphql"
 
@@ -14,7 +13,6 @@ func getFormattedAccessGQLData(currentAccess interface{}, changedAccess []map[st
 	if currentAccess == nil || len(userIDString) == 0 {
 		return []*Access{}, []string{}, []string{}, "", nil
 	}
-	logger.Info("found access")
 	currentAccessMap, ok := currentAccess.(map[string]bson.M)
 	if !ok {
 		return nil, nil, nil, "", errors.New("cannot convert current access to map")
@@ -46,7 +44,6 @@ func getFormattedAccessGQLData(currentAccess interface{}, changedAccess []map[st
 			Type: accessUser["type"].(string),
 		}
 	}
-	logger.Info("old access len: " + strconv.Itoa(len(currentAccessMap)))
 	if changedAccess != nil {
 		for _, accessUser := range changedAccess {
 			currentUserID := accessUser["id"].(string)
@@ -70,7 +67,6 @@ func getFormattedAccessGQLData(currentAccess interface{}, changedAccess []map[st
 		}
 		i++
 	}
-	logger.Info("new access len: " + strconv.Itoa(len(newAccess)))
 	return newAccess, tags, categories, accessType, nil
 }
 
@@ -172,29 +168,30 @@ func changeUserAccessData(itemID primitive.ObjectID, itemType string, userIDStri
 }
 
 func rootMutation() *graphql.Object {
+	fields := graphql.Fields{}
+	for key := range productMutationFields {
+		fields[key] = productMutationFields[key]
+	}
+	for key := range couponMutationFields {
+		fields[key] = couponMutationFields[key]
+	}
+	for key := range responseMutationFields {
+		fields[key] = responseMutationFields[key]
+	}
+	for key := range formMutationFields {
+		fields[key] = formMutationFields[key]
+	}
+	for key := range userMutationFields {
+		fields[key] = userMutationFields[key]
+	}
+	for key := range projectMutationFields {
+		fields[key] = projectMutationFields[key]
+	}
+	for key := range blogMutationFields {
+		fields[key] = blogMutationFields[key]
+	}
 	return graphql.NewObject(graphql.ObjectConfig{
-		Name: "Mutation",
-		Fields: graphql.Fields{
-			"addProduct":     productMutationFields["addProduct"],
-			"updateProduct":  productMutationFields["updateProduct"],
-			"deleteProduct":  productMutationFields["deleteProduct"],
-			"addCoupon":      couponMutationFields["addCoupon"],
-			"deleteCoupon":   couponMutationFields["deleteCoupon"],
-			"addResponse":    responseMutationFields["addResponse"],
-			"updateResponse": responseMutationFields["updateResponse"],
-			"deleteResponse": responseMutationFields["deleteResponse"],
-			"addForm":        formMutationFields["addForm"],
-			"updateForm":     formMutationFields["updateForm"],
-			"updateFormPart": formMutationFields["updateFormPart"],
-			"deleteForm":     formMutationFields["deleteForm"],
-			"deleteUser":     userMutationFields["deleteUser"],
-			"deleteAccount":  userMutationFields["deleteAccount"],
-			"addProject":     projectMutationFields["addProject"],
-			"updateProject":  projectMutationFields["updateProject"],
-			"deleteProject":  projectMutationFields["deleteProject"],
-			"addBlog":        blogMutationFields["addBlog"],
-			"updateBlog":     blogMutationFields["updateBlog"],
-			"deleteBlog":     blogMutationFields["deleteBlog"],
-		},
+		Name:   "Mutation",
+		Fields: fields,
 	})
 }

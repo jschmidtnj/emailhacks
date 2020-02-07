@@ -286,7 +286,7 @@ var projectMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			if !findInArray(currentAccessType, editAccessLevel) {
+			if !findInArray(currentAccessType, editAccessLevel) && currentAccessType != "" {
 				projectData.LinkAccess = nil
 				projectData.Access = nil
 			} else {
@@ -419,7 +419,13 @@ var projectMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			if !findInArray(currentAccessType, editAccessLevel) {
+			err = deleteShortLink(projectData.LinkAccess.ShortLink)
+			if err != nil {
+				return nil, err
+			}
+			if !findInArray(currentAccessType, editAccessLevel) && currentAccessType != "" {
+				logger.Info("link access now nil")
+				logger.Info(currentAccessType)
 				projectData.LinkAccess = nil
 				projectData.Access = nil
 			} else {
@@ -427,10 +433,6 @@ var projectMutationFields = graphql.Fields{
 			}
 			projectData.Categories = categories
 			projectData.Tags = tags
-			err = deleteShortLink(projectData.LinkAccess.ShortLink)
-			if err != nil {
-				return nil, err
-			}
 			if err = deleteProject(projectID); err != nil {
 				return nil, err
 			}

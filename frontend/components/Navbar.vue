@@ -84,7 +84,7 @@
         </b-nav-item-dropdown>
       </b-navbar-nav>
     </b-collapse>
-    <plans-modal ref="plans-modal" v-if="loggedIn" />
+    <plans-modal ref="plans-modal" v-if="loggedIn && upgrade" />
   </b-navbar>
 </template>
 
@@ -209,7 +209,5 @@ export default Vue.extend({
   }
 })
 </script>
-
-<style src="vue-multiselect/dist/vue-multiselect.min.css"></style>
 
 <style lang="scss"></style>

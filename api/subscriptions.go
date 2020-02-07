@@ -83,11 +83,6 @@ func subscriptionsHandler(c *gin.Context) {
 			if err != nil {
 				return
 			}
-			if err != nil {
-				message := "failed to read websocket message: " + err.Error()
-				logger.Error(message)
-				return
-			}
 			var msg ConnectionACKMessage
 			if err := json.Unmarshal(p, &msg); err != nil {
 				message := "failed to unmarshal: " + err.Error()

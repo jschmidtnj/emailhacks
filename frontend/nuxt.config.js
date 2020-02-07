@@ -56,9 +56,6 @@ module.exports = {
         defer: true
       },
       {
-        src: 'https://apis.google.com/js/api.js'
-      },
-      {
         innerHTML: JSON.stringify({
           '@context': 'https://schema.org',
           '@type': 'Organization',

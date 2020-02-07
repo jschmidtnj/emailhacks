@@ -21,6 +21,7 @@ require (
 	github.com/dlclark/regexp2 v1.2.0 // indirect
 	github.com/fatih/gomodifytags v1.0.0 // indirect
 	github.com/gin-contrib/cors v1.3.0
+	github.com/gin-contrib/zap v0.0.0-20191128031730-d12829f8f61b
 	github.com/gin-gonic/gin v1.5.0
 	github.com/go-redis/redis v6.15.2+incompatible
 	github.com/go-redis/redis/v7 v7.0.0-beta.4
@@ -63,6 +64,7 @@ require (
 	github.com/tdewolff/minify/v2 v2.7.2
 	github.com/tidwall/pretty v1.0.0 // indirect
 	github.com/uudashr/gopkgs v2.0.1+incompatible // indirect
+	github.com/valyala/fasthttp v1.9.0
 	github.com/vmihailenco/taskq/v2 v2.2.3
 	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c // indirect
 	github.com/xdg/stringprep v1.0.0 // indirect

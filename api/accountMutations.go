@@ -2,9 +2,11 @@ package main
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/graphql-go/graphql"
 	"github.com/olivere/elastic/v7"
+	"github.com/stripe/stripe-go"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -71,8 +73,6 @@ func deleteAccount(idstring string) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	account.SubscriptionID = ""
-	account.StripeID = ""
 	return account, nil
 }
 
@@ -111,13 +111,11 @@ var userMutationFields = graphql.Fields{
 					"subscriptionid": "",
 				},
 			})
-			account.SubscriptionID = ""
-			account.StripeID = ""
 			return account, nil
 		},
 	},
 	"purchase": &graphql.Field{
-		Type:        AccountType,
+		Type:        graphql.String,
 		Description: "Purchase a Product",
 		Args: graphql.FieldConfigArgument{
 			"product": &graphql.ArgumentConfig{
@@ -190,13 +188,11 @@ var userMutationFields = graphql.Fields{
 				couponAmount = couponData.Amount
 				couponPercent = couponData.Percent
 			}
-			account, err := purchase(id, productID, couponIDString, couponAmount, couponPercent, interval, cardToken)
+			clientSecret, err := purchase(id, productID, couponIDString, couponAmount, couponPercent, interval, cardToken)
 			if err != nil {
 				return nil, err
 			}
-			account.SubscriptionID = ""
-			account.StripeID = ""
-			return account, nil
+			return *clientSecret, nil
 		},
 	},
 	"changeBilling": &graphql.Field{
@@ -215,9 +211,6 @@ var userMutationFields = graphql.Fields{
 			"address1": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
-			"address2": &graphql.ArgumentConfig{
-				Type: graphql.String,
-			},
 			"city": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
@@ -234,6 +227,9 @@ var userMutationFields = graphql.Fields{
 				Type: graphql.String,
 			},
 			"email": &graphql.ArgumentConfig{
+				Type: graphql.String,
+			},
+			"currency": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
 		},
@@ -279,13 +275,6 @@ var userMutationFields = graphql.Fields{
 				}
 				updatedBillingData["address1"] = address1
 			}
-			if params.Args["address2"] != nil {
-				address2, ok := params.Args["address2"].(string)
-				if !ok {
-					return nil, errors.New("cannot cast address 2 to string")
-				}
-				updatedBillingData["address2"] = address2
-			}
 			if params.Args["city"] != nil {
 				city, ok := params.Args["city"].(string)
 				if !ok {
@@ -307,10 +296,15 @@ var userMutationFields = graphql.Fields{
 				}
 				updatedBillingData["zip"] = zip
 			}
+			var countryData *stripe.CountrySpec
 			if params.Args["country"] != nil {
 				country, ok := params.Args["country"].(string)
 				if !ok {
 					return nil, errors.New("cannot cast country to string")
+				}
+				countryData, err = stripeClient.CountrySpec.Get(country, nil)
+				if err != nil {
+					return nil, err
 				}
 				updatedBillingData["country"] = country
 			}
@@ -328,6 +322,36 @@ var userMutationFields = graphql.Fields{
 				}
 				updatedBillingData["email"] = email
 			}
+			account, err := getAccount(id, true)
+			if err != nil {
+				return nil, err
+			}
+			if params.Args["currency"] != nil {
+				currency, ok := params.Args["currency"].(string)
+				if !ok {
+					return nil, errors.New("cannot cast currency to string")
+				}
+				currency = strings.ToLower(currency)
+				currencyObj := stripe.Currency(currency)
+				if countryData == nil {
+					countryData, err = stripeClient.CountrySpec.Get(account.Billing.Country, nil)
+					if err != nil {
+						return nil, err
+					}
+				}
+				var foundCurrency = false
+				for i := range countryData.SupportedPaymentCurrencies {
+					if currencyObj == countryData.SupportedPaymentCurrencies[i] {
+						foundCurrency = true
+						break
+					}
+				}
+				if !foundCurrency {
+					return nil, errors.New("invalid currency for given country")
+				}
+				updatedBillingData["currency"] = currency
+				account.Billing.Currency = currency
+			}
 			_, err = userCollection.UpdateOne(ctxMongo, bson.M{
 				"_id": id,
 			}, bson.M{
@@ -335,12 +359,6 @@ var userMutationFields = graphql.Fields{
 					"billing": updatedBillingData,
 				},
 			})
-			account, err := getAccount(id, true)
-			if err != nil {
-				return nil, err
-			}
-			account.SubscriptionID = ""
-			account.StripeID = ""
 			return account, nil
 		},
 	},
@@ -412,8 +430,6 @@ var userMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			account.SubscriptionID = ""
-			account.StripeID = ""
 			return account, nil
 		},
 	},
@@ -471,8 +487,6 @@ var userMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			account.SubscriptionID = ""
-			account.StripeID = ""
 			return account, nil
 		},
 	},

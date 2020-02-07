@@ -1,25 +1,31 @@
 import gql from 'graphql-tag'
 
-const validProductTypes = ['plan', 'product']
-
 export const state = () => ({
   plan: null,
   products: [],
-  options: []
+  productOptions: [],
+  countryOptions: [],
+  currencyOptions: []
 })
 
 export const getters = {
   plan: (state) => state.plan,
   products: (state) => state.products,
-  options: (state) => state.options,
+  productOptions: (state) => state.productOptions,
+  countryOptions: (state) => state.countryOptions,
+  currencyOptions: (state) => state.currencyOptions,
   total: (state) => {
-    return (
-      state.options[state.plan.productIndex].plans[state.plan.planIndex]
-        .amount +
-      state.products
-        .map((productIndex) => state.options[productIndex])
-        .reduce((acc, curr) => (acc += curr.plans[0].amount))
-    )
+    /* eslint-disable */
+    return state.plan
+      ? state.productOptions[state.plan.productIndex].plans[
+          state.plan.planIndex
+        ].amount
+      : 0 + state.products.length > 0
+      ? state.products
+          .map((productIndex) => state.productOptions[productIndex])
+          .reduce((acc, curr) => (acc += curr.plans[0].amount))
+      : 0
+    /* eslint-enable */
   }
 }
 
@@ -31,8 +37,22 @@ export const mutations = {
   setPlan(state, payload) {
     state.plan = payload
   },
-  setOptions(state, payload) {
-    state.options = payload
+  setProductOptions(state, payload) {
+    state.productOptions = payload
+  },
+  setCountryOptions(state, payload) {
+    state.countryOptions = payload
+  },
+  setCurrencyOptions(state, payload) {
+    state.currencyOptions = payload
+  },
+  addCurrencyOption(state, payload) {
+    if (!state.currencyOptions.includes(payload))
+      state.currencyOptions.push(payload)
+  },
+  removeCurrencyOption(state, payload) {
+    const index = state.currencyOptions.indexOf(payload)
+    if (index !== -1) state.currencyOptions.splice(index, 1)
   },
   addProduct(state, payload) {
     if (!state.products.includes(payload)) {
@@ -46,43 +66,36 @@ export const mutations = {
 
 export const actions = {
   addPlan({ commit, state }, selection) {
-    if (!validProductTypes.includes(selection)) {
-      return new Error('invalid product type found')
-    }
-    if (!selection.productIndex) {
-      return new Error('cannot find index')
-    }
     if (
       selection.productIndex < 0 ||
-      selection.productIndex > state.options.length
+      selection.productIndex > state.productOptions.length
     ) {
       return new Error('invalid index found')
     }
     if (
-      !selection.options[selection.productIndex].plans ||
-      selection.options[selection.productIndex].plans.length === 0
+      !state.productOptions[selection.productIndex].plans ||
+      state.productOptions[selection.productIndex].plans.length === 0
     ) {
       return new Error('cannot find any plans for given product')
     }
-    if (selection.type === validProductTypes[1]) {
+    if (
+      selection.planIndex < 0 ||
+      selection.planIndex >=
+        state.productOptions[selection.productIndex].plans.length
+    ) {
+      return new Error('plan index is invalid')
+    }
+    const planType =
+      state.productOptions[selection.productIndex].plans[selection.planIndex]
+        .type
+    if (planType === 'once') {
       // single purchase
-      if (state.options[selection.productIndex] !== 'once') {
-        return new Error('current selection is not a one-time purchase')
-      }
       commit('addProduct', selection.productIndex)
     } else {
-      if (
-        !selection.planIndex ||
-        selection.planIndex < 0 ||
-        selection.planIndex >=
-          selection.options[selection.productIndex].plans.length
-      ) {
-        return new Error('plan index is invalid')
-      }
       commit('setPlan', selection)
     }
   },
-  async getOptions({ commit }) {
+  async getProductOptions({ commit }) {
     const client = this.app.apolloProvider.defaultClient
     return new Promise((resolve, reject) => {
       client
@@ -92,7 +105,10 @@ export const actions = {
               products {
                 id
                 name
-                plans
+                plans {
+                  amount
+                  interval
+                }
                 maxprojects
                 maxforms
                 maxstorage
@@ -103,8 +119,53 @@ export const actions = {
           fetchPolicy: 'network-only'
         })
         .then(({ data }) => {
-          commit('setOptions', data.products)
-          resolve('found options')
+          commit('setProductOptions', data.products)
+          resolve('found product options')
+        })
+        .catch((err) => {
+          console.error(err)
+          reject(err)
+        })
+    })
+  },
+  async getCountryOptions({ commit }) {
+    const client = this.app.apolloProvider.defaultClient
+    return new Promise((resolve, reject) => {
+      client
+        .query({
+          query: gql`
+            query countries {
+              countries
+            }
+          `,
+          variables: {}
+        })
+        .then(({ data }) => {
+          commit('setCountryOptions', data.countries)
+          resolve('found country options')
+        })
+        .catch((err) => {
+          console.error(err)
+          reject(err)
+        })
+    })
+  },
+  async getCurrencyOptions({ commit }, useCache) {
+    const client = this.app.apolloProvider.defaultClient
+    return new Promise((resolve, reject) => {
+      client
+        .query({
+          query: gql`
+            query currencies($useCache: Boolean!) {
+              currencies(useCache: $useCache)
+            }
+          `,
+          variables: { useCache },
+          fetchPolicy: useCache ? 'cache-first' : 'network-only'
+        })
+        .then(({ data }) => {
+          commit('setCurrencyOptions', data.currencies)
+          resolve('found currency options')
         })
         .catch((err) => {
           console.error(err)

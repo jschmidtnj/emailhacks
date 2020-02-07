@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	json "github.com/json-iterator/go"
 	"github.com/mitchellh/mapstructure"
+	"github.com/stripe/stripe-go"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
@@ -157,33 +158,82 @@ func register(c *gin.Context) {
 		return
 	}
 	now := time.Now()
-	res, err := userCollection.InsertOne(ctxMongo, bson.M{
-		"email":          email,
-		"password":       string(passwordhashed),
-		"emailverified":  false,
-		"type":           userType,
-		"updated":        now.Unix(),
-		"categories":     bson.A{},
-		"tags":           bson.A{},
-		"stripeid":       "",
-		"plan":           "",
-		"subscriptionid": "",
+	userID := primitive.NewObjectID()
+	customerParams := &stripe.CustomerParams{
+		Email: &email,
+		Params: stripe.Params{
+			Metadata: map[string]string{
+				"id": userID.Hex(),
+			},
+		},
+	}
+	newCustomer, err := stripeClient.Customers.New(customerParams)
+	if err != nil {
+		handleError(err.Error(), http.StatusBadRequest, response)
+		return
+	}
+	defaultProduct, err := getProduct(primitive.NilObjectID, true)
+	if err != nil {
+		handleError(err.Error(), http.StatusBadRequest, response)
+		return
+	}
+	var foundCurrency = false
+	var planID string
+	for _, currencyData := range defaultProduct.Plans[0].Currencies {
+		if currencyData.Currency == defaultCurrency {
+			foundCurrency = true
+			planID = currencyData.StripeID
+			break
+		}
+	}
+	if !foundCurrency {
+		handleError("cannot find default currency for default plan", http.StatusBadRequest, response)
+		return
+	}
+	subscriptionParams := &stripe.SubscriptionParams{
+		Customer:           &newCustomer.ID,
+		BillingCycleAnchor: stripe.Int64(time.Now().Unix()),
+		Items: []*stripe.SubscriptionItemsParams{&stripe.SubscriptionItemsParams{
+			Plan: &planID,
+		},
+		},
+	}
+	stripeSubscription, err := stripeClient.Subscriptions.New(subscriptionParams)
+	if err != nil {
+		handleError(err.Error(), http.StatusBadRequest, response)
+		return
+	}
+	accountData := bson.M{
+		"_id":           userID,
+		"email":         email,
+		"password":      string(passwordhashed),
+		"emailverified": false,
+		"type":          userType,
+		"updated":       now.Unix(),
+		"categories":    bson.A{},
+		"tags":          bson.A{},
+		"stripeids": bson.M{
+			defaultCurrency: newCustomer.ID,
+		},
+		"plan":           defaultPlanName,
+		"subscriptionid": stripeSubscription.ID,
 		"purchases":      bson.A{},
 		"storage":        int64(0),
 		"billing": bson.M{
-			"firstname": "",
-			"lastname":  "",
+			"firstName": "",
+			"lastName":  "",
 			"company":   "",
 			"address1":  "",
-			"address2":  "",
 			"city":      "",
 			"state":     "",
 			"zip":       "",
 			"country":   "",
 			"phone":     "",
-			"email":     "",
+			"email":     email,
+			"currency":  defaultCurrency,
 		},
-	})
+	}
+	res, err := userCollection.InsertOne(ctxMongo, accountData)
 	if err != nil {
 		handleError("error inserting user to database: "+err.Error(), http.StatusBadRequest, response)
 		return
@@ -601,12 +651,6 @@ func validateAdmin(t string) (jwt.MapClaims, error) {
 	accountdata, err := getTokenData(t)
 	if err != nil {
 		return nil, err
-	}
-	if accountdata["emailverified"] == nil {
-		return nil, errors.New("email verified not found")
-	}
-	if !accountdata["emailverified"].(bool) {
-		return nil, errors.New("email not verified")
 	}
 	if accountdata["type"] != adminType {
 		return nil, errors.New("user not admin")

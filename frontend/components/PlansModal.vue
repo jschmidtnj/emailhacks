@@ -1,5 +1,5 @@
 <template>
-  <b-modal ref="plans-modal" size="xl" title="Share">
+  <b-modal ref="plans-modal" size="xl" title="Plans">
     <b-container v-if="!loading">
       <h2>{{ upgrade ? 'Upgrade' : 'Change' }} your account</h2>
       <b-form-checkbox
@@ -11,9 +11,24 @@
         {{ annual ? 'Annual' : 'Monthly' }}
       </b-form-checkbox>
       <b-row>
-        <div :setProduct="(product = getProduct(plans[0]))">
-          <div v-if="product" :setPlan="(plan = getPlan(product))">
-            <b-col v-if="product && plan">
+        <div :setProductIndex="(firstProductIndex = getProductIndex(plans[0]))">
+          <div
+            v-if="firstProductIndex >= 0"
+            :setPlanIndex="(firstPlanIndex = getPlanIndex(firstProductIndex))"
+          >
+            <b-col
+              v-if="firstProductIndex >= 0 && firstPlanIndex >= 0"
+              :setProduct="
+                (product =
+                  $store.state.purchase.productOptions[firstProductIndex])
+              "
+              :setPlan="
+                (plan =
+                  $store.state.purchase.productOptions[firstProductIndex].plans[
+                    firstPlanIndex
+                  ])
+              "
+            >
               <b-card no-body>
                 <b-card-body>
                   <h3>free plan</h3>
@@ -39,9 +54,25 @@
             </b-col>
           </div>
         </div>
-        <div :setProduct="(product = getProduct(plans[1]))">
-          <div v-if="product" :setPlan="(plan = getPlan(product))">
-            <b-col v-if="plan">
+        <div
+          :setProductIndex="(secondProductIndex = getProductIndex(plans[1]))"
+        >
+          <div
+            v-if="secondProductIndex >= 0"
+            :setPlanIndex="(secondPlanIndex = getPlanIndex(secondProductIndex))"
+          >
+            <b-col
+              v-if="secondProductIndex >= 0 && secondPlanIndex >= 0"
+              :setProduct="
+                (product =
+                  $store.state.purchase.productOptions[secondProductIndex])
+              "
+              :setPlan="
+                (plan =
+                  $store.state.purchase.productOptions[secondProductIndex]
+                    .plans[secondPlanIndex])
+              "
+            >
               <b-card no-body>
                 <b-card-body>
                   <h3>business plan</h3>
@@ -60,14 +91,8 @@
                   </b-list-group>
                   <h3>price: {{ getPrice(plan.amount) }}</h3>
                   <b-btn
-                    @click="
-                      (evt) =>
-                        purchase(evt, {
-                          product: product.id,
-                          interval: plan.interval
-                        })
-                    "
-                    :disabled="$store.state.user.plan === plans[1]"
+                    @click="(evt) => purchase(evt, plans[1])"
+                    :disabled="$store.state.auth.user.plan === plans[1]"
                   >
                     Select
                   </b-btn>
@@ -76,9 +101,24 @@
             </b-col>
           </div>
         </div>
-        <div :setProduct="(product = getProduct(plans[2]))">
-          <div v-if="product" :setPlan="(plan = getPlan(product))">
-            <b-col v-if="plan">
+        <div :setProductIndex="(thirdProductIndex = getProductIndex(plans[2]))">
+          <div
+            v-if="thirdProductIndex >= 0"
+            :setPlanIndex="(thirdPlanIndex = getPlanIndex(thirdProductIndex))"
+          >
+            <b-col
+              v-if="thirdProductIndex >= 0 && thirdPlanIndex >= 0"
+              :setProduct="
+                (product =
+                  $store.state.purchase.productOptions[thirdProductIndex])
+              "
+              :setPlan="
+                (plan =
+                  $store.state.purchase.productOptions[thirdProductIndex].plans[
+                    thirdPlanIndex
+                  ])
+              "
+            >
               <b-card no-body>
                 <b-card-body>
                   <h3>enterprise plan</h3>
@@ -97,14 +137,8 @@
                   </b-list-group>
                   <h3>price: {{ getPrice(plan.amount) }}</h3>
                   <b-btn
-                    @click="
-                      (evt) =>
-                        purchase(evt, {
-                          product: product.id,
-                          interval: plan.interval
-                        })
-                    "
-                    :disabled="$store.state.user.plan === plans[2]"
+                    @click="(evt) => purchase(evt, plans[2])"
+                    :disabled="$store.state.auth.user.plan === plans[2]"
                   >
                     Select
                   </b-btn>
@@ -140,19 +174,24 @@ export default Vue.extend({
       return !this.$store.state.auth.user.plan || this.$store.state.auth.user.plan === this.plans[0]
     }
   },
-  mounted() {
-    this.$store.dispatch('auth/getCountry').then(() => {
-      this.loading = false
-    }).catch(err => {
-      this.$bvToast.toast(err, {
-        variant: 'danger',
-        title: 'Error'
-      })
-    })
-  },
   methods: {
     show() {
       if (this.$refs['plans-modal']) {
+        this.$store.dispatch('auth/getCountry').then((res) => {
+          this.$store.dispatch('purchase/getProductOptions').then(() => {
+            this.loading = false
+          }).catch(err => {
+            this.$bvToast.toast(err, {
+              variant: 'danger',
+              title: 'Error'
+            })
+          })
+        }).catch(err => {
+          this.$bvToast.toast(err, {
+            variant: 'danger',
+            title: 'Error'
+          })
+        })
         this.$refs['plans-modal'].show()
       } else {
         this.$bvToast.toast('cannot find plans modal', {
@@ -161,14 +200,14 @@ export default Vue.extend({
         })
       }
     },
-    getProduct(productName) {
-      return this.$store.state.purchase.options.find(option => option.name === productName)
+    getProductIndex(productName) {
+      return this.$store.state.purchase.productOptions.findIndex(option => option.name === productName)
     },
-    getPlan(product) {
-      if (product) {
-        return product.plans.find(option => option.interval === this.planInterval)
+    getPlanIndex(productIndex) {
+      if (productIndex >= 0) {
+        return this.$store.state.purchase.productOptions[productIndex].plans.findIndex(option => option.interval === this.planInterval)
       }
-      return null
+      return -1
     },
     getPrice(amount) {
       return formatLocaleCurrency(amount * this.$store.state.auth.exchangeRate, this.$store.state.auth.currency)
@@ -196,20 +235,38 @@ export default Vue.extend({
           })
         })
     },
-    purchase(evt, item) {
+    purchase(evt, productName) {
       evt.preventDefault()
-      console.log('purchase subscription')
-      const err = this.$store.dispatch('purchase/addPlan', item)
-      if (err) {
-        this.$bvToast.toast(`found error: ${err.message}`, {
+      const productIndex = this.getProductIndex(productName)
+      const item = {
+        productIndex,
+        planIndex: this.getPlanIndex(productIndex)
+      }
+      this.$store.dispatch('purchase/addPlan', item).then((res) => {
+        console.log(item)
+        if (res) {
+          this.$bvToast.toast(`found error: ${res.message}`, {
+            variant: 'danger',
+            title: 'Error'
+          })
+        } else {
+          console.log('success')
+          if (this.$route.path !== '/checkout') {
+            this.$router.push({
+              path: '/checkout'
+            }, () => {
+              this.$refs['plans-modal'].hide()
+            })
+          } else {
+            this.$refs['plans-modal'].hide()
+          }
+        }
+      }).catch(err => {
+        this.$bvToast.toast(`found error: ${err}`, {
           variant: 'danger',
           title: 'Error'
         })
-      } else {
-        this.$router.push({
-          path: '/checkout'
-        })
-      }
+      })
     }
   }
 })

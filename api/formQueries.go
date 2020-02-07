@@ -554,7 +554,6 @@ func getFileURLs(form *Form, getFileOriginal bool, getFileBlur bool, getFilePlac
 }
 
 func deleteAllResponses(formID primitive.ObjectID) (int64, error) {
-	logger.Info("delete all responses")
 	formIDString := formID.Hex()
 	sourceContext := elastic.NewFetchSourceContext(true).Include("id")
 	mustQueries := []elastic.Query{

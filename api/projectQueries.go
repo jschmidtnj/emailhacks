@@ -193,7 +193,6 @@ var projectQueryFields = graphql.Fields{
 					if needEditAccessLevelForLink {
 						necessaryAccessLevelForLink = editAccessLevel
 					}
-					logger.Info("testb")
 					if !findInArray(currentAccessType, necessaryAccessLevelForLink) {
 						delete(projectData, "linkaccess")
 						delete(projectData, "access")

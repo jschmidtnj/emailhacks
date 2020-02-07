@@ -6,7 +6,6 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/graphql-go/graphql"
 	json "github.com/json-iterator/go"
-	"github.com/mitchellh/mapstructure"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -17,57 +16,32 @@ var productQueryFields = graphql.Fields{
 		Description: "Get list of products",
 		Args:        graphql.FieldConfigArgument{},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-			pathMap := map[string]string{
-				"path": "products",
-			}
-			cachepathBytes, err := json.Marshal(pathMap)
+			products, err := getProducts(true)
 			if err != nil {
 				return nil, err
 			}
-			cachepath := string(cachepathBytes)
-			if !isDebug() {
-				cachedres, err := redisClient.Get(cachepath).Result()
-				if err != nil {
-					if err != redis.Nil {
-						return nil, err
-					}
-				} else {
-					var products []Product
-					json.UnmarshalFromString(cachedres, &products)
-					return products, nil
-				}
-			}
-			cursor, err := productCollection.Find(ctxMongo, bson.M{}, nil)
+			return *products, nil
+		},
+	},
+	"currencyOptions": &graphql.Field{
+		Type:        graphql.NewList(graphql.String),
+		Description: "Get list of currency options",
+		Args:        graphql.FieldConfigArgument{},
+		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+			accessToken := params.Context.Value(tokenKey).(string)
+			_, err := validateAdmin(accessToken)
 			if err != nil {
 				return nil, err
 			}
-			defer cursor.Close(ctxMongo)
+			countryData, err := stripeClient.CountrySpec.Get(defaultCountry, nil)
 			if err != nil {
 				return nil, err
 			}
-			var products = []Product{}
-			for cursor.Next(ctxMongo) {
-				var productData map[string]interface{}
-				if err = cursor.Decode(productData); err != nil {
-					return nil, err
-				}
-				productID := productData["_id"].(primitive.ObjectID)
-				var currentProduct Product
-				if err = mapstructure.Decode(productData, &currentProduct); err != nil {
-					return nil, err
-				}
-				currentProduct.ID = productID.Hex()
-				products = append(products, currentProduct)
+			currencies := []string{}
+			for _, currency := range countryData.SupportedPaymentCurrencies {
+				currencies = append(currencies, string(currency))
 			}
-			productsResBytes, err := json.Marshal(products)
-			if err != nil {
-				return nil, err
-			}
-			err = redisClient.Set(cachepath, string(productsResBytes), cacheTime).Err()
-			if err != nil {
-				return nil, err
-			}
-			return products, nil
+			return currencies, nil
 		},
 	},
 	"product": &graphql.Field{
@@ -97,4 +71,57 @@ var productQueryFields = graphql.Fields{
 			return productData, nil
 		},
 	},
+}
+
+func getProducts(useCache bool) (*[]Product, error) {
+	pathMap := map[string]string{
+		"path": "products",
+	}
+	cachepathBytes, err := json.Marshal(pathMap)
+	if err != nil {
+		return nil, err
+	}
+	cachepath := string(cachepathBytes)
+	if useCache && !isDebug() {
+		cachedres, err := redisClient.Get(cachepath).Result()
+		if err != nil {
+			if err != redis.Nil {
+				return nil, err
+			}
+		} else {
+			var products []Product
+			json.UnmarshalFromString(cachedres, &products)
+			return &products, nil
+		}
+	}
+	cursor, err := productCollection.Find(ctxMongo, bson.M{}, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctxMongo)
+	var products = []Product{}
+	for cursor.Next(ctxMongo) {
+		productDataPrimitive := &bson.D{}
+		if err = cursor.Decode(productDataPrimitive); err != nil {
+			return nil, err
+		}
+		productData := productDataPrimitive.Map()
+		productID := productData["_id"].(primitive.ObjectID)
+		var currentProduct Product
+		if err = cursor.Decode(&currentProduct); err != nil {
+			return nil, err
+		}
+		currentProduct.ID = productID.Hex()
+		products = append(products, currentProduct)
+	}
+	productsResBytes, err := json.Marshal(products)
+	if err != nil {
+		return nil, err
+	}
+	err = redisClient.Set(cachepath, string(productsResBytes), cacheTime).Err()
+	if err != nil {
+		return nil, err
+	}
+	logger.Info("got all products")
+	return &products, nil
 }

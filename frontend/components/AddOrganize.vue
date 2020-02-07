@@ -1,5 +1,5 @@
 <template>
-  <b-component>
+  <b-container>
     <h3>new {{ addType }}</h3>
     <b-row>
       <b-form-input
@@ -21,7 +21,7 @@
         Submit
       </b-btn>
     </b-row>
-  </b-component>
+  </b-container>
 </template>
 
 <script lang="js">
