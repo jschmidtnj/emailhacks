@@ -86,7 +86,7 @@ func getProduct(productID primitive.ObjectID, useCache bool) (*Product, error) {
 	}
 	var product Product
 	cachepath := string(cachepathBytes)
-	if useCache {
+	if useCache && !isDebug() {
 		cachedres, err := redisClient.Get(cachepath).Result()
 		if err != nil {
 			if err != redis.Nil {

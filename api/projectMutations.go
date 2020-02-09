@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -71,8 +70,6 @@ var projectMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			logger.Info(strconv.FormatInt(numProjectsAlready, 10))
-			logger.Info(strconv.FormatInt(int64(productData.MaxProjects), 10))
 			if numProjectsAlready >= int64(productData.MaxProjects) {
 				return nil, errors.New("you reached the maximum amount of projects")
 			}
@@ -424,8 +421,6 @@ var projectMutationFields = graphql.Fields{
 				return nil, err
 			}
 			if !findInArray(currentAccessType, editAccessLevel) && currentAccessType != "" {
-				logger.Info("link access now nil")
-				logger.Info(currentAccessType)
 				projectData.LinkAccess = nil
 				projectData.Access = nil
 			} else {

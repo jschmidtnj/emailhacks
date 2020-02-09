@@ -41,8 +41,7 @@
                       {{ product.maxprojects }}</b-list-group-item
                     >
                     <b-list-group-item
-                      >max projects:
-                      {{ product.maxprojects }}</b-list-group-item
+                      >max forms: {{ product.maxforms }}</b-list-group-item
                     >
                   </b-list-group>
                   <h3>price: {{ getPrice(plan.amount) }}</h3>
@@ -85,14 +84,13 @@
                       {{ product.maxprojects }}</b-list-group-item
                     >
                     <b-list-group-item
-                      >max projects:
-                      {{ product.maxprojects }}</b-list-group-item
+                      >max forms: {{ product.maxforms }}</b-list-group-item
                     >
                   </b-list-group>
                   <h3>price: {{ getPrice(plan.amount) }}</h3>
                   <b-btn
                     @click="(evt) => purchase(evt, plans[1])"
-                    :disabled="$store.state.auth.user.plan === plans[1]"
+                    :disabled="currentPlan === plans[1]"
                   >
                     Select
                   </b-btn>
@@ -131,14 +129,13 @@
                       {{ product.maxprojects }}</b-list-group-item
                     >
                     <b-list-group-item
-                      >max projects:
-                      {{ product.maxprojects }}</b-list-group-item
+                      >max forms: {{ product.maxforms }}</b-list-group-item
                     >
                   </b-list-group>
                   <h3>price: {{ getPrice(plan.amount) }}</h3>
                   <b-btn
                     @click="(evt) => purchase(evt, plans[2])"
-                    :disabled="$store.state.auth.user.plan === plans[2]"
+                    :disabled="currentPlan === plans[2]"
                   >
                     Select
                   </b-btn>
@@ -171,7 +168,20 @@ export default Vue.extend({
       return this.annual ? 'year' : 'month'
     },
     upgrade() {
-      return !this.$store.state.auth.user.plan || this.$store.state.auth.user.plan === this.plans[0]
+      return !this.currentPlan || this.currentPlan === this.plans[0]
+    },
+    currentPlan() {
+      if (!this.$store.state.auth.user) {
+        return null
+      }
+      if (!this.$store.state.auth.user.plan) {
+        return null
+      }
+      const product = this.$store.state.purchase.productOptions.find(product => product.id === this.$store.state.auth.user.plan)
+      if (!product) {
+        return null
+      }
+      return product.name
     }
   },
   methods: {
@@ -215,8 +225,8 @@ export default Vue.extend({
     cancelSubscription(evt) {
       evt.preventDefault()
       this.$apollo.mutate({mutation: gql`
-        mutation cancelSubscription() {
-          cancelSubscription() {
+        mutation cancelSubscription {
+          cancelSubscription {
             plan
           }
         }

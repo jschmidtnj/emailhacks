@@ -1,228 +1,248 @@
 <template>
-  <b-card v-if="!loading">
-    <cart />
-    <b-container>
-      <b-row>
-        <b-col>
-          <b-form @submit="pay">
-            <b-row>
-              <b-form-group class="col-lg-4">
-                <label class="form-required">First Name</label>
-                <span>
-                  <b-form-input
-                    id="billfirstname"
-                    v-model="billing.firstname"
+  <div v-if="!loading">
+    <b-card v-if="!purchaseComplete">
+      <cart />
+      <b-container>
+        <b-row>
+          <b-col>
+            <b-form @submit="pay">
+              <b-row>
+                <b-form-group class="col-lg-4">
+                  <label class="form-required">First Name</label>
+                  <span>
+                    <b-form-input
+                      id="billfirstname"
+                      v-model="billing.firstname"
+                      :state="!$v.billing.firstname.$invalid"
+                      type="text"
+                      class="form-control"
+                      aria-describedby="billfirstnamefeedback"
+                      placeholder
+                    />
+                  </span>
+                  <b-form-invalid-feedback
+                    id="billfirstnamefeedback"
                     :state="!$v.billing.firstname.$invalid"
-                    type="text"
-                    class="form-control"
-                    aria-describedby="billfirstnamefeedback"
-                    placeholder
-                  />
-                </span>
-                <b-form-invalid-feedback
-                  id="billfirstnamefeedback"
-                  :state="!$v.billing.firstname.$invalid"
-                >
-                  <div v-if="!$v.billing.firstname.required">
-                    first name is required
-                  </div>
-                  <div v-else-if="!$v.billing.firstname.minLength">
-                    first name must have at least
-                    {{ $v.billing.firstname.$params.minLength.min }} characters
-                  </div>
-                </b-form-invalid-feedback>
-              </b-form-group>
-              <b-form-group class="col-lg-4">
-                <label class="form-required">Last Name</label>
-                <span>
-                  <b-form-input
-                    id="billlastname"
-                    v-model="billing.lastname"
+                  >
+                    <div v-if="!$v.billing.firstname.required">
+                      first name is required
+                    </div>
+                    <div v-else-if="!$v.billing.firstname.minLength">
+                      first name must have at least
+                      {{ $v.billing.firstname.$params.minLength.min }}
+                      characters
+                    </div>
+                  </b-form-invalid-feedback>
+                </b-form-group>
+                <b-form-group class="col-lg-4">
+                  <label class="form-required">Last Name</label>
+                  <span>
+                    <b-form-input
+                      id="billlastname"
+                      v-model="billing.lastname"
+                      :state="!$v.billing.lastname.$invalid"
+                      type="text"
+                      class="form-control"
+                      aria-describedby="billlastnamefeedback"
+                      placeholder
+                    />
+                  </span>
+                  <b-form-invalid-feedback
+                    id="billlastnamefeedback"
                     :state="!$v.billing.lastname.$invalid"
+                  >
+                    <div v-if="!$v.billing.lastname.required">
+                      last name is required
+                    </div>
+                    <div v-else-if="!$v.billing.lastname.minLength">
+                      last name must have at least
+                      {{ $v.billing.lastname.$params.minLength.min }} characters
+                    </div>
+                  </b-form-invalid-feedback>
+                </b-form-group>
+              </b-row>
+              <!-- Name Group -->
+              <b-form-group>
+                <label class="form">Firm / Company / Employer</label>
+                <span>
+                  <b-form-input
+                    id="billcompany"
+                    v-model="billing.company"
+                    :state="!$v.billing.company.$invalid"
                     type="text"
                     class="form-control"
-                    aria-describedby="billlastnamefeedback"
+                    aria-describedby="billcompanyfeedback"
                     placeholder
                   />
                 </span>
                 <b-form-invalid-feedback
-                  id="billlastnamefeedback"
-                  :state="!$v.billing.lastname.$invalid"
-                >
-                  <div v-if="!$v.billing.lastname.required">
-                    last name is required
-                  </div>
-                  <div v-else-if="!$v.billing.lastname.minLength">
-                    last name must have at least
-                    {{ $v.billing.lastname.$params.minLength.min }} characters
-                  </div>
-                </b-form-invalid-feedback>
-              </b-form-group>
-            </b-row>
-            <!-- Name Group -->
-            <b-form-group>
-              <label class="form">Firm / Company / Employer</label>
-              <span>
-                <b-form-input
-                  id="billcompany"
-                  v-model="billing.company"
+                  id="billcompanyfeedback"
                   :state="!$v.billing.company.$invalid"
-                  type="text"
-                  class="form-control"
-                  aria-describedby="billcompanyfeedback"
-                  placeholder
+                >
+                  <div v-if="!$v.billing.company.required">
+                    company is required
+                  </div>
+                  <div v-else-if="!$v.billing.company.minLength">
+                    company must have at least
+                    {{ $v.billing.company.$params.minLength.min }} characters
+                  </div>
+                </b-form-invalid-feedback>
+              </b-form-group>
+              <b-row>
+                <country-selector
+                  @select="(country) => (billing.country = country)"
                 />
-              </span>
-              <b-form-invalid-feedback
-                id="billcompanyfeedback"
-                :state="!$v.billing.company.$invalid"
-              >
-                <div v-if="!$v.billing.company.required">
-                  company is required
-                </div>
-                <div v-else-if="!$v.billing.company.minLength">
-                  company must have at least
-                  {{ $v.billing.company.$params.minLength.min }} characters
-                </div>
-              </b-form-invalid-feedback>
-            </b-form-group>
-            <b-row>
-              <country-selector
-                @select="(country) => (billing.country = country)"
-              />
-              <currency-selector
-                @select="(currency) => (billing.currency = currency)"
-              />
-              <client-only>
-                <form
-                  @submit="(evt) => evt.preventDefault()"
-                  autocomplete="disabled"
-                >
-                  <vue-google-autocomplete
-                    id="map"
-                    ref="address"
-                    v-if="billing.country"
-                    :value="initialAddress"
-                    v-on:placechanged="getAddressData"
-                    :country="billing.country"
-                    classname="form-control"
-                    placeholder="Please type your address"
-                  />
-                </form>
-              </client-only>
-            </b-row>
-            <b-row>
-              <b-form-group class="col-lg-4">
-                <label class="form-required">Phone</label>
-                <span>
-                  <b-form-input
-                    id="billphone"
-                    v-model="billing.phone"
+                <currency-selector
+                  @select="(currency) => (billing.currency = currency)"
+                />
+                <client-only>
+                  <form
+                    @submit="(evt) => evt.preventDefault()"
+                    autocomplete="disabled"
+                  >
+                    <vue-google-autocomplete
+                      id="map"
+                      ref="address"
+                      v-if="billing.country"
+                      :value="initialAddress"
+                      v-on:placechanged="getAddressData"
+                      :country="billing.country"
+                      classname="form-control"
+                      placeholder="Please type your address"
+                    />
+                  </form>
+                </client-only>
+              </b-row>
+              <b-row>
+                <b-form-group class="col-lg-4">
+                  <label class="form-required">Phone</label>
+                  <span>
+                    <b-form-input
+                      id="billphone"
+                      v-model="billing.phone"
+                      :state="!$v.billing.phone.$invalid"
+                      type="text"
+                      class="form-control"
+                      aria-describedby="billphonefeedback"
+                      placeholder
+                    />
+                  </span>
+                  <b-form-invalid-feedback
+                    id="billphonefeedback"
                     :state="!$v.billing.phone.$invalid"
-                    type="text"
-                    class="form-control"
-                    aria-describedby="billphonefeedback"
-                    placeholder
-                  />
-                </span>
-                <b-form-invalid-feedback
-                  id="billphonefeedback"
-                  :state="!$v.billing.phone.$invalid"
-                >
-                  <div v-if="!$v.billing.phone.required">phone is required</div>
-                  <div v-else-if="!$v.billing.phone.validPhone">
-                    phone is invalid
-                  </div>
-                </b-form-invalid-feedback>
-              </b-form-group>
-              <b-form-group class="col-lg-8">
-                <label class="form-required">Email Address</label>
-                <span>
-                  <b-form-input
-                    id="billemail"
-                    v-model="billing.email"
+                  >
+                    <div v-if="!$v.billing.phone.required">
+                      phone is required
+                    </div>
+                    <div v-else-if="!$v.billing.phone.validPhone">
+                      phone is invalid
+                    </div>
+                  </b-form-invalid-feedback>
+                </b-form-group>
+                <b-form-group class="col-lg-8">
+                  <label class="form-required">Email Address</label>
+                  <span>
+                    <b-form-input
+                      id="billemail"
+                      v-model="billing.email"
+                      :state="!$v.billing.email.$invalid"
+                      type="text"
+                      class="form-control"
+                      placeholder="email"
+                      aria-describedby="billemailfeedback"
+                    />
+                  </span>
+                  <b-form-invalid-feedback
+                    id="billemailfeedback"
                     :state="!$v.billing.email.$invalid"
-                    type="text"
-                    class="form-control"
-                    placeholder="email"
-                    aria-describedby="billemailfeedback"
-                  />
-                </span>
+                  >
+                    <div v-if="!$v.billing.email.required">
+                      email is required
+                    </div>
+                    <div v-else-if="!$v.billing.email.email">
+                      email is invalid
+                    </div>
+                  </b-form-invalid-feedback>
+                </b-form-group>
+              </b-row>
+              <!-- Billing -->
+              <h5 class="my-4">Payment</h5>
+              <b-form-group class="col-lg-8">
+                <div id="stripe-card-element">
+                  <!-- A Stripe Element will be inserted here. -->
+                </div>
                 <b-form-invalid-feedback
-                  id="billemailfeedback"
-                  :state="!$v.billing.email.$invalid"
+                  id="paymentfeedback"
+                  :state="validPaymentMethod"
                 >
-                  <div v-if="!$v.billing.email.required">email is required</div>
-                  <div v-else-if="!$v.billing.email.email">
-                    email is invalid
-                  </div>
+                  <div v-if="!validPaymentMethod">invalid payment method</div>
                 </b-form-invalid-feedback>
               </b-form-group>
-            </b-row>
-            <!-- Billing -->
-            <h5 class="my-4">Payment</h5>
-            <div id="stripe-card-element">
-              <!-- A Stripe Element will be inserted here. -->
-            </div>
-            <h6 v-if="coupon && billing.country && billing.currency">
-              Using coupon {{ coupon.secret }} for
-              {{
-                coupon.percent
-                  ? `${coupon.amount}%`
-                  : formatCurrency(coupon.amount)
-              }}
-              off
-            </h6>
-            <b-row>
-              <b-form-group class="col-lg-4">
-                <label class="form-required">Discounts and Coupons</label>
-                <span>
-                  <b-form-input
-                    id="couponinput"
-                    v-model="potentialCoupon"
+              <h6 v-if="coupon && billing.country && billing.currency">
+                Using coupon {{ coupon.secret }} for
+                {{
+                  coupon.percent
+                    ? `${coupon.amount}%`
+                    : formatCurrency(coupon.amount)
+                }}
+                off
+              </h6>
+              <b-row>
+                <b-form-group class="col-lg-4">
+                  <label class="form-required">Discounts and Coupons</label>
+                  <span>
+                    <b-form-input
+                      id="couponinput"
+                      v-model="potentialCoupon"
+                      :state="validCoupon"
+                      type="text"
+                      class="form-control"
+                      aria-describedby="couponfeedback"
+                      placeholder="Enter code"
+                    />
+                  </span>
+                  <b-form-invalid-feedback
+                    id="couponfeedback"
+                    v-if="potentialCoupon"
                     :state="validCoupon"
-                    type="text"
-                    class="form-control"
-                    aria-describedby="couponfeedback"
-                    placeholder="Enter code"
-                  />
-                </span>
-                <b-form-invalid-feedback
-                  id="couponfeedback"
-                  v-if="potentialCoupon"
-                  :state="validCoupon"
+                  >
+                    <div v-if="!validCoupon">coupon is invalid</div>
+                  </b-form-invalid-feedback>
+                </b-form-group>
+                <b-btn
+                  @click="checkCoupon"
+                  :disabled="!potentialCoupon"
+                  class="mt-4"
                 >
-                  <div v-if="!validCoupon">coupon is invalid</div>
-                </b-form-invalid-feedback>
-              </b-form-group>
+                  Apply
+                </b-btn>
+                <b-btn @click="removeCoupon" v-if="coupon" class="mt-4">
+                  Remove Coupon
+                </b-btn>
+              </b-row>
               <b-btn
-                @click="checkCoupon"
-                :disabled="!potentialCoupon"
+                @click="pay"
+                :disabled="
+                  paying ||
+                    $v.billing.$invalid ||
+                    !validPaymentMethod ||
+                    !selectedAddress ||
+                    (!$store.state.purchase.plan &&
+                      $store.state.purchase.products.length === 0)
+                "
                 class="mt-4"
               >
-                Apply
+                Pay {{ total }}
               </b-btn>
-              <b-btn @click="removeCoupon" v-if="coupon" class="mt-4">
-                Remove Coupon
-              </b-btn>
-            </b-row>
-            <b-btn
-              @click="pay"
-              :disabled="
-                $v.billing.$invalid ||
-                  !selectedAddress ||
-                  (!$store.state.purchase.plan &&
-                    $store.state.purchase.products.length === 0)
-              "
-              class="mt-4"
-            >
-              Pay {{ total }}
-            </b-btn>
-          </b-form>
-        </b-col>
-      </b-row>
-    </b-container>
-  </b-card>
+            </b-form>
+          </b-col>
+        </b-row>
+      </b-container>
+    </b-card>
+    <b-card v-else>
+      <h3>Purchase successful</h3>
+    </b-card>
+  </div>
 </template>
 
 <script lang="js">
@@ -256,9 +276,12 @@ export default Vue.extend({
       stripe: null,
       stripeCard: null,
       selectedAddress: false,
+      validPaymentMethod: false,
+      paying: false,
       coupon: null,
       potentialCoupon: '',
       validCoupon: false,
+      purchaseComplete: false,
       billing: {
         firstname: '',
         lastname: '',
@@ -315,6 +338,7 @@ export default Vue.extend({
           this.selectedAddress = true
         } else {
           this.initialAddress = null
+          this.billing.country = this.$store.state.auth.currentCountry
         }
         this.loading = false
         this.$nextTick(() => {
@@ -340,6 +364,7 @@ export default Vue.extend({
               }
             }
           })
+          this.stripeCard.on('change', this.handleStripeUpdate)
           this.stripeCard.mount('#stripe-card-element')
         })
       }
@@ -412,6 +437,17 @@ export default Vue.extend({
       })
   },
   methods: {
+    handleStripeUpdate(evt) {
+      // console.log(evt)
+      if (evt.complete) {
+        this.validPaymentMethod = true
+      } else {
+        this.validPaymentMethod = false
+      }
+      if (evt.error) {
+        console.error(evt.error)
+      }
+    },
     checkCoupon(evt) {
       evt.preventDefault()
       this.$apollo.query({query: gql`
@@ -459,12 +495,12 @@ export default Vue.extend({
       this.billing.city = addressData.locality
       this.billing.state = addressData.administrative_area_level_1
       this.billing.zip = addressData.postal_code
-      this.billing.country = addressData.country
       console.log(addressData)
       this.selectedAddress = true
     },
     pay(evt) {
       evt.preventDefault()
+      this.paying = true
       this.$apollo.mutate({mutation: gql`
         mutation changeBilling($firstname: String, $lastname: String, $company: String, $address1: String, $city: String, $state: String, $zip: String, $country: String, $phone: String, $email: String, $currency: String) {
           changeBilling(firstname: $firstname, lastname: $lastname, company: $company, address1: $address1, city: $city, state: $state, zip: $zip, country: $country, phone: $phone, email: $email, currency: $currency) {
@@ -490,6 +526,18 @@ export default Vue.extend({
             variant: 'success',
             title: 'Success'
           })
+          this.$store
+            .dispatch('auth/getUser')
+            .then((res) => {
+              this.stripeCard.clear()
+              this.$store.commit('purchase/reset')
+              this.purchaseComplete = true
+              this.paying = false
+            })
+            .catch((err) => {
+              console.error(err)
+
+            })
         }
         const purchase = ( { productIndex, planIndex }, cardToken) => {
           return new Promise((resolve, reject) => {
@@ -506,7 +554,11 @@ export default Vue.extend({
               .then(({ data }) => {
                 resolve(data)
               }).catch(err => {
-                reject(err)
+                console.error(err)
+                this.$bvToast.toast(`found error(s): ${err.message}`, {
+                  variant: 'danger',
+                  title: 'Error'
+                })
               })
           })
         }

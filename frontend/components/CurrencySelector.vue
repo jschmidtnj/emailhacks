@@ -5,6 +5,7 @@
         v-if="!loading"
         v-model="selectedCurrency"
         :options="currencyOptions"
+        :allow-empty="false"
         :multiple="false"
         @select="setCurrency"
         label="currencyName"
@@ -75,9 +76,9 @@ export default Vue.extend({
     }
   },
   methods: {
-    setCurrency() {
+    setCurrency(selected) {
       console.log('selected currency')
-      const code = this.selectedCurrency.currencyCode
+      const code = selected.currencyCode
       this.$store.commit('auth/setCurrency', code)
       this.$emit('select', code)
       this.$store.dispatch('auth/getExchangeRate', code).then(() => {

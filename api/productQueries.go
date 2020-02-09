@@ -122,6 +122,5 @@ func getProducts(useCache bool) (*[]Product, error) {
 	if err != nil {
 		return nil, err
 	}
-	logger.Info("got all products")
 	return &products, nil
 }

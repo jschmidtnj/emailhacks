@@ -255,35 +255,7 @@
                     />
                   </client-only>
                   <h2 class="mb-4">Search</h2>
-                  <b-form-group>
-                    <label class="form-required">Query</label>
-                    <span>
-                      <b-form-input
-                        v-model="search"
-                        :state="!$v.search.$invalid"
-                        type="text"
-                        class="form-control mb-2"
-                        aria-describedby="searchfeedback"
-                        placeholder="search..."
-                      />
-                    </span>
-                    <b-form-invalid-feedback
-                      id="searchfeedback"
-                      :state="!$v.search.$invalid"
-                    >
-                      <div v-if="!$v.search.required">query is required</div>
-                      <div v-else-if="!$v.search.minLength">
-                        query must have at least
-                        {{ $v.search.$params.minLength.min }} characters
-                      </div>
-                    </b-form-invalid-feedback>
-                  </b-form-group>
-                  <b-btn
-                    :disabled="$v.search.$invalid"
-                    variant="primary"
-                    type="submit"
-                    class="mr-4"
-                  >
+                  <b-btn variant="primary" type="submit" class="mr-4">
                     <client-only>
                       <font-awesome-icon
                         class="mr-2 arrow-size-edit"
@@ -404,7 +376,6 @@ export default Vue.extend({
       modetypes,
       mode: modetypes.add,
       productid: null,
-      search: '',
       type: 'product',
       searchresults: [],
       intervalOptions,
@@ -435,10 +406,6 @@ export default Vue.extend({
   },
   // @ts-ignore
   validations: {
-    search: {
-      required,
-      minLength: minLength(3)
-    },
     product: {
       name: {
         required,
@@ -630,8 +597,12 @@ export default Vue.extend({
           fetchPolicy: 'network-only'
         }).then(({ data }) => {
           this.mode = this.modetypes.edit
-          data.product.plans.map(plan => plan.interval = intervalOptions.find(planOptions => planOptions.interval === plan.interval))
-          this.product = data.product
+          const newProduct = clone(data.product)
+          newProduct.plans = newProduct.plans.map(plan => {
+            plan.interval = this.intervalOptions.find(option => option.interval === plan.interval)
+            return plan
+          })
+          this.product = newProduct
           this.$bvToast.toast(`edit product with id ${this.productid}`, {
             variant: 'success',
             title: 'Success'
@@ -713,7 +684,6 @@ export default Vue.extend({
     },
     clearsearch(evt) {
       if (evt) evt.preventDefault()
-      this.search = ''
       this.searchresults = []
     },
     resetproduct(evt) {
@@ -743,12 +713,13 @@ export default Vue.extend({
             addProduct(name: $name, maxprojects: $maxprojects, maxstorage: $maxstorage, maxforms: $maxforms, plans: $plans) {
               id
             }
-          }`, variables: {name: this.product.name, maxstorage: this.product.maxstorage, maxprojects: this.product.maxstorage, maxforms: this.product.maxforms, plans}})
+          }`, variables: {name: this.product.name, maxstorage: this.product.maxstorage, maxprojects: this.product.maxprojects, maxforms: this.product.maxforms, plans}})
           .then(({ data }) => {
             productid = data.addProduct.id
             onSuccess()
           }).catch(err => {
             console.error(err)
+            this.submitting = false
             this.$bvToast.toast(`found error: ${err.message}`, {
               variant: 'danger',
               title: 'Error'
@@ -758,11 +729,12 @@ export default Vue.extend({
         this.$apollo.mutate({mutation: gql`
           mutation updateProduct($id: String!, $name: String!, $maxprojects: Int!, $maxstorage: Int!, $maxforms: Int!, $plans: [PlanInput!]!)
           {updateProduct(id: $id, name: $name, maxprojects: $maxprojects, maxstorage: $maxstorage, maxforms: $maxforms, plans: $plans){id} }
-          `, variables: {id: this.productid, name: this.product.name, maxstorage: this.product.maxstorage, maxprojects: this.product.maxstorage, maxforms: this.product.maxforms, plans}})
+          `, variables: {id: this.productid, name: this.product.name, maxstorage: this.product.maxstorage, maxprojects: this.product.maxprojects, maxforms: this.product.maxforms, plans}})
           .then(({ data }) => {
             onSuccess()
           }).catch(err => {
             console.error(err)
+            this.submitting = false
             this.$bvToast.toast(`found error: ${err.message}`, {
               variant: 'danger',
               title: 'Error'

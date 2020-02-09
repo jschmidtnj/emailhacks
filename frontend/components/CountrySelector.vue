@@ -6,6 +6,7 @@
         v-model="selectedCountry"
         :options="countryOptions"
         :multiple="false"
+        :allow-empty="false"
         @select="getCountryData"
         label="countryName"
       />
@@ -19,7 +20,6 @@ import Multiselect from 'vue-multiselect'
 import { getName } from 'country-list'
 import flag from 'country-code-emoji'
 import { defaultCountry } from '~/assets/config'
-import { clone } from '~/assets/utils'
 export default Vue.extend({
   name: 'CountrySelector',
   components: {
@@ -34,7 +34,7 @@ export default Vue.extend({
   },
   mounted() {
     const setCountryOptions = () => {
-      this.countryOptions = clone(this.$store.state.purchase.countryOptions).map((code) => {
+      this.countryOptions = this.$store.state.purchase.countryOptions.map((code) => {
         return {
           countryCode: code,
           countryName: `${flag(code)} ${getName(code)}`
@@ -71,11 +71,11 @@ export default Vue.extend({
     }
   },
   methods: {
-    getCountryData() {
-      const code = this.selectedCountry.countryCode
-      console.log('updated to selected country')
+    getCountryData(selected) {
+      const code = selected.countryCode
+      console.log(`updated to selected country: ${code}`)
       this.$emit('select', code)
-    },
+    }
   }
 })
 </script>

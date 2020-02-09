@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	json "github.com/json-iterator/go"
@@ -115,16 +114,20 @@ func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDS
 	if !foundPlan {
 		return nil, errors.New("could not find plan")
 	}
+	userUpdateData := bson.M{
+		"$set": bson.M{},
+	}
 	userIDString := userID.Hex()
-	if customerID, ok := account.StripeIDs[account.Billing.Currency]; ok {
-		if _, err = stripeClient.Customers.Update(customerID, &stripe.CustomerParams{
-			PaymentMethod: &cardToken,
-			InvoiceSettings: &stripe.CustomerInvoiceSettingsParams{
-				DefaultPaymentMethod: &cardToken,
-			},
-		}); err != nil {
-			return nil, err
+	if _, ok := account.StripeIDs[account.Billing.Currency]; ok {
+		if len(account.StripeIDs[account.Billing.Currency].Payment) > 0 {
+			if _, err := stripeClient.PaymentMethods.Detach(account.StripeIDs[account.Billing.Currency].Payment, nil); err != nil {
+				return nil, err
+			}
 		}
+		userUpdateData["$set"].(bson.M)["stripeids."+account.Billing.Currency] = bson.M{
+			"payment": &cardToken,
+		}
+		account.StripeIDs[account.Billing.Currency].Payment = cardToken
 	} else {
 		customerParams := &stripe.CustomerParams{
 			Email: &account.Email,
@@ -134,34 +137,32 @@ func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDS
 					"currency": account.Billing.Currency,
 				},
 			},
-			PaymentMethod: &cardToken,
-			InvoiceSettings: &stripe.CustomerInvoiceSettingsParams{
-				DefaultPaymentMethod: &cardToken,
-			},
 		}
 		newCustomer, err := stripeClient.Customers.New(customerParams)
 		if err != nil {
 			return nil, err
 		}
 		newStripeID := newCustomer.ID
-		account.StripeIDs[account.Billing.Currency] = newStripeID
-		logger.Info("created customer with id " + newStripeID)
-		_, err = userCollection.UpdateOne(ctxMongo, bson.M{
-			"_id": userID,
-		}, bson.M{
-			"$set": bson.M{
-				"stripeids": bson.M{
-					account.Billing.Currency: newStripeID,
-				},
-			},
-		})
-		if err != nil {
-			return nil, err
+		account.StripeIDs[account.Billing.Currency] = &PaymentIDs{
+			Customer: newStripeID,
+			Payment:  cardToken,
 		}
 	}
-	var updateDB = false
-	userUpdateData := bson.M{
-		"$set": bson.M{},
+	userUpdateData["$set"].(bson.M)["stripeids."+account.Billing.Currency] = bson.M{
+		"customer": account.StripeIDs[account.Billing.Currency].Customer,
+		"payment":  account.StripeIDs[account.Billing.Currency].Payment,
+	}
+	if _, err := stripeClient.PaymentMethods.Attach(account.StripeIDs[account.Billing.Currency].Payment, &stripe.PaymentMethodAttachParams{
+		Customer: &account.StripeIDs[account.Billing.Currency].Customer,
+	}); err != nil {
+		return nil, err
+	}
+	if _, err = stripeClient.Customers.Update(account.StripeIDs[account.Billing.Currency].Customer, &stripe.CustomerParams{
+		InvoiceSettings: &stripe.CustomerInvoiceSettingsParams{
+			DefaultPaymentMethod: &account.StripeIDs[account.Billing.Currency].Payment,
+		},
+	}); err != nil {
+		return nil, err
 	}
 	clientSecret := ""
 	if interval != singlePurchase {
@@ -170,10 +171,8 @@ func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDS
 				return nil, err
 			}
 		}
-		currentTimestamp := time.Now().Unix()
 		subscriptionParams := &stripe.SubscriptionParams{
-			Customer:           stripe.String(account.StripeIDs[account.Billing.Currency]),
-			BillingCycleAnchor: &currentTimestamp,
+			Customer: stripe.String(account.StripeIDs[account.Billing.Currency].Customer),
 			Items: []*stripe.SubscriptionItemsParams{&stripe.SubscriptionItemsParams{
 				Plan: &planIDString,
 			},
@@ -186,10 +185,8 @@ func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDS
 		if err != nil {
 			return nil, err
 		}
-		newPlan := productID.Hex()
-		userUpdateData["$set"].(bson.M)["plan"] = newPlan
+		userUpdateData["$set"].(bson.M)["plan"] = productData.ID
 		userUpdateData["$set"].(bson.M)["subscriptionid"] = stripeSubscription.ID
-		updateDB = true
 	} else {
 		var newPrice int64
 		if couponPercent {
@@ -213,7 +210,7 @@ func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDS
 		if err != nil {
 			return nil, err
 		}
-		newPrice = int64(float64(newPrice) * *exchangeRate)
+		newPrice = int64(100 * float64(newPrice) * *exchangeRate)
 		paymentIntentParams := &stripe.PaymentIntentParams{
 			Amount:   &newPrice,
 			Currency: &account.Billing.Currency,
@@ -230,14 +227,12 @@ func purchase(userID primitive.ObjectID, productID primitive.ObjectID, couponIDS
 		}
 		clientSecret = paymentIntent.ClientSecret
 	}
-	if updateDB {
-		// update user
-		_, err = userCollection.UpdateOne(ctxMongo, bson.M{
-			"_id": userID,
-		}, userUpdateData)
-		if err != nil {
-			return nil, err
-		}
+	// update user
+	_, err = userCollection.UpdateOne(ctxMongo, bson.M{
+		"_id": userID,
+	}, userUpdateData)
+	if err != nil {
+		return nil, err
 	}
 	return &clientSecret, nil
 }

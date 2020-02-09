@@ -181,7 +181,7 @@ var productMutationFields = graphql.Fields{
 			}
 			var updateStripeProduct = false
 			stripeProductParams := &stripe.ProductParams{}
-			if params.Args["name"] == nil {
+			if params.Args["name"] != nil {
 				name, ok := params.Args["name"].(string)
 				if !ok {
 					return nil, errors.New("problem casting name to string")
@@ -243,7 +243,7 @@ var productMutationFields = graphql.Fields{
 				if err != nil {
 					return nil, err
 				}
-				updateDataDB["$set"].(bson.M)["plans"] = plans
+				updateDataDB["$set"].(bson.M)["plans"] = allPlans
 				productData.Plans = allPlans
 			}
 			if params.Args["maxprojects"] != nil {
@@ -425,7 +425,6 @@ var productMutationFields = graphql.Fields{
 			if currency == defaultCurrency {
 				return nil, errors.New("cannot delete default currency")
 			}
-			logger.Info("get currency")
 			exists, err := currencyExists(currency)
 			if err != nil {
 				return nil, err
@@ -433,12 +432,10 @@ var productMutationFields = graphql.Fields{
 			if !exists {
 				return nil, errors.New("currency doesn't exist")
 			}
-			logger.Info("it exists")
 			products, err := getProducts(false)
 			if err != nil {
 				return nil, err
 			}
-			logger.Info("got products")
 			for _, product := range *products {
 				for _, plan := range product.Plans {
 					for _, currencyData := range plan.Currencies {
@@ -451,7 +448,6 @@ var productMutationFields = graphql.Fields{
 					}
 				}
 			}
-			logger.Info("done1")
 			_, err = productCollection.UpdateMany(ctxMongo, bson.M{}, bson.M{
 				"$unset": bson.M{
 					"plans": bson.M{
@@ -464,19 +460,22 @@ var productMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			logger.Info("done 2")
 			accounts, err := getAccounts()
 			if err != nil {
 				return nil, err
 			}
 			for _, currentAccout := range *accounts {
-				if customerID, ok := currentAccout.StripeIDs[currency]; ok {
-					if _, err := stripeClient.Customers.Del(customerID, nil); err != nil {
+				if stripeIDs, ok := currentAccout.StripeIDs[currency]; ok {
+					if len(stripeIDs.Payment) > 0 {
+						if _, err := stripeClient.PaymentMethods.Detach(stripeIDs.Payment, nil); err != nil {
+							return nil, err
+						}
+					}
+					if _, err := stripeClient.Customers.Del(stripeIDs.Customer, nil); err != nil {
 						return nil, err
 					}
 				}
 			}
-			logger.Info("done 3")
 			_, err = userCollection.UpdateMany(ctxMongo, bson.M{}, bson.M{
 				"$unset": bson.M{
 					"stripeids": currency,
@@ -485,7 +484,6 @@ var productMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			logger.Info("deleting currency")
 			_, err = currencyCollection.DeleteOne(ctxMongo, bson.M{
 				"name": currency,
 			})
@@ -512,19 +510,20 @@ func deleteAllPlans(productData *Product) error {
 
 func addPlans(allPlans []*Plan, currencies *[]string, stripeProductIDString string, name string) ([]*Plan, error) {
 	exchangeRates := map[string]float64{}
-	for _, currency := range *currencies {
+	for i, currency := range *currencies {
+		currency = strings.ToLower(currency)
 		currentExchangeRate, err := getActualExchangeRate(currency)
 		if err != nil {
 			return nil, err
 		}
 		exchangeRates[currency] = *currentExchangeRate
+		(*currencies)[i] = currency
 	}
 	for i := range allPlans {
 		if allPlans[i].Interval != singlePurchase {
 			allPlans[i].Currencies = make([]*PlanCurrency, len(*currencies))
 			for j := range *currencies {
-				(*currencies)[j] = strings.ToLower((*currencies)[i])
-				currentAmount := int64(float64(allPlans[i].Amount) * exchangeRates[(*currencies)[j]])
+				currentAmount := int64(100 * float64(allPlans[i].Amount) * exchangeRates[(*currencies)[j]])
 				planParams := &stripe.PlanParams{
 					ProductID:     &stripeProductIDString,
 					BillingScheme: stripe.String("per_unit"),
@@ -545,8 +544,12 @@ func addPlans(allPlans []*Plan, currencies *[]string, stripeProductIDString stri
 					Currency: (*currencies)[j],
 					StripeID: stripePlan.ID,
 				}
+				if name == defaultPlanName {
+					break
+				}
 			}
 		} else {
+			// don't need plans for single purchase
 			allPlans[i].Currencies[0] = &PlanCurrency{
 				Currency: defaultCurrency,
 				StripeID: "",
@@ -578,7 +581,14 @@ func addProduct(name string, maxProjects int64, maxForms int64, maxStorage int64
 		MaxForms:    maxForms,
 		MaxStorage:  maxStorage,
 	}
-	productCreateRes, err := productCollection.InsertOne(ctxMongo, productData)
+	productCreateRes, err := productCollection.InsertOne(ctxMongo, bson.M{
+		"name":        name,
+		"stripeid":    stripeProductIDString,
+		"plans":       allPlans,
+		"maxprojects": maxProjects,
+		"maxforms":    maxForms,
+		"maxstorage":  maxStorage,
+	})
 	if err != nil {
 		return nil, err
 	}

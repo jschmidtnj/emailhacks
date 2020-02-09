@@ -157,8 +157,25 @@ func register(c *gin.Context) {
 		handleError("error sending email verification: got status code "+strconv.Itoa(emailres.StatusCode), http.StatusBadRequest, response)
 		return
 	}
-	now := time.Now()
 	userID := primitive.NewObjectID()
+	defaultProduct, err := getProduct(primitive.NilObjectID, true)
+	if err != nil {
+		handleError(err.Error(), http.StatusBadRequest, response)
+		return
+	}
+	var foundCurrency = false
+	var planStripeID string
+	for _, currencyData := range defaultProduct.Plans[0].Currencies {
+		if currencyData.Currency == defaultCurrency {
+			foundCurrency = true
+			planStripeID = currencyData.StripeID
+			break
+		}
+	}
+	if !foundCurrency {
+		handleError("cannot find default currency for default plan", http.StatusBadRequest, response)
+		return
+	}
 	customerParams := &stripe.CustomerParams{
 		Email: &email,
 		Params: stripe.Params{
@@ -172,29 +189,11 @@ func register(c *gin.Context) {
 		handleError(err.Error(), http.StatusBadRequest, response)
 		return
 	}
-	defaultProduct, err := getProduct(primitive.NilObjectID, true)
-	if err != nil {
-		handleError(err.Error(), http.StatusBadRequest, response)
-		return
-	}
-	var foundCurrency = false
-	var planID string
-	for _, currencyData := range defaultProduct.Plans[0].Currencies {
-		if currencyData.Currency == defaultCurrency {
-			foundCurrency = true
-			planID = currencyData.StripeID
-			break
-		}
-	}
-	if !foundCurrency {
-		handleError("cannot find default currency for default plan", http.StatusBadRequest, response)
-		return
-	}
+	now := time.Now()
 	subscriptionParams := &stripe.SubscriptionParams{
-		Customer:           &newCustomer.ID,
-		BillingCycleAnchor: stripe.Int64(time.Now().Unix()),
+		Customer: &newCustomer.ID,
 		Items: []*stripe.SubscriptionItemsParams{&stripe.SubscriptionItemsParams{
-			Plan: &planID,
+			Plan: &planStripeID,
 		},
 		},
 	}
@@ -213,9 +212,12 @@ func register(c *gin.Context) {
 		"categories":    bson.A{},
 		"tags":          bson.A{},
 		"stripeids": bson.M{
-			defaultCurrency: newCustomer.ID,
+			defaultCurrency: bson.M{
+				"customer": newCustomer.ID,
+				"payment":  "",
+			},
 		},
-		"plan":           defaultPlanName,
+		"plan":           defaultProduct.ID,
 		"subscriptionid": stripeSubscription.ID,
 		"purchases":      bson.A{},
 		"storage":        int64(0),
@@ -227,7 +229,7 @@ func register(c *gin.Context) {
 			"city":      "",
 			"state":     "",
 			"zip":       "",
-			"country":   "",
+			"country":   defaultCountry,
 			"phone":     "",
 			"email":     email,
 			"currency":  defaultCurrency,

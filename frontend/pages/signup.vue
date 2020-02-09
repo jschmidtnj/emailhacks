@@ -166,6 +166,11 @@ export default Vue.extend({
                     title: 'Success'
                   })
                   this.reset(evt)
+                  setTimeout(() => {
+                    this.$router.push({
+                      path: '/login'
+                    })
+                  }, 1000)
                 } else {
                   this.$bvToast.toast('could not get data', {
                     variant: 'danger',

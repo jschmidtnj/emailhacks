@@ -119,8 +119,18 @@ export default Vue.extend({
     loggedIn() {
       return this.$store.state.auth && this.$store.state.auth.loggedIn
     },
+    currentPlan() {
+      if (!this.$store.state.auth.user.plan) {
+        return null
+      }
+      const product = this.$store.state.purchase.productOptions.find(product => product.id === this.$store.state.auth.user.plan)
+      if (!product) {
+        return null
+      }
+      return product.name
+    },
     upgrade() {
-      return this.$store.state.auth.user && (!this.$store.state.auth.user.plan || this.$store.state.auth.user.plan === plans[0])
+      return this.$store.state.auth.user && (!this.currentPlan || this.currentPlan === plans[0])
     },
     hasCartItems() {
       return this.$store.state.purchase.plan || this.$store.state.purchase.products.length > 0

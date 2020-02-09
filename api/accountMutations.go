@@ -67,6 +67,11 @@ func deleteAccount(idstring string) (interface{}, error) {
 			return nil, err
 		}
 	}
+	for _, stripeData := range account.StripeIDs {
+		if _, err = stripeClient.Customers.Del(stripeData.Customer, nil); err != nil {
+			return nil, err
+		}
+	}
 	_, err = userCollection.DeleteOne(ctxMongo, bson.M{
 		"_id": id,
 	})
@@ -103,14 +108,42 @@ var userMutationFields = graphql.Fields{
 					return nil, err
 				}
 			}
+			defaultProduct, err := getProduct(primitive.NilObjectID, true)
+			if err != nil {
+				return nil, err
+			}
+			var foundCurrency = false
+			var planStripeID string
+			for _, currencyData := range defaultProduct.Plans[0].Currencies {
+				if currencyData.Currency == defaultCurrency {
+					foundCurrency = true
+					planStripeID = currencyData.StripeID
+					break
+				}
+			}
+			if !foundCurrency {
+				return nil, errors.New("cannot find default currency for default plan")
+			}
+			subscriptionParams := &stripe.SubscriptionParams{
+				Customer: &account.StripeIDs[defaultCurrency].Customer,
+				Items: []*stripe.SubscriptionItemsParams{&stripe.SubscriptionItemsParams{
+					Plan: &planStripeID,
+				},
+				},
+			}
+			stripeSubscription, err := stripeClient.Subscriptions.New(subscriptionParams)
+			if err != nil {
+				return nil, err
+			}
 			userCollection.UpdateOne(ctxMongo, bson.M{
 				"_id": id,
 			}, bson.M{
 				"$set": bson.M{
-					"plan":           "",
-					"subscriptionid": "",
+					"plan":           defaultProduct.ID,
+					"subscriptionid": stripeSubscription.ID,
 				},
 			})
+			account.Plan = defaultProduct.ID
 			return account, nil
 		},
 	},
@@ -296,13 +329,12 @@ var userMutationFields = graphql.Fields{
 				}
 				updatedBillingData["zip"] = zip
 			}
-			var countryData *stripe.CountrySpec
 			if params.Args["country"] != nil {
 				country, ok := params.Args["country"].(string)
 				if !ok {
 					return nil, errors.New("cannot cast country to string")
 				}
-				countryData, err = stripeClient.CountrySpec.Get(country, nil)
+				_, err = stripeClient.CountrySpec.Get(country, nil)
 				if err != nil {
 					return nil, err
 				}
@@ -332,22 +364,19 @@ var userMutationFields = graphql.Fields{
 					return nil, errors.New("cannot cast currency to string")
 				}
 				currency = strings.ToLower(currency)
-				currencyObj := stripe.Currency(currency)
-				if countryData == nil {
-					countryData, err = stripeClient.CountrySpec.Get(account.Billing.Country, nil)
-					if err != nil {
-						return nil, err
-					}
+				currencies, err := getCurrencies(false)
+				if err != nil {
+					return nil, err
 				}
 				var foundCurrency = false
-				for i := range countryData.SupportedPaymentCurrencies {
-					if currencyObj == countryData.SupportedPaymentCurrencies[i] {
+				for _, currencyOption := range *currencies {
+					if currencyOption == currency {
 						foundCurrency = true
 						break
 					}
 				}
 				if !foundCurrency {
-					return nil, errors.New("invalid currency for given country")
+					return nil, errors.New("invalid currency provided")
 				}
 				updatedBillingData["currency"] = currency
 				account.Billing.Currency = currency

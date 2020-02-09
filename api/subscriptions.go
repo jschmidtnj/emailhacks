@@ -102,7 +102,7 @@ func subscriptionsHandler(c *gin.Context) {
 						"payload": payload,
 					})
 					if err != nil {
-						logger.Info("failed to marshal message: " + err.Error())
+						logger.Error("failed to marshal message: " + err.Error())
 					} else if err = conn.WriteMessage(websocket.TextMessage, message); err != nil {
 						logger.Error("failed to write to ws connection: " + err.Error())
 					}

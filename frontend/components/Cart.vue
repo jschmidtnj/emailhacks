@@ -39,7 +39,10 @@ export default Vue.extend({
   name: 'Cart',
   methods: {
     formatCurrency(amount) {
-      return formatLocaleCurrency(amount, this.$store.state.auth.currency)
+      return formatLocaleCurrency(
+        amount * this.$store.state.auth.exchangeRate,
+        this.$store.state.auth.currency
+      )
     }
   }
 })

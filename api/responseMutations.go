@@ -170,19 +170,16 @@ var responseMutationFields = graphql.Fields{
 			if params.Args["accessToken"] != nil {
 				useAccessToken = true
 			}
-			logger.Info("add the response")
 			var projectID primitive.ObjectID
 			var userID primitive.ObjectID
 			var accessToken string
 			var userIDString string
 			var ownerIDString string
 			if useAccessToken {
-				logger.Info("use access token")
 				accessToken, ok = params.Args["accessToken"].(string)
 				if !ok {
 					return nil, errors.New("cannot cast access token to string")
 				}
-				logger.Info("access token: " + accessToken)
 				var tokenFormIDString string
 				var projectIDString string
 				tokenFormIDString, projectIDString, ownerIDString, userIDString, err = getResponseAddTokenData(accessToken, viewAccessLevel)

@@ -82,23 +82,29 @@ var BillingType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
+// PaymentIDs object for stripe ids (by country)
+type PaymentIDs struct {
+	Customer string `json:"customer"` // customer id
+	Payment  string `json:"payment"`  // payment method id
+}
+
 // Account object for users
 type Account struct {
-	ID             string            `json:"id"`
-	Email          string            `json:"email"`
-	Password       string            `json:"password"`
-	Created        int64             `json:"created"`
-	Updated        int64             `json:"updated"`
-	EmailVerified  bool              `json:"emailverified"`
-	Type           string            `json:"type"`
-	Categories     []*Organize       `json:"categories"`
-	Tags           []*Organize       `json:"tags"`
-	Plan           string            `json:"plan"`
-	Purchases      []string          `json:"purchases"`
-	SubscriptionID string            `json:"subscriptionid"`
-	StripeIDs      map[string]string `json:"stripids"`
-	Storage        int64             `json:"storage"`
-	Billing        *Billing          `json:"billing"`
+	ID             string                 `json:"id"`
+	Email          string                 `json:"email"`
+	Password       string                 `json:"password"`
+	Created        int64                  `json:"created"`
+	Updated        int64                  `json:"updated"`
+	EmailVerified  bool                   `json:"emailverified"`
+	Type           string                 `json:"type"`
+	Categories     []*Organize            `json:"categories"`
+	Tags           []*Organize            `json:"tags"`
+	Plan           string                 `json:"plan"`
+	Purchases      []string               `json:"purchases"`
+	SubscriptionID string                 `json:"subscriptionid"`
+	StripeIDs      map[string]*PaymentIDs `json:"stripids"` // customer ids
+	Storage        int64                  `json:"storage"`
+	Billing        *Billing               `json:"billing"`
 }
 
 // AccountType account type object for user accounts graphql

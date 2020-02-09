@@ -89,7 +89,7 @@ func getActualExchangeRate(currency string) (*float64, error) {
 	if err != nil {
 		return nil, err
 	}
-	logger.Info(string(body))
+	// logger.Info(string(body))
 	if exchangeData["error"] != nil {
 		return nil, errors.New(exchangeData["error"].(string))
 	}
@@ -111,7 +111,7 @@ func getActualExchangeRate(currency string) (*float64, error) {
 }
 
 func getExchangeRate(currency string, useCache bool) (*float64, error) {
-	currency = strings.ToUpper(currency)
+	currency = strings.ToLower(currency)
 	pathMap := map[string]string{
 		"path":     "forex",
 		"currency": currency,
@@ -225,11 +225,11 @@ func getCurrencies(useCache bool) (*[]string, error) {
 	defer cursor.Close(ctxMongo)
 	currencies := []string{}
 	for cursor.Next(ctxMongo) {
-		currencyData := PlanCurrency{}
+		currencyData := Currency{}
 		if err = cursor.Decode(&currencyData); err != nil {
 			return nil, err
 		}
-		currencies = append(currencies, currencyData.Currency)
+		currencies = append(currencies, currencyData.Name)
 	}
 	currenciesResBytes, err := json.Marshal(currencies)
 	if err != nil {
