@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/graphql-go/graphql"
 	json "github.com/json-iterator/go"
 	"github.com/mitchellh/mapstructure"
@@ -13,7 +14,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func changeFormProject(formIDString string, oldProjectIDString string, newProjectIDString string, accessToken string) error {
+func changeFormProject(formIDString string, oldProjectIDString string, newProjectIDString string, accessToken string, accessKey string) error {
 	if len(oldProjectIDString) > 0 {
 		projectID, err := primitive.ObjectIDFromHex(oldProjectIDString)
 		if err != nil {
@@ -45,7 +46,7 @@ func changeFormProject(formIDString string, oldProjectIDString string, newProjec
 		if err != nil {
 			return err
 		}
-		if _, _, err := checkProjectAccess(projectID, accessToken, "", editAccessLevel, false); err != nil {
+		if _, _, err := checkProjectAccess(projectID, accessToken, accessKey, editAccessLevel, false); err != nil {
 			return err
 		}
 		script := elastic.NewScriptInline("ctx._source.forms+=1")
@@ -143,6 +144,10 @@ var formMutationFields = graphql.Fields{
 			},
 			"files": &graphql.ArgumentConfig{
 				Type: graphql.NewList(FileInputType),
+			},
+			"accessKey": &graphql.ArgumentConfig{
+				Type:        graphql.String,
+				Description: "sharable link key for project",
 			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
@@ -263,12 +268,24 @@ var formMutationFields = graphql.Fields{
 					return nil, err
 				}
 			}
+			uuidKey, err := uuid.NewRandom()
+			if err != nil {
+				return nil, err
+			}
+			key := uuidKey.String()
+			formID := primitive.NewObjectID()
+			formIDString := formID.Hex()
+			shortlink, err := generateShortLink(websiteURL + "/form/" + formIDString + "?key=" + key)
+			if err != nil {
+				return nil, err
+			}
 			now := time.Now()
 			userAccess := []map[string]interface{}{{
 				"id":   userIDString,
 				"type": editAccessLevel[0],
 			}}
 			formData := bson.M{
+				"_id":       formID,
 				"updated":   now.Unix(),
 				"project":   project,
 				"name":      name,
@@ -277,6 +294,11 @@ var formMutationFields = graphql.Fields{
 				"views":     0,
 				"responses": 0,
 				"owner":     userIDString,
+				"linkaccess": bson.M{
+					"shortlink": shortlink,
+					"secret":    key,
+					"type":      noAccessLevel,
+				},
 				"access": bson.M{
 					userIDString: bson.M{
 						"type":       userAccess[0]["type"].(string),
@@ -287,15 +309,21 @@ var formMutationFields = graphql.Fields{
 				"files":  files,
 				"public": noAccessLevel,
 			}
-			formCreateRes, err := formCollection.InsertOne(ctxMongo, formData)
+			_, err = formCollection.InsertOne(ctxMongo, formData)
 			if err != nil {
 				return nil, err
 			}
-			formID := formCreateRes.InsertedID.(primitive.ObjectID)
-			formIDString := formID.Hex()
-			if err = changeFormProject(formIDString, "", project, accessToken); err != nil {
+			var accessKey = ""
+			if params.Args["accessKey"] != nil {
+				accessKey, ok = params.Args["accessKey"].(string)
+				if !ok {
+					return nil, errors.New("cannot cast access key to string")
+				}
+			}
+			if err = changeFormProject(formIDString, "", project, accessToken, accessKey); err != nil {
 				return nil, err
 			}
+			delete(formData, "_id")
 			formData["created"] = now.Unix()
 			_, err = elasticClient.Index().
 				Index(formElasticIndex).
@@ -336,6 +364,9 @@ var formMutationFields = graphql.Fields{
 			"access": &graphql.ArgumentConfig{
 				Type: graphql.NewList(AccessInputType),
 			},
+			"linkaccess": &graphql.ArgumentConfig{
+				Type: graphql.String,
+			},
 			"tags": &graphql.ArgumentConfig{
 				Type: graphql.NewList(graphql.String),
 			},
@@ -348,6 +379,10 @@ var formMutationFields = graphql.Fields{
 			"files": &graphql.ArgumentConfig{
 				Type: graphql.NewList(FileInputType),
 			}, // eventually get files and tags and categories updating piece by piece
+			"accessKey": &graphql.ArgumentConfig{
+				Type:        graphql.String,
+				Description: "sharable link key",
+			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			accessToken := params.Context.Value(tokenKey).(string)
@@ -370,7 +405,14 @@ var formMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			formData, err := checkFormAccess(formID, accessToken, editAccessLevel, true)
+			var accessKey = ""
+			if params.Args["accessKey"] != nil {
+				accessKey, ok = params.Args["accessKey"].(string)
+				if !ok {
+					return nil, errors.New("cannot cast access key to string")
+				}
+			}
+			form, err := checkFormAccess(formID, accessToken, accessKey, editAccessLevel, true)
 			if err != nil {
 				return nil, err
 			}
@@ -420,7 +462,7 @@ var formMutationFields = graphql.Fields{
 				if err != nil {
 					return nil, err
 				}
-				projectID, err := primitive.ObjectIDFromHex(formData.Project)
+				projectID, err := primitive.ObjectIDFromHex(form.Project)
 				if err != nil {
 					return nil, err
 				}
@@ -428,7 +470,7 @@ var formMutationFields = graphql.Fields{
 					if accessUser["type"] != nil {
 						var changeProjectAccess = false
 						var newAccessType = accessUser["type"].(string)
-						_, currentAccessType, err := checkProjectAccess(projectID, accessToken, "", viewAccessLevel, false)
+						_, currentAccessType, err := checkProjectAccess(projectID, accessToken, accessKey, viewAccessLevel, false)
 						if err != nil {
 							changeProjectAccess = true
 						}
@@ -473,16 +515,21 @@ var formMutationFields = graphql.Fields{
 			if updateDataDB["$set"] == nil {
 				updateDataDB["$set"] = bson.M{}
 			}
-			newAccess, oldTags, oldCategories, err := getFormattedAccessGQLData(formData.Access, access, userIDString)
+			newAccess, oldTags, oldCategories, currentAccessType, err := getFormattedAccessGQLData(form.Access, access, userIDString)
 			if err != nil {
 				return nil, err
 			}
-			formData.Access = newAccess
+			if !findInArray(currentAccessType, editAccessLevel) && currentAccessType != "" {
+				form.LinkAccess = nil
+				form.Access = nil
+			} else {
+				form.Access = newAccess
+			}
 			if params.Args["categories"] == nil {
-				formData.Categories = oldCategories
+				form.Categories = oldCategories
 			}
 			if params.Args["tags"] == nil {
-				formData.Tags = oldTags
+				form.Tags = oldTags
 			}
 			updateDataElastic := bson.M{}
 			var updateProject = false
@@ -494,9 +541,9 @@ var formMutationFields = graphql.Fields{
 				if !ok {
 					return nil, errors.New("problem casting new project to string")
 				}
-				oldProject = formData.Project
+				oldProject = form.Project
 				updateDataDB["$set"].(bson.M)["project"] = newProject
-				formData.Project = newProject
+				form.Project = newProject
 				updateDataElastic["project"] = newProject
 			}
 			if params.Args["name"] != nil {
@@ -505,7 +552,7 @@ var formMutationFields = graphql.Fields{
 					return nil, errors.New("problem casting name to string")
 				}
 				updateDataDB["$set"].(bson.M)["name"] = name
-				formData.Name = name
+				form.Name = name
 				updateDataElastic["name"] = name
 			}
 			if params.Args["multiple"] != nil {
@@ -514,7 +561,7 @@ var formMutationFields = graphql.Fields{
 					return nil, errors.New("problem casting multple to bool")
 				}
 				updateDataDB["$set"].(bson.M)["multiple"] = multiple
-				formData.Multiple = multiple
+				form.Multiple = multiple
 				updateDataElastic["multiple"] = multiple
 			}
 			if params.Args["items"] != nil {
@@ -538,7 +585,7 @@ var formMutationFields = graphql.Fields{
 					}
 				}
 				updateDataDB["$set"].(bson.M)["items"] = items
-				formData.Items = items
+				form.Items = items
 				updateDataElastic["items"] = items
 			}
 			if params.Args["public"] != nil {
@@ -550,8 +597,24 @@ var formMutationFields = graphql.Fields{
 					return nil, errors.New("invalid public access level")
 				}
 				updateDataDB["$set"].(bson.M)["public"] = public
-				formData.Public = public
+				form.Public = public
 				updateDataElastic["public"] = public
+			}
+			if params.Args["linkaccess"] != nil {
+				linkaccess, ok := params.Args["linkaccess"].(string)
+				if !ok {
+					return nil, errors.New("problem casting public to string")
+				}
+				if !findInArray(linkaccess, validAccessTypes) {
+					return nil, errors.New("invalid link access level")
+				}
+				updateDataDB["$set"].(bson.M)["linkaccess"] = bson.M{
+					"type": linkaccess,
+				}
+				form.LinkAccess.Type = linkaccess
+				updateDataElastic["linkaccess"] = bson.M{
+					"type": linkaccess,
+				}
 			}
 			if params.Args["files"] != nil {
 				filesinterface, ok := params.Args["files"].([]interface{})
@@ -573,11 +636,10 @@ var formMutationFields = graphql.Fields{
 						return nil, err
 					}
 				}
-				formData.Files = files
+				form.Files = files
 				updateDataDB["$set"].(bson.M)["files"] = files
 				updateDataElastic["files"] = files
 			}
-			formData.Access = access
 			if len(access) > 0 {
 				script := elastic.NewScriptInline(addRemoveAccessScript).Params(map[string]interface{}{
 					"access":     access,
@@ -594,7 +656,7 @@ var formMutationFields = graphql.Fields{
 					return nil, err
 				}
 			}
-			updateDataElastic["updated"] = formData.Updated
+			updateDataElastic["updated"] = form.Updated
 			_, err = elasticClient.Update().
 				Index(formElasticIndex).
 				Type(formElasticType).
@@ -611,12 +673,12 @@ var formMutationFields = graphql.Fields{
 				return nil, err
 			}
 			if updateProject {
-				err = changeFormProject(formIDString, oldProject, newProject, accessToken)
+				err = changeFormProject(formIDString, oldProject, newProject, accessToken, accessKey)
 				if err != nil {
 					return nil, err
 				}
 			}
-			return formData, nil
+			return form, nil
 		},
 	},
 	"updateFormPart": &graphql.Field{
@@ -796,6 +858,10 @@ var formMutationFields = graphql.Fields{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
+			"accessKey": &graphql.ArgumentConfig{
+				Type:        graphql.String,
+				Description: "sharable link key",
+			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			accessToken := params.Context.Value(tokenKey).(string)
@@ -818,13 +884,20 @@ var formMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
+			var accessKey = ""
+			if params.Args["accessKey"] != nil {
+				accessKey, ok = params.Args["accessKey"].(string)
+				if !ok {
+					return nil, errors.New("cannot cast access key to string")
+				}
+			}
 			var form *Form
 			if !justDeleteElastic {
-				form, err = checkFormAccess(formID, accessToken, editAccessLevel, false)
+				form, err = checkFormAccess(formID, accessToken, accessKey, editAccessLevel, false)
 				if err != nil {
 					return nil, err
 				}
-				if err = changeFormProject(formIDString, form.Project, "", ""); err != nil {
+				if err = changeFormProject(formIDString, form.Project, "", "", ""); err != nil {
 					return nil, err
 				}
 			}
@@ -852,12 +925,17 @@ func deleteForm(formID primitive.ObjectID, form *Form, userIDString string) (*Fo
 		if err != nil {
 			return nil, err
 		}
-		access, tags, categories, err := getFormattedAccessGQLData(form.Access, nil, userIDString)
+		access, tags, categories, currentAccessType, err := getFormattedAccessGQLData(form.Access, nil, userIDString)
 		if err != nil {
 			return nil, err
 		}
+		if !findInArray(currentAccessType, editAccessLevel) && currentAccessType != "" {
+			form.LinkAccess = nil
+			form.Access = nil
+		} else {
+			form.Access = access
+		}
 		form.Responses = int64(0)
-		form.Access = access
 		form.Categories = categories
 		form.Tags = tags
 	}
@@ -870,6 +948,10 @@ func deleteForm(formID primitive.ObjectID, form *Form, userIDString string) (*Fo
 		return nil, err
 	}
 	if !justDeleteElastic {
+		err = deleteShortLink(form.LinkAccess.ShortLink)
+		if err != nil {
+			return nil, err
+		}
 		_, err = formCollection.DeleteOne(ctxMongo, bson.M{
 			"_id": formID,
 		})

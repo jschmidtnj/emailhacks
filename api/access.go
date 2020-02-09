@@ -35,3 +35,26 @@ var AccessType = graphql.NewObject(graphql.ObjectConfig{
 		},
 	},
 })
+
+// LinkAccess object for link user access
+type LinkAccess struct {
+	ShortLink string `json:"shortlink"`
+	Secret    string `json:"secret"`
+	Type      string `json:"type"`
+}
+
+// LinkAccessType - type of graphql input
+var LinkAccessType = graphql.NewObject(graphql.ObjectConfig{
+	Name: "LinkAccess",
+	Fields: graphql.Fields{
+		"shortlink": &graphql.Field{
+			Type: graphql.String,
+		},
+		"secret": &graphql.Field{
+			Type: graphql.String,
+		},
+		"type": &graphql.Field{
+			Type: graphql.String,
+		},
+	},
+})

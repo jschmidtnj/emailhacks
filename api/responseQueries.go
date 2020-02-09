@@ -34,6 +34,10 @@ var responseQueryFields = graphql.Fields{
 			"form": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
+			"accessKey": &graphql.ArgumentConfig{
+				Type:        graphql.String,
+				Description: "sharable link key",
+			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			accessToken := params.Context.Value(tokenKey).(string)
@@ -58,7 +62,14 @@ var responseQueryFields = graphql.Fields{
 					if err != nil {
 						return nil, err
 					}
-					_, err = checkFormAccess(formID, accessToken, viewAccessLevel, false)
+					var accessKey = ""
+					if params.Args["accessKey"] != nil {
+						accessKey, ok = params.Args["accessKey"].(string)
+						if !ok {
+							return nil, errors.New("cannot cast access key to string")
+						}
+					}
+					_, err = checkFormAccess(formID, accessToken, accessKey, viewAccessLevel, false)
 					if err != nil {
 						return nil, err
 					}

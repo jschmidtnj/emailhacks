@@ -15,6 +15,8 @@ export const staticStorageIndexes = {
   placeholder: 'placeholder'
 }
 
+export const validTypes = ['project', 'form']
+
 // autosave this quickly
 export const autosaveInterval = 1 * 1000
 
@@ -24,7 +26,13 @@ export const checkLoggedInInterval = 5 * 60 * 1000
 // default item name when first created
 export const defaultItemName = 'Untitled'
 
+export const defaultCountry = 'US'
+
+export const defaultCurrency = 'USD'
+
 export const adminTypes = ['admin', 'super']
+
+export const plans = ['free', 'business', 'enterprise']
 
 export const toasts = {
   position: 'top-right',
@@ -34,7 +42,8 @@ export const toasts = {
 
 export const regex = {
   password: /^$|^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/,
-  hexcode: /(^#[0-9A-F]{6}$)|(^#[0-9A-F]{3}$)/i
+  hexcode: /(^#[0-9A-F]{6}$)|(^#[0-9A-F]{3}$)/i,
+  phone: /^[+]*[(]{0,1}[0-9]{1,4}[)]{0,1}[-\s\\./0-9]*$/
 }
 
 export const oauthConfig = {

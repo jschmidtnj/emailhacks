@@ -409,10 +409,10 @@
         <b-row>
           <b-col class="text-right">
             <b-button
-              @click="submit"
+              @click="send"
               pill
               variant="primary"
-              class="submit-button shadow-lg"
+              class="send-button shadow-lg"
             >
               <client-only>
                 <font-awesome-icon size="3x" icon="paper-plane" />
@@ -421,7 +421,7 @@
           </b-col>
         </b-row>
       </b-container>
-      <submit-modal :form-id="formId" :project-id="projectId" />
+      <send-modal ref="send-content-modal" :form-id="formId" />
     </div>
     <page-loading v-else :loading="true" />
   </div>
@@ -430,8 +430,9 @@
 <script lang="js">
 import Vue from 'vue'
 import gql from 'graphql-tag'
+import Draggable from 'vuedraggable'
 import TextEditor from '~/components/form/TextEditor.vue'
-import SubmitModal from '~/components/form/SubmitModal.vue'
+import SendModal from '~/components/form/SendModal.vue'
 import PageLoading from '~/components/PageLoading.vue'
 import { validfiles, validDisplayFiles, autosaveInterval } from '~/assets/config'
 import { clone, arrayMove, checkDefined } from '~/assets/utils'
@@ -500,13 +501,10 @@ export default Vue.extend({
   components: {
     TextEditor,
     PageLoading,
-    SubmitModal
+    SendModal,
+    Draggable
   },
   props: {
-    projectId: {
-      type: String,
-      default: null
-    },
     formId: {
       type: String,
       default: null
@@ -611,20 +609,23 @@ export default Vue.extend({
         })
         // save before leave window
       }).catch(err => {
-        this.$toasted.global.error({
-          message: `found error: ${err.message}`
+        this.$bvToast.toast(`found error: ${err.message}`, {
+          variant: 'danger',
+          title: 'Error'
         })
       })
   },
   methods: {
-    submit(evt) {
+    send(evt) {
       evt.preventDefault()
-      console.log('submit!')
-      if (this.$refs['submit-content-modal']) {
-        console.log('show modal')
-        this.$refs['submit-content-modal'].show()
+      console.log('send!')
+      if (this.$refs['send-content-modal']) {
+        this.$refs['send-content-modal'].show()
       } else {
-        console.log('cannot find modal')
+        this.$bvToast.toast('cannot find send modal', {
+          variant: 'danger',
+          title: 'Error'
+        })
       }
     },
     getFileData(itemIndex, fileIndex) {
@@ -734,8 +735,9 @@ export default Vue.extend({
         .then(({ data }) => {
           this.pendingUpdates = clone(defaultPendingUpdates)
         }).catch(err => {
-          this.$toasted.global.error({
-            message: `found error: ${err.message}`
+          this.$bvToast.toast(`found error: ${err.message}`, {
+            variant: 'danger',
+            title: 'Error'
           })
         })
     },
@@ -895,8 +897,9 @@ export default Vue.extend({
         },
         error(error) {
           const message = `got error: ${error.message}`
-          this.$toasted.global.error({
-            message
+          this.$bvToast.toast(message, {
+            variant: 'danger',
+            title: 'Error'
           })
         }
       })
@@ -920,8 +923,9 @@ export default Vue.extend({
           })
         } else {
           const message = 'cannot find src url in response'
-          this.$toasted.global.error({
-            message
+          this.$bvToast.toast(message, {
+            variant: 'danger',
+            title: 'Error'
           })
         }
       }).catch(err => {
@@ -929,8 +933,9 @@ export default Vue.extend({
         if (err.response && err.response.data) {
           message = err.response.data.message
         }
-        this.$toasted.global.error({
-          message
+        this.$bvToast.toast(message, {
+          variant: 'danger',
+          title: 'Error'
         })
       })
     },
@@ -982,8 +987,9 @@ export default Vue.extend({
           if (res.status === 200) {
             console.log('deleted file')
           } else {
-            this.$toasted.global.error({
-              message: `got status code of ${res.status} on file delete`
+            this.$bvToast.toast(`got status code of ${res.status} on file delete`, {
+              variant: 'danger',
+              title: 'Error'
             })
           }
         })
@@ -992,8 +998,9 @@ export default Vue.extend({
           if (err.response && err.response.data) {
             message = err.response.data.message
           }
-          this.$toasted.global.error({
-            message
+          this.$bvToast.toast(message, {
+            variant: 'danger',
+            title: 'Error'
           })
         })
     },
@@ -1029,8 +1036,9 @@ export default Vue.extend({
             fileObj.src = null
             this.updateFileSrc(itemIndex, fileIndex, true)
           } else {
-            this.$toasted.global.error({
-              message: `got status code of ${res.status} on file upload`
+            this.$bvToast.toast(`got status code of ${res.status} on file upload`, {
+              variant: 'danger',
+              title: 'Error'
             })
           }
         })
@@ -1039,8 +1047,9 @@ export default Vue.extend({
           if (err.response && err.response.data) {
             message = err.response.data.message
           }
-          this.$toasted.global.error({
-            message
+          this.$bvToast.toast(message, {
+            variant: 'danger',
+            title: 'Error'
           })
           fileObj.file = null
         })
@@ -1390,7 +1399,7 @@ export default Vue.extend({
   text-align: center;
   line-height: 50%;
 }
-.submit-button {
+.send-button {
   height: 6rem;
   width: 6rem;
   text-align: center;

@@ -1,11 +1,6 @@
 <template>
   <b-container class="mt-4">
-    <view-content
-      v-if="projectId && formId && responseId"
-      :form-id="formId"
-      :project-id="projectId"
-      :response-id="responseId"
-    />
+    <view-content v-if="formId" :form-id="formId" :access-token="accessToken" />
   </b-container>
 </template>
 
@@ -14,13 +9,13 @@ import Vue from 'vue'
 import ViewContent from '~/components/form/View.vue'
 const seo = JSON.parse(process.env.seoconfig)
 export default Vue.extend({
-  name: 'Response',
+  name: 'ViewForm',
   components: {
     ViewContent
   },
   head() {
-    const title = 'Response'
-    const description = 'view / edit a response'
+    const title = 'View Form'
+    const description = 'view a form'
     const image = `${seo.url}/icon.png`
     return {
       title,
@@ -46,20 +41,20 @@ export default Vue.extend({
   },
   data() {
     return {
-      projectId: null,
-      formId: null
+      formId: null,
+      accessToken: null
     }
   },
   mounted() {
-    if (this.$route.params && this.$route.params.projectId
-      && this.$route.params.formId && this.$route.params.responseId) {
-      this.projectId = this.$route.params.projectId
+    if (this.$route.query.accessToken) {
+      this.accessToken = this.$route.query.accessToken
+    }
+    if (this.$route.params && this.$route.params.formId) {
       this.formId = this.$route.params.formId
-      this.responseId = this.$route.params.responseId
     } else {
       this.$nuxt.error({
         statusCode: 404,
-        message: 'could not find form id or project id or response id'
+        message: 'could not find form id or project id'
       })
     }
   }

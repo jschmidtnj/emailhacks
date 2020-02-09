@@ -275,69 +275,22 @@ var blogQueryFields = graphql.Fields{
 					}
 				}
 			}
-			cursor, err := blogCollection.Find(ctxMongo, bson.M{
-				"_id": id,
-			})
-			defer cursor.Close(ctxMongo)
+			blog, err := getBlog(id, false)
 			if err != nil {
 				return nil, err
-			}
-			var blogData map[string]interface{}
-			var foundstuff = false
-			for cursor.Next(ctxMongo) {
-				blogPrimitive := &bson.D{}
-				err = cursor.Decode(blogPrimitive)
-				if err != nil {
-					return nil, err
-				}
-				blogData = blogPrimitive.Map()
-				blogData["created"] = objectidTimestamp(id).Unix()
-				blogData["id"] = idstring
-				if blogData["tileimage"] != nil {
-					primitiveTileImage, ok := blogData["tileimage"].(primitive.D)
-					if !ok {
-						return nil, errors.New("cannot cast tile image to primitive D")
-					}
-					blogData["tileimage"] = primitiveTileImage.Map()
-				}
-				if blogData["heroimage"] != nil {
-					primitiveHeroImage, ok := blogData["heroimage"].(primitive.D)
-					if !ok {
-						return nil, errors.New("cannot cast hero image to primitive D")
-					}
-					blogData["heroimage"] = primitiveHeroImage.Map()
-				}
-				fileArray, ok := blogData["files"].(primitive.A)
-				if !ok {
-					return nil, errors.New("cannot cast files to array")
-				}
-				for i, file := range fileArray {
-					primitiveFile, ok := file.(primitive.D)
-					if !ok {
-						return nil, errors.New("cannot cast file to primitive D")
-					}
-					fileArray[i] = primitiveFile.Map()
-				}
-				blogData["files"] = fileArray
-				delete(blogData, "_id")
-				foundstuff = true
-				break
-			}
-			if !foundstuff {
-				return nil, errors.New("blog not found with given id")
 			}
 			_, err = elasticClient.Update().
 				Index(blogElasticIndex).
 				Type(blogElasticType).
 				Id(idstring).
 				Doc(bson.M{
-					"views": blogData["views"].(int64),
+					"views": blog.Views,
 				}).
 				Do(ctxElastic)
 			if err != nil {
 				return nil, err
 			}
-			blogBytes, err := json.Marshal(blogData)
+			blogBytes, err := json.Marshal(blog)
 			if err != nil {
 				return nil, err
 			}
@@ -345,7 +298,7 @@ var blogQueryFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			return blogData, nil
+			return blog, nil
 		},
 	},
 }

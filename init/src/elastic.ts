@@ -5,6 +5,24 @@ import { elasticuri } from './config'
  * elastic functions - initialize elasticsearch
  */
 
+const fileMappings = {
+  id: {
+    type: 'keyword'
+  },
+  name: {
+    type: 'keyword'
+  },
+  width: {
+    type: 'integer'
+  },
+  height: {
+    type: 'integer'
+  },
+  type: {
+    type: 'keyword'
+  }
+}
+
 export const blogMappings = {
   properties: {
     title: {
@@ -40,17 +58,32 @@ export const blogMappings = {
       format: 'epoch_millis'
     },
     heroimage: {
-      type: 'nested'
+      type: 'nested',
+      properties: fileMappings
     },
     tileimage: {
-      type: 'nested'
+      type: 'nested',
+      properties: fileMappings
     },
     files: {
-      type: 'nested'
+      type: 'nested',
+      properties: fileMappings
     },
     comments: {
       type: 'nested'
     }
+  }
+}
+
+const linkAccessMappings = {
+  shortlink: {
+    type: 'keyword'
+  },
+  secret: {
+    type: 'keyword'
+  },
+  type: {
+    type: 'keyword'
   }
 }
 
@@ -71,6 +104,10 @@ export const formMappings = {
     access: {
       type: 'object'
     },
+    linkaccess: {
+      type: 'object',
+      properties: linkAccessMappings
+    },
     views: {
       type: 'integer'
     },
@@ -81,7 +118,8 @@ export const formMappings = {
       type: 'keyword'
     },
     files: {
-      type: 'nested'
+      type: 'nested',
+      properties: fileMappings
     },
     created: {
       type: 'date',
@@ -111,6 +149,10 @@ export const projectMappings = {
     access: {
       type: 'object'
     },
+    linkaccess: {
+      type: 'object',
+      properties: linkAccessMappings
+    },
     views: {
       type: 'integer'
     },
@@ -136,6 +178,9 @@ export const responseMappings = {
     user: {
       type: 'keyword'
     },
+    owner: {
+      type: 'keyword'
+    },
     form: {
       type: 'keyword'
     },
@@ -152,41 +197,13 @@ export const responseMappings = {
     },
     items: {
       type: 'nested'
+    },
+    files: {
+      type: 'nested',
+      properties: fileMappings
     }
   }
 }
-
-const addRemoveAccessScript = `
-for (int i = 0; i < access.length; i++) {
-  bool cont = true;
-  if (access[i].type != null) {
-    if (access[i].type == 'none') {
-      if (ctx._source.access[access[i].id] != null) {
-        ctx._source.access[access[i].id].remove(access[i].id);
-      }
-      cont = false;
-    } else {
-      if (ctx._source.access[access[i].id] != null) {
-        ctx._source.access[access[i].id].type = access[i].type;
-      } else {
-        ctx._source.access[access[i].id] = {
-          'type': access[i].type
-        }
-      }
-    }
-  }
-  if (cont) {
-    if (access[userIDString].categories != null) {
-      ctx._source.access[userIDString].categories = categories
-    }
-    if (access[userIDString].tags != null) {
-      ctx._source.access[userIDString].tags = tags
-    }
-  }
-}
-`.replace('\n', '')
-
-const addRemoveAccessScriptName = 'addRemoveAccess'
 
 const indexsettings = {
   number_of_shards: 1,
@@ -196,28 +213,6 @@ const indexsettings = {
 const writeclient = new elasticsearch.Client({
   host: elasticuri
 })
-
-export const initializeElasticScripts = () => {
-  return new Promise((resolve, reject) => {
-    writeclient
-      .deleteScript({
-        id: addRemoveAccessScriptName
-      }).then(res1 => {
-        console.log(`deleted script res: ${res1}`)
-      }).catch(err => {
-        console.log(`got error: ${err}`)
-      }).then(() => {
-        writeclient.putScript({
-          id: addRemoveAccessScriptName,
-          body: addRemoveAccessScript
-        }).then(res => {
-          resolve(res)
-        }).catch(err => {
-          reject(err)
-        })
-      })
-  })
-}
 
 export const initializeElasticMappings = (indexname, doctype, mappings) => {
   return new Promise((resolve, reject) => {

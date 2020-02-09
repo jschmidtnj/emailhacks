@@ -49,8 +49,9 @@ export default Vue.extend({
           path: '/login'
         })
       }).catch(err => {
-        this.$toasted.global.error({
-          message: err
+        this.$bvToast.toast(err, {
+          variant: 'danger',
+          title: 'Error'
         })
       })
     }

@@ -9,26 +9,41 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func getFormattedAccessGQLData(currentAccess interface{}, changedAccess []map[string]interface{}, userIDString string) ([]*Access, []string, []string, error) {
+func getFormattedAccessGQLData(currentAccess interface{}, changedAccess []map[string]interface{}, userIDString string) ([]*Access, []string, []string, string, error) {
 	if currentAccess == nil || len(userIDString) == 0 {
-		return []*Access{}, []string{}, []string{}, nil
+		return []*Access{}, []string{}, []string{}, "", nil
 	}
-	userData := currentAccess.(map[string]bson.M)[userIDString]
+	currentAccessMap, ok := currentAccess.(map[string]bson.M)
+	if !ok {
+		return nil, nil, nil, "", errors.New("cannot convert current access to map")
+	}
+	userData := currentAccessMap[userIDString]
 	tags := []string{}
 	categories := []string{}
+	var accessType string
 	if userData != nil {
 		// you're not an admin
 		var err error
 		tags, err = interfaceListToStringList(userData["tags"].(bson.A))
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, "", err
 		}
 		categories, err = interfaceListToStringList(userData["categories"].(bson.A))
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, "", err
+		}
+		var ok bool
+		accessType, ok = userData["type"].(string)
+		if !ok {
+			return nil, nil, nil, "", err
 		}
 	}
-	newAccessMap := make(map[string]*Access, len(currentAccess.(map[string]bson.M)))
+	newAccessMap := make(map[string]*Access, len(currentAccessMap))
+	for currentUserID, accessUser := range currentAccessMap {
+		newAccessMap[currentUserID] = &Access{
+			Type: accessUser["type"].(string),
+		}
+	}
 	if changedAccess != nil {
 		for _, accessUser := range changedAccess {
 			currentUserID := accessUser["id"].(string)
@@ -52,7 +67,7 @@ func getFormattedAccessGQLData(currentAccess interface{}, changedAccess []map[st
 		}
 		i++
 	}
-	return newAccess, tags, categories, nil
+	return newAccess, tags, categories, accessType, nil
 }
 
 func checkAccessObj(accessObj map[string]interface{}) error {
@@ -153,29 +168,30 @@ func changeUserAccessData(itemID primitive.ObjectID, itemType string, userIDStri
 }
 
 func rootMutation() *graphql.Object {
+	fields := graphql.Fields{}
+	for key := range productMutationFields {
+		fields[key] = productMutationFields[key]
+	}
+	for key := range couponMutationFields {
+		fields[key] = couponMutationFields[key]
+	}
+	for key := range responseMutationFields {
+		fields[key] = responseMutationFields[key]
+	}
+	for key := range formMutationFields {
+		fields[key] = formMutationFields[key]
+	}
+	for key := range userMutationFields {
+		fields[key] = userMutationFields[key]
+	}
+	for key := range projectMutationFields {
+		fields[key] = projectMutationFields[key]
+	}
+	for key := range blogMutationFields {
+		fields[key] = blogMutationFields[key]
+	}
 	return graphql.NewObject(graphql.ObjectConfig{
-		Name: "Mutation",
-		Fields: graphql.Fields{
-			"addProduct":     productMutationFields["addProduct"],
-			"updateProduct":  productMutationFields["updateProduct"],
-			"deleteProduct":  productMutationFields["deleteProduct"],
-			"addCoupon":      couponMutationFields["addCoupon"],
-			"deleteCoupon":   couponMutationFields["deleteCoupon"],
-			"addResponse":    responseMutationFields["addResponse"],
-			"updateResponse": responseMutationFields["updateResponse"],
-			"deleteResponse": responseMutationFields["deleteResponse"],
-			"addForm":        formMutationFields["addForm"],
-			"updateForm":     formMutationFields["updateForm"],
-			"updateFormPart": formMutationFields["updateFormPart"],
-			"deleteForm":     formMutationFields["deleteForm"],
-			"deleteUser":     userMutationFields["deleteUser"],
-			"deleteAccount":  userMutationFields["deleteAccount"],
-			"addProject":     projectMutationFields["addProject"],
-			"updateProject":  projectMutationFields["updateProject"],
-			"deleteProject":  projectMutationFields["deleteProject"],
-			"addBlog":        blogMutationFields["addBlog"],
-			"updateBlog":     blogMutationFields["updateBlog"],
-			"deleteBlog":     blogMutationFields["deleteBlog"],
-		},
+		Name:   "Mutation",
+		Fields: fields,
 	})
 }

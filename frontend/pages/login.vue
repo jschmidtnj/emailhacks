@@ -156,21 +156,25 @@ export default Vue.extend({
               if (res.data.message) {
                 message = res.data.message
               }
-              this.$toasted.global.success({
-                message
+              this.$bvToast.toast(message, {
+                variant: 'success',
+                title: 'Success'
               })
             } else {
-              this.$toasted.global.error({
-                message: 'could not get data'
+              this.$bvToast.toast('could not get data', {
+                variant: 'danger',
+                title: 'Error'
               })
             }
           } else if (res.data && res.data.message) {
-            this.$toasted.global.error({
-              message: res.data.message
+            this.$bvToast.toast(res.data.message, {
+              variant: 'danger',
+              title: 'Error'
             })
           } else {
-            this.$toasted.global.error({
-              message: `status code of ${res.status}`
+            this.$bvToast.toast(`status code of ${res.status}`, {
+              variant: 'danger',
+              title: 'Error'
             })
           }
         })
@@ -179,8 +183,9 @@ export default Vue.extend({
           if (err.response && err.response.data) {
             message = err.response.data.message
           }
-          this.$toasted.global.error({
-            message
+          this.$bvToast.toast(message, {
+            variant: 'danger',
+            title: 'Error'
           })
         })
     }
@@ -191,6 +196,18 @@ export default Vue.extend({
   methods: {
     loginlocal(evt) {
       evt.preventDefault()
+      if (this.redirect_uri) {
+        if (this.redirect_uri.indexOf('/') === 0) {
+          this.$router.push({
+            path: this.redirect_uri
+          })
+        } else {
+          this.$bvToast.toast('invalid url redirect', {
+            variant: 'danger',
+            title: 'Error'
+          })
+        }
+      }
       this.$recaptcha('login')
         .then((recaptchatoken) => {
           /* eslint-disable */
@@ -202,52 +219,56 @@ export default Vue.extend({
               recaptcha: recaptchatoken
             })
             .then(token => {
-              this.$toasted.global.success({
-                message: 'logged in'
-              })
-              if (!this.redirect_uri) {
-                this.$store.dispatch('auth/setToken', token).then(() => {
-                  this.$router.push({
-                    path: '/dashboard'
-                  })
-                }).catch(err => {
-                  this.$toasted.global.error({
-                    message: err
+              this.$store.dispatch('auth/setToken', token).then(() => {
+                this.$store.dispatch('auth/getUser').then(() => {
+                  const success = () => {
+                    this.$bvToast.toast('logged in', {
+                      variant: 'success',
+                      title: 'Success'
+                    })
+                    this.$router.push({
+                      path: this.redirect_uri ? this.redirect_uri : '/dashboard'
+                    })
+                  }
+                  if (this.$store.state.project.projectId) {
+                    this.$store.dispatch('project/getProjectName').then(res => {
+                      success()
+                    }).catch(err => {
+                      console.log(err)
+                      this.$bvToast.toast('cannot find current project', {
+                        variant: 'danger',
+                        title: 'Error'
+                      })
+                      success()
+                    })
+                  } else {
+                    success()
+                  }
+                })
+                .catch(err => {
+                  this.$bvToast.toast(err.message, {
+                    variant: 'danger',
+                    title: 'Error'
                   })
                 })
-              } else {
-                this.redirect_uri += `?token=${token}`
-                if (
-                  this.redirect_uri.indexOf('https://') === 0 ||
-                  this.redirect_uri.indexOf('http://') === 0
-                ) {
-                  window.location.replace(this.redirect_uri)
-                } else if (this.redirect_uri.indexOf('/') === 0) {
-                  this.$store.dispatch('auth/setToken', token).then(() => {
-                    this.$router.push({
-                      path: this.redirect_uri
-                    })
-                  }).catch(err => {
-                    this.$toasted.global.error({
-                      message: err
-                    })
-                  })
-                } else {
-                  this.$toasted.global.error({
-                    message: 'invalid url redirect'
-                  })
-                }
-              }
-            })
-            .catch(err => {
-              this.$toasted.global.error({
-                message: err
+              })
+              .catch(err => {
+                this.$bvToast.toast(err.message, {
+                  variant: 'danger',
+                  title: 'Error'
+                })
+              })
+            }).catch(err => {
+              this.$bvToast.toast(err.message, {
+                variant: 'danger',
+                title: 'Error'
               })
             })
         })
         .catch(err => {
-          this.$toasted.global.error({
-            message: `got error with recaptcha ${err}`
+          this.$bvToast.toast(`got error with recaptcha ${err}`, {
+            variant: 'danger',
+            title: 'Error'
           })
         })
     }

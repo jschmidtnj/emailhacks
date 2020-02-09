@@ -115,7 +115,7 @@ func getResponse(responseID primitive.ObjectID, updated bool) (*Response, error)
 }
 
 func checkResponseAccess(responseID primitive.ObjectID, accessToken string, necessaryAccess []string, updated bool) (*Response, error) {
-	responseData, err := getResponse(responseID, updated)
+	response, err := getResponse(responseID, updated)
 	if err != nil {
 		return nil, err
 	}
@@ -125,25 +125,25 @@ func checkResponseAccess(responseID primitive.ObjectID, accessToken string, nece
 		return nil, err
 	}
 	// admin can do anything
-	if claims["type"] == adminType {
-		return responseData, nil
+	if claims["type"].(string) == adminType || claims["type"].(string) == superAdminType {
+		return response, nil
 	}
 	// check if user submitted the response
 	var userIDString = claims["id"].(string)
-	if responseData.User == userIDString {
-		return responseData, nil
-	} else if updated {
+	if response.User == userIDString {
+		return response, nil
+	} else if checkEquivalentStringArray(necessaryAccess, editAccessLevel) {
 		return nil, errors.New("cannot edit another user's response")
 	}
 	// in this case you are viewing or adding a new response
 	// check if user has access to form directly
-	formID, err := primitive.ObjectIDFromHex(responseData.Form)
+	formID, err := primitive.ObjectIDFromHex(response.Form)
 	if err != nil {
 		return nil, err
 	}
-	_, err = checkFormAccess(formID, accessToken, necessaryAccess, false)
+	_, err = checkFormAccess(formID, accessToken, "", necessaryAccess, false)
 	if err == nil {
-		return responseData, nil
+		return response, nil
 	}
 	return nil, errors.New("user not authorized to access form")
 }

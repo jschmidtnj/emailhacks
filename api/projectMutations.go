@@ -2,9 +2,9 @@ package main
 
 import (
 	"errors"
-	"strconv"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/graphql-go/graphql"
 	json "github.com/json-iterator/go"
 	"github.com/olivere/elastic/v7"
@@ -70,8 +70,6 @@ var projectMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			logger.Info(strconv.FormatInt(numProjectsAlready, 10))
-			logger.Info(strconv.FormatInt(int64(productData.MaxProjects), 10))
 			if numProjectsAlready >= int64(productData.MaxProjects) {
 				return nil, errors.New("you reached the maximum amount of projects")
 			}
@@ -104,17 +102,34 @@ var projectMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
+			uuidKey, err := uuid.NewRandom()
+			if err != nil {
+				return nil, err
+			}
+			key := uuidKey.String()
+			projectID := primitive.NewObjectID()
+			projectIDString := projectID.Hex()
+			shortlink, err := generateShortLink(websiteURL + "?id=" + projectIDString + "?key=" + key)
+			if err != nil {
+				return nil, err
+			}
 			now := time.Now()
 			userAccess := []map[string]interface{}{{
 				"id":   userIDString,
 				"type": editAccessLevel[0],
 			}}
 			projectData := bson.M{
+				"_id":     projectID,
 				"updated": now.Unix(),
 				"name":    name,
 				"forms":   int64(0),
 				"views":   int64(0),
 				"owner":   userIDString,
+				"linkaccess": bson.M{
+					"shortlink": shortlink,
+					"secret":    key,
+					"type":      noAccessLevel,
+				},
 				"access": bson.M{
 					userIDString: bson.M{
 						"type":       userAccess[0]["type"].(string),
@@ -124,12 +139,11 @@ var projectMutationFields = graphql.Fields{
 				},
 				"public": noAccessLevel,
 			}
-			projectCreateRes, err := projectCollection.InsertOne(ctxMongo, projectData)
+			_, err = projectCollection.InsertOne(ctxMongo, projectData)
 			if err != nil {
 				return nil, err
 			}
-			projectID := projectCreateRes.InsertedID.(primitive.ObjectID)
-			projectIDString := projectID.Hex()
+			delete(projectData, "_id")
 			projectData["created"] = now.Unix()
 			_, err = elasticClient.Index().
 				Index(projectElasticIndex).
@@ -161,6 +175,9 @@ var projectMutationFields = graphql.Fields{
 			"access": &graphql.ArgumentConfig{
 				Type: graphql.NewList(AccessInputType),
 			},
+			"linkaccess": &graphql.ArgumentConfig{
+				Type: graphql.String,
+			},
 			"categories": &graphql.ArgumentConfig{
 				Type: graphql.NewList(graphql.String),
 			},
@@ -172,6 +189,10 @@ var projectMutationFields = graphql.Fields{
 			},
 			"files": &graphql.ArgumentConfig{
 				Type: graphql.NewList(FileInputType),
+			},
+			"accessKey": &graphql.ArgumentConfig{
+				Type:        graphql.String,
+				Description: "sharable link key for project",
 			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
@@ -195,7 +216,14 @@ var projectMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			projectData, _, err := checkProjectAccess(projectID, accessToken, "", editAccessLevel, true)
+			var accessKey = ""
+			if params.Args["accessKey"] != nil {
+				accessKey, ok = params.Args["accessKey"].(string)
+				if !ok {
+					return nil, errors.New("cannot cast access key to string")
+				}
+			}
+			projectData, _, err := checkProjectAccess(projectID, accessToken, accessKey, editAccessLevel, true)
 			if err != nil {
 				return nil, err
 			}
@@ -251,16 +279,21 @@ var projectMutationFields = graphql.Fields{
 			if updateDataDB["$set"] == nil {
 				updateDataDB["$set"] = bson.M{}
 			}
-			newAccess, oldTags, oldCategories, err := getFormattedAccessGQLData(projectData["access"], access, userIDString)
+			newAccess, oldTags, oldCategories, currentAccessType, err := getFormattedAccessGQLData(projectData.Access, access, userIDString)
 			if err != nil {
 				return nil, err
 			}
-			projectData["access"] = newAccess
+			if !findInArray(currentAccessType, editAccessLevel) && currentAccessType != "" {
+				projectData.LinkAccess = nil
+				projectData.Access = nil
+			} else {
+				projectData.Access = newAccess
+			}
 			if params.Args["categories"] == nil {
-				projectData["categories"] = oldCategories
+				projectData.Categories = oldCategories
 			}
 			if params.Args["tags"] == nil {
-				projectData["tags"] = oldTags
+				projectData.Tags = oldTags
 			}
 			updateDataElastic := bson.M{}
 			if params.Args["name"] != nil {
@@ -269,17 +302,8 @@ var projectMutationFields = graphql.Fields{
 					return nil, errors.New("problem casting name to string")
 				}
 				updateDataDB["$set"].(bson.M)["name"] = name
-				projectData["name"] = name
+				projectData.Name = name
 				updateDataElastic["name"] = name
-			}
-			if params.Args["multiple"] != nil {
-				multiple, ok := params.Args["multiple"].(bool)
-				if !ok {
-					return nil, errors.New("problem casting multple to bool")
-				}
-				updateDataDB["$set"].(bson.M)["multiple"] = multiple
-				projectData["multiple"] = multiple
-				updateDataElastic["multiple"] = multiple
 			}
 			if params.Args["public"] != nil {
 				public, ok := params.Args["public"].(string)
@@ -290,10 +314,25 @@ var projectMutationFields = graphql.Fields{
 					return nil, errors.New("invalid public access level")
 				}
 				updateDataDB["$set"].(bson.M)["public"] = public
-				projectData["public"] = public
+				projectData.Public = public
 				updateDataElastic["public"] = public
 			}
-			projectData["access"] = access
+			if params.Args["linkaccess"] != nil {
+				linkaccess, ok := params.Args["linkaccess"].(string)
+				if !ok {
+					return nil, errors.New("problem casting public to string")
+				}
+				if !findInArray(linkaccess, validAccessTypes) {
+					return nil, errors.New("invalid link access level")
+				}
+				updateDataDB["$set"].(bson.M)["linkaccess"] = bson.M{
+					"type": linkaccess,
+				}
+				projectData.LinkAccess.Type = linkaccess
+				updateDataElastic["linkaccess"] = bson.M{
+					"type": linkaccess,
+				}
+			}
 			if len(access) > 0 {
 				script := elastic.NewScript(addRemoveAccessScript).Params(map[string]interface{}{
 					"access":     access,
@@ -310,6 +349,7 @@ var projectMutationFields = graphql.Fields{
 					return nil, err
 				}
 			}
+			updateDataElastic["updated"] = projectData.Updated
 			_, err = elasticClient.Update().
 				Index(projectElasticIndex).
 				Type(projectElasticType).
@@ -335,6 +375,10 @@ var projectMutationFields = graphql.Fields{
 			"id": &graphql.ArgumentConfig{
 				Type: graphql.String,
 			},
+			"accessKey": &graphql.ArgumentConfig{
+				Type:        graphql.String,
+				Description: "sharable link key for project",
+			},
 		},
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			accessToken := params.Context.Value(tokenKey).(string)
@@ -357,17 +401,33 @@ var projectMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			projectData, _, err := checkProjectAccess(projectID, accessToken, "", editAccessLevel, false)
+			var accessKey = ""
+			if params.Args["accessKey"] != nil {
+				accessKey, ok = params.Args["accessKey"].(string)
+				if !ok {
+					return nil, errors.New("cannot cast access key to string")
+				}
+			}
+			projectData, _, err := checkProjectAccess(projectID, accessToken, accessKey, editAccessLevel, false)
 			if err != nil {
 				return nil, err
 			}
-			access, tags, categories, err := getFormattedAccessGQLData(projectData["access"], nil, userIDString)
+			access, tags, categories, currentAccessType, err := getFormattedAccessGQLData(projectData.Access, nil, userIDString)
 			if err != nil {
 				return nil, err
 			}
-			projectData["access"] = access
-			projectData["categories"] = categories
-			projectData["tags"] = tags
+			err = deleteShortLink(projectData.LinkAccess.ShortLink)
+			if err != nil {
+				return nil, err
+			}
+			if !findInArray(currentAccessType, editAccessLevel) && currentAccessType != "" {
+				projectData.LinkAccess = nil
+				projectData.Access = nil
+			} else {
+				projectData.Access = access
+			}
+			projectData.Categories = categories
+			projectData.Tags = tags
 			if err = deleteProject(projectID); err != nil {
 				return nil, err
 			}
@@ -410,7 +470,7 @@ func deleteProject(projectID primitive.ObjectID) error {
 		if !ok {
 			return errors.New("cannot cast project to string")
 		}
-		if err = changeFormProject(formIDString, project, "", ""); err != nil {
+		if err = changeFormProject(formIDString, project, "", "", ""); err != nil {
 			return err
 		}
 		if _, err = deleteForm(formID, nil, ""); err != nil {

@@ -18,12 +18,14 @@ module.exports = {
   },
 
   env: {
+    mapsautoapikey: process.env.MAPSAUTOAPIKEY,
     seoconfig: process.env.SEOCONFIG,
     githuburl: pkg.repository.url,
     authconfig: process.env.AUTHCONFIG,
     apiurl: fullApiUrl,
     stripeconfig: process.env.STRIPECONFIG,
-    recaptchasitekey
+    recaptchasitekey,
+    shortlinkurl: process.env.SHORTLINKURL
   },
 
   /*
@@ -52,9 +54,6 @@ module.exports = {
       {
         src: 'https://js.stripe.com/v3/',
         defer: true
-      },
-      {
-        src: 'https://apis.google.com/js/api.js'
       },
       {
         innerHTML: JSON.stringify({
@@ -123,11 +122,10 @@ module.exports = {
     { src: '~/plugins/vuelidate', ssr: false },
     { src: '~/plugins/vuex-persist', ssr: false },
     { src: '~/plugins/axios', ssr: false },
-    { src: '~/plugins/toast', ssr: false },
-    { src: '~/plugins/select', ssr: false },
+    { src: '~/plugins/donut', ssr: false },
+    { src: '~/plugins/scroll', ssr: false },
     { src: '~/plugins/recaptcha', ssr: false },
     { src: '~/plugins/scroll-reveal', ssr: false },
-    { src: '~/plugins/draggable', ssr: false },
     { src: '~/plugins/touch', ssr: false }
   ],
   /*
@@ -153,8 +151,35 @@ module.exports = {
     '@nuxtjs/style-resources',
     'nuxt-webfontloader',
     '@nuxtjs/google-analytics',
-    '@nuxtjs/apollo'
+    '@nuxtjs/apollo',
+    'nuxt-i18n'
   ],
+  /*
+   ** i8n config
+   */
+  i18n: {
+    seo: false, // defined in heads in layout
+    baseUrl: seodata.url,
+    locales: [
+      {
+        code: 'en',
+        iso: 'en-US'
+      },
+      {
+        code: 'es',
+        iso: 'es-ES'
+      }
+    ],
+    defaultLocale: 'en',
+    vueI18nLoader: true,
+    vueI18n: {
+      fallbackLocale: 'en',
+      messages: {
+        en: {},
+        es: {}
+      }
+    }
+  },
   /*
    ** apollo config
    */

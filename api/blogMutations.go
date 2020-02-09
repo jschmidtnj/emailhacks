@@ -166,7 +166,7 @@ var blogMutationFields = graphql.Fields{
 					return nil, err
 				}
 			}
-			shortlink, err := generateShortLink(websiteURL + "/" + blogType + "/" + idstring)
+			shortlink, err := generateShortLink(websiteURL + "/blog/" + idstring)
 			if err != nil {
 				return nil, err
 			}
@@ -383,31 +383,7 @@ var blogMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			cursor, err := blogCollection.Find(ctxMongo, bson.M{
-				"_id": id,
-			})
-			defer cursor.Close(ctxMongo)
-			if err != nil {
-				return nil, err
-			}
-			var blogData map[string]interface{}
-			var foundstuff = false
-			for cursor.Next(ctxMongo) {
-				blogPrimitive := &bson.D{}
-				err = cursor.Decode(blogPrimitive)
-				if err != nil {
-					return nil, err
-				}
-				blogData = blogPrimitive.Map()
-				blogData["created"] = objectidTimestamp(id).Unix()
-				blogData["id"] = id.Hex()
-				delete(blogData, "_id")
-				foundstuff = true
-				break
-			}
-			if !foundstuff {
-				return nil, errors.New("blog not found with given id")
-			}
+			blogData, err := getBlog(id, true)
 			if err != nil {
 				return nil, err
 			}
@@ -446,32 +422,9 @@ var blogMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			cursor, err := blogCollection.Find(ctxMongo, bson.M{
-				"_id": id,
-			})
+			blogData, err := getBlog(id, true)
 			if err != nil {
 				return nil, err
-			}
-			defer cursor.Close(ctxMongo)
-			var blogData map[string]interface{}
-			idstr := id.Hex()
-			var foundstuff = false
-			for cursor.Next(ctxMongo) {
-				blogPrimitive := &bson.D{}
-				err = cursor.Decode(blogPrimitive)
-				if err != nil {
-					return nil, err
-				}
-				blogData = blogPrimitive.Map()
-				id := blogData["_id"].(primitive.ObjectID)
-				blogData["created"] = objectidTimestamp(id).Unix()
-				blogData["id"] = idstr
-				delete(blogData, "_id")
-				foundstuff = true
-				break
-			}
-			if !foundstuff {
-				return nil, errors.New("blog not found with given id")
 			}
 			_, err = blogCollection.DeleteOne(ctxMongo, bson.M{
 				"_id": id,
@@ -479,22 +432,13 @@ var blogMutationFields = graphql.Fields{
 			if err != nil {
 				return nil, err
 			}
-			err = deleteShortLink(blogData["shortlink"].(string))
+			err = deleteShortLink(blogData.ShortLink)
 			if err != nil {
 				return nil, err
 			}
-			if blogData["heroimage"] != nil {
-				heroimagedatadoc, ok := blogData["heroimage"].(primitive.D)
-				if !ok {
-					return nil, errors.New("cannot convert heroimage to primitive doc")
-				}
-				heroimagedata := heroimagedatadoc.Map()
-				heroimageid, ok := heroimagedata["id"].(string)
-				if !ok {
-					return nil, errors.New("cannot convert heroimage id to string")
-				}
-				heroobjblur := storageBucket.Object(blogFileIndex + "/" + idstr + "/" + heroimageid + blurPath)
-				heroobjoriginal := storageBucket.Object(blogFileIndex + "/" + idstr + "/" + heroimageid + originalPath)
+			if blogData.HeroImage != nil {
+				heroobjblur := storageBucket.Object(blogFileIndex + "/" + idstring + "/" + blogData.HeroImage.ID + blurPath)
+				heroobjoriginal := storageBucket.Object(blogFileIndex + "/" + idstring + "/" + blogData.HeroImage.ID + originalPath)
 				if err := heroobjblur.Delete(ctxStorage); err != nil {
 					return nil, err
 				}
@@ -502,18 +446,9 @@ var blogMutationFields = graphql.Fields{
 					return nil, err
 				}
 			}
-			if blogData["tileimage"] != nil {
-				tileimagedatadoc, ok := blogData["tileimage"].(primitive.D)
-				if !ok {
-					return nil, errors.New("cannot convert tileimage to primitive doc")
-				}
-				tileimagedata := tileimagedatadoc.Map()
-				tileimageid, ok := tileimagedata["id"].(string)
-				if !ok {
-					return nil, errors.New("cannot convert tileimage id to string")
-				}
-				tileobjblur := storageBucket.Object(blogFileIndex + "/" + idstr + "/" + tileimageid + blurPath)
-				tileobjoriginal := storageBucket.Object(blogFileIndex + "/" + idstr + "/" + tileimageid + originalPath)
+			if blogData.TileImage != nil {
+				tileobjblur := storageBucket.Object(blogFileIndex + "/" + idstring + "/" + blogData.TileImage.ID + blurPath)
+				tileobjoriginal := storageBucket.Object(blogFileIndex + "/" + idstring + "/" + blogData.TileImage.ID + originalPath)
 				if err := tileobjblur.Delete(ctxStorage); err != nil {
 					return nil, err
 				}
@@ -521,51 +456,10 @@ var blogMutationFields = graphql.Fields{
 					return nil, err
 				}
 			}
-			primitivefiles, ok := blogData["files"].(primitive.A)
-			if !ok {
-				return nil, errors.New("cannot convert files to primitive")
-			}
-			for _, primitivefile := range primitivefiles {
-				filedatadoc, ok := primitivefile.(primitive.D)
-				if !ok {
-					return nil, errors.New("cannot convert file to primitive doc")
-				}
-				filedata := filedatadoc.Map()
-				fileid, ok := filedata["id"].(string)
-				if !ok {
-					return nil, errors.New("cannot convert file id to string")
-				}
-				filetype, ok := filedata["type"].(string)
-				if !ok {
-					return nil, errors.New("cannot convert file type to string")
-				}
-				fileobj := storageBucket.Object(blogFileIndex + "/" + idstr + "/" + fileid + originalPath)
-				if err := fileobj.Delete(ctxStorage); err != nil {
+			for _, file := range blogData.Files {
+				_, err = deleteFile(blogType, blogData.ID, file.ID)
+				if err != nil {
 					return nil, err
-				}
-				if filetype == "image/gif" {
-					fileobj = storageBucket.Object(blogFileIndex + "/" + idstr + "/" + fileid + placeholderPath + originalPath)
-					blurobj := storageBucket.Object(blogFileIndex + "/" + idstr + "/" + fileid + placeholderPath + blurPath)
-					if err := fileobj.Delete(ctxStorage); err != nil {
-						return nil, err
-					}
-					if err := blurobj.Delete(ctxStorage); err != nil {
-						return nil, err
-					}
-				} else {
-					var hasblur = false
-					for _, blurtype := range haveblur {
-						if blurtype == filetype {
-							hasblur = true
-							break
-						}
-					}
-					if hasblur {
-						fileobj = storageBucket.Object(blogFileIndex + "/" + idstr + "/" + fileid + blurPath)
-						if err := fileobj.Delete(ctxStorage); err != nil {
-							return nil, err
-						}
-					}
 				}
 			}
 			if err != nil {

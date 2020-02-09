@@ -15,6 +15,7 @@ import (
 	"github.com/joho/godotenv"
 	json "github.com/json-iterator/go"
 	"github.com/olivere/elastic/v7"
+	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/client"
 	"github.com/tdewolff/minify/v2"
 	minifyCSS "github.com/tdewolff/minify/v2/css"
@@ -23,6 +24,7 @@ import (
 	minifyJSON "github.com/tdewolff/minify/v2/json"
 	minifySVG "github.com/tdewolff/minify/v2/svg"
 	minifyXML "github.com/tdewolff/minify/v2/xml"
+	"github.com/valyala/fasthttp"
 	"github.com/vmihailenco/taskq/v2"
 	"github.com/vmihailenco/taskq/v2/redisq"
 
@@ -34,6 +36,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/api/option"
 )
 
@@ -54,6 +57,8 @@ var userCollection *mongo.Collection
 var productCollection *mongo.Collection
 
 var couponCollection *mongo.Collection
+
+var currencyCollection *mongo.Collection
 
 var responseCollection *mongo.Collection
 
@@ -87,10 +92,6 @@ var validHexcode *regexp.Regexp
 
 var mainRecaptchaSecret string
 
-var shortlinkRecaptchaSecret string
-
-var shortlinkURL string
-
 var serviceEmail string
 
 var jwtIssuer string
@@ -105,13 +106,15 @@ var messageQueue taskq.Queue
 
 var ctxMessageQueue context.Context
 
-var saveFormTask *taskq.Task
-
 var connections sync.Map
 
 var stripeClient *client.API
 
+var stripeWebhookSecret string
+
 var minifier *minify.M
+
+var httpClient *fasthttp.Client
 
 /**
  * @api {get} /hello Test rest request
@@ -172,28 +175,30 @@ func setupCloseHandler() {
 		if err := mongoClient.Disconnect(ctxMongo); err != nil {
 			logger.Error("problem closing mongodb connection: " + err.Error())
 		}
+		logger.Info("done closing")
 		os.Exit(0)
 	}()
 }
 
 func main() {
 	initAddRemoveAccessScript()
-	// "./logs"
-	loggerconfig := []byte(`{
-		"level": "debug",
-		"encoding": "json",
-		"outputPaths": ["stdout"],
-		"errorOutputPaths": ["stderr"],
-		"initialFields": {},
-		"encoderConfig": {
-		  "messageKey": "message",
-		  "levelKey": "level",
-		  "levelEncoder": "lowercase"
-		}
-  }`)
-	var zapconfig zap.Config
-	if err := json.Unmarshal(loggerconfig, &zapconfig); err != nil {
-		panic(err)
+	var zapLoggerLevel zapcore.Level
+	if isDebug() {
+		zapLoggerLevel = zapcore.DebugLevel
+	} else {
+		zapLoggerLevel = zapcore.InfoLevel
+	}
+	zapconfig := zap.Config{
+		Level:            zap.NewAtomicLevelAt(zapLoggerLevel),
+		Encoding:         "json",
+		OutputPaths:      []string{"stdout"},
+		ErrorOutputPaths: []string{"stderr"},
+		InitialFields:    map[string]interface{}{},
+		EncoderConfig: zapcore.EncoderConfig{
+			MessageKey:  "message",
+			LevelKey:    "level",
+			EncodeLevel: zapcore.LowercaseLevelEncoder,
+		},
 	}
 	var err error
 	logger, err = zapconfig.Build()
@@ -224,6 +229,7 @@ func main() {
 	responseCollection = mongoClient.Database(mainDatabase).Collection(responseMongoName)
 	productCollection = mongoClient.Database(mainDatabase).Collection(productMongoName)
 	couponCollection = mongoClient.Database(mainDatabase).Collection(couponMongoName)
+	currencyCollection = mongoClient.Database(mainDatabase).Collection(currencyMongoName)
 	formCollection = mongoClient.Database(mainDatabase).Collection(formMongoName)
 	projectCollection = mongoClient.Database(mainDatabase).Collection(projectMongoName)
 	blogCollection = mongoClient.Database(mainDatabase).Collection(blogMongoName)
@@ -282,12 +288,7 @@ func main() {
 		Redis: redisClient,
 	})
 	ctxMessageQueue = context.Background()
-	saveFormTask = taskq.RegisterTask(&taskq.TaskOptions{
-		Name: "saveForm",
-		Handler: func(formIDString string) error {
-			return updateForm(formIDString)
-		},
-	})
+	initQueue()
 	setupCloseHandler()
 	// setup message queue worker
 	err = queueFactory.StartConsumers(ctxMessageQueue)
@@ -299,16 +300,27 @@ func main() {
 		logger.Fatal(err.Error())
 	}
 	mainRecaptchaSecret = os.Getenv("MAINRECAPTCHASECRET")
-	shortlinkRecaptchaSecret = os.Getenv("SHORTLINKRECAPTCHASECRET")
-	shortlinkURL = os.Getenv("SHORTLINKURL")
 	stripeKey := os.Getenv("STRIPEKEY")
 	stripeClient = &client.API{}
 	stripeClient.Init(stripeKey, nil)
+	var stripeLogLevel int
+	if isDebug() {
+		stripeLogLevel = int(stripe.LevelDebug)
+	} else {
+		stripeLogLevel = int(stripe.LevelError)
+	}
+	stripe.LogLevel = stripeLogLevel
+	stripe.DefaultLeveledLogger = logger.Sugar()
 	balance, err := stripeClient.Balance.Get(nil)
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
 	logger.Info("current balance: " + strconv.FormatInt(balance.Available[0].Value, 10))
+	stripeWebhookSecret = os.Getenv("STRIPEWEBHOOKSECRET")
+	httpClient = &fasthttp.Client{}
+	if err = initDefaultPlan(); err != nil {
+		logger.Fatal(err.Error())
+	}
 	minifier = minify.New()
 	minifier.AddFunc("text/css", minifyCSS.Minify)
 	minifier.AddFunc("text/html", minifyHTML.Minify)
@@ -374,6 +386,7 @@ func main() {
 	router.GET("/countForms", countForms)
 	router.GET("/countProjects", countProjects)
 	router.GET("/countBlogs", countBlogs)
+	router.Any("/stripehooks", handleStripeHooks)
 	router.Any("/shortLink", shortLinkRedirect)
 	router.GET("/hello", hello)
 	router.Run()

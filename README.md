@@ -10,3 +10,6 @@ email 2.0
 
 - start minikube: `minikube start`
 - dashboard: `minikube dashboard`
+- create page rule to redirect cloudflare to short link
+- create locale for api using [this](https://github.com/nicksnyder/go-i18n)?
+- use [these charts](https://github.com/apexcharts/vue-apexcharts)

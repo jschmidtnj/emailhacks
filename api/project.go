@@ -14,6 +14,22 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// Project object
+type Project struct {
+	ID         string      `json:"id"`
+	Name       string      `json:"name"`
+	Owner      string      `json:"owner"`
+	Created    int64       `json:"created"`
+	Updated    int64       `json:"updated"`
+	Forms      int64       `json:"forms"`
+	Access     interface{} `json:"access"`
+	LinkAccess *LinkAccess `json:"linkaccess"`
+	Public     string      `json:"public"`
+	Tags       []string    `json:"tags"`
+	Categories []string    `json:"categories"`
+	Views      int64       `json:"Views"`
+}
+
 // ProjectType overarching project
 var ProjectType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "Project",
@@ -39,6 +55,9 @@ var ProjectType = graphql.NewObject(graphql.ObjectConfig{
 		"access": &graphql.Field{
 			Type: graphql.NewList(AccessType),
 		},
+		"linkaccess": &graphql.Field{
+			Type: LinkAccessType,
+		},
 		"public": &graphql.Field{
 			Type: graphql.String,
 		},
@@ -54,102 +73,67 @@ var ProjectType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-func processProjectFromDB(projectData bson.M, updated bool) (bson.M, error) {
-	id := projectData["_id"].(primitive.ObjectID)
-	projectData["created"] = objectidTimestamp(id).Unix()
-	var updatedTimestamp time.Time
-	if updated {
-		updatedTimestamp = time.Now()
-	} else {
-		updatedInt, ok := projectData["updated"].(int64)
-		if !ok {
-			return nil, errors.New("cannot cast updated time to int")
-		}
-		updatedTimestamp = intTimestamp(updatedInt)
+func getProject(projectID primitive.ObjectID, updated bool) (*Project, error) {
+	var project Project
+	err := projectCollection.FindOne(ctxMongo, bson.M{
+		"_id": projectID,
+	}).Decode(&project)
+	if err != nil {
+		return nil, err
 	}
-	projectData["updated"] = updatedTimestamp.Unix()
-	projectData["id"] = id.Hex()
-	delete(projectData, "_id")
-	accessPrimitiveDoc, ok := projectData["access"].(primitive.D)
-	if !ok {
-		return nil, errors.New("cannot cast access to map")
-	}
-	accessPrimitive := accessPrimitiveDoc.Map()
-	access := make(map[string]primitive.M, len(accessPrimitive))
-	for id, accessData := range accessPrimitive {
+	project.Access = project.Access.(bson.D).Map()
+	access := make(map[string]primitive.M, len(project.Access.(bson.M)))
+	for id, accessData := range project.Access.(bson.M) {
 		primitiveAccessDoc, ok := accessData.(primitive.D)
 		if !ok {
 			return nil, errors.New("cannot cast access to primitive D")
 		}
 		access[id] = primitiveAccessDoc.Map()
 	}
-	projectData["access"] = access
-	return projectData, nil
+	project.Access = access
+	project.Created = objectidTimestamp(projectID).Unix()
+	if updated {
+		project.Updated = time.Now().Unix()
+	}
+	project.ID = projectID.Hex()
+	return &project, nil
 }
 
-func checkProjectAccess(projectID primitive.ObjectID, accessToken string, otherUserIDString string, necessaryAccess []string, updated bool) (map[string]interface{}, string, error) {
-	projectDataCursor, err := projectCollection.Find(ctxMongo, bson.M{
-		"_id": projectID,
-	})
-	defer projectDataCursor.Close(ctxMongo)
+func checkProjectAccess(projectID primitive.ObjectID, accessToken string, accessKey string, necessaryAccess []string, updated bool) (*Project, string, error) {
+	project, err := getProject(projectID, updated)
 	if err != nil {
 		return nil, "", err
 	}
-	var projectData map[string]interface{}
-	var foundProject = false
-	var accessType string
-	for projectDataCursor.Next(ctxMongo) {
-		foundProject = true
-		projectPrimitive := &bson.D{}
-		err = projectDataCursor.Decode(projectPrimitive)
-		if err != nil {
-			return nil, "", err
-		}
-		projectData, err = processProjectFromDB(projectPrimitive.Map(), updated)
-		if err != nil {
-			return nil, "", err
-		}
-		// if public just break
-		publicAccess := projectData["public"].(string)
-		if findInArray(publicAccess, necessaryAccess) {
-			break
-		}
-		var userIDString string
-		if len(otherUserIDString) == 0 {
-			// next check if logged in
-			claims, err := getTokenData(accessToken)
-			if err != nil {
-				return nil, "", err
-			}
-			// admin can do anything
-			if claims["type"] == adminType {
-				break
-			}
-			userIDString = claims["id"].(string)
-		} else {
-			userIDString = otherUserIDString
-		}
-		var foundUser = false
-		access := projectData["access"].(map[string]bson.M)
-		for currentUserID, accessVal := range access {
-			if currentUserID == userIDString {
-				accessType = accessVal["type"].(string)
-				if findInArray(accessType, necessaryAccess) {
-					foundUser = true
-				}
-				break
-			}
-		}
-		if !foundUser {
-			// check if user has access to project directly
-			return nil, "", errors.New("user not authorized to access project")
-		}
-		break
+	// if public just break
+	if findInArray(project.Public, necessaryAccess) {
+		return project, project.Public, nil
 	}
-	if !foundProject {
-		return nil, "", errors.New("project not found with given id")
+	// next check if logged in
+	claims, err := getTokenData(accessToken)
+	if err != nil {
+		return nil, "", err
 	}
-	return projectData, accessType, nil
+	// admin can do anything
+	if claims["type"].(string) == adminType || claims["type"].(string) == superAdminType {
+		return project, editAccessLevel[0], nil
+	}
+	// check for valid key
+	if len(accessKey) > 0 {
+		if project.LinkAccess.Secret != accessKey {
+			return nil, "", errors.New("invalid access key")
+		}
+		if !findInArray(project.LinkAccess.Type, necessaryAccess) {
+			return nil, "", errors.New("you do not have the necessary access")
+		}
+		return project, "", nil
+	}
+	var userIDString = claims["id"].(string)
+	for currentUserID, accessVal := range project.Access.(map[string]bson.M) {
+		if currentUserID == userIDString {
+			return project, accessVal["type"].(string), nil
+		}
+	}
+	return nil, "", errors.New("user not authorized to access project")
 }
 
 /**
@@ -189,10 +173,19 @@ func countProjects(c *gin.Context) {
 		handleError("error getting tags string array from query", http.StatusBadRequest, response)
 		return
 	}
+	var onlyShared = false
+	onlyshared := request.URL.Query().Get("onlyshared")
+	if len(onlyshared) > 0 {
+		onlyShared = onlyshared == "true"
+	}
 	tags = removeEmptyStrings(tags)
 	var numtags = len(tags)
 	mustQueries := make([]elastic.Query, numtags+len(categories)+1)
-	mustQueries[0] = elastic.NewTermsQuery(fmt.Sprintf("access.%s.type", userIDString), stringListToInterfaceList(viewAccessLevel)...)
+	necessaryAccessLevel := viewAccessLevel
+	if onlyShared {
+		necessaryAccessLevel = []string{sharedAccessLevel}
+	}
+	mustQueries[0] = elastic.NewTermsQuery(fmt.Sprintf("access.%s.type", userIDString), stringListToInterfaceList(necessaryAccessLevel)...)
 	for i, tag := range tags {
 		mustQueries[i+1] = elastic.NewTermQuery(fmt.Sprintf("access.%s.tags", userIDString), tag)
 	}

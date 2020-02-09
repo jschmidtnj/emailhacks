@@ -10,6 +10,28 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+func removeEmptyStrings(input []string) []string {
+	var result []string
+	for _, str := range input {
+		if str != "" {
+			result = append(result, str)
+		}
+	}
+	return result
+}
+
+func checkEquivalentStringArray(arr1 []string, arr2 []string) bool {
+	if len(arr1) != len(arr2) {
+		return false
+	}
+	for i := range arr1 {
+		if arr1[i] != arr2[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func stringListToInterfaceList(stringList []string) []interface{} {
 	result := make([]interface{}, len(stringList))
 	for i, item := range stringList {

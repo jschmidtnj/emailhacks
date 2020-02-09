@@ -23,8 +23,12 @@ export default Vue.extend({
   head() {
     // @ts-ignore
     const seo = JSON.parse(process.env.seoconfig)
-    const links = []
-    const meta = []
+    const i18nSeo = this.$nuxtI18nSeo()
+    const links = [...i18nSeo.link]
+    const meta = [...i18nSeo.meta]
+    const htmlAttrs = {
+      ...i18nSeo.htmlAttrs
+    }
     if (seo) {
       const canonical = `${seo.url}/${this.$route.path}`
       links.push({
@@ -38,7 +42,8 @@ export default Vue.extend({
     }
     return {
       links,
-      meta
+      meta,
+      htmlAttrs
     }
   },
   data() {
@@ -68,8 +73,9 @@ export default Vue.extend({
                 path: '/login'
               })
             }).catch(err => {
-              this.$toasted.global.error({
-                message: err
+              this.$bvToast.toast(err, {
+                variant: 'danger',
+                title: 'Error'
               })
             })
           }
@@ -80,8 +86,9 @@ export default Vue.extend({
               path: '/login'
             })
           }).catch(err => {
-            this.$toasted.global.error({
-              message: err
+            this.$bvToast.toast(err, {
+              variant: 'danger',
+              title: 'Error'
             })
           })
         })

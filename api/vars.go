@@ -14,6 +14,8 @@ var productMongoName = "products"
 
 var couponMongoName = "coupons"
 
+var currencyMongoName = "currencies"
+
 var formMongoName = "forms"
 
 var projectMongoName = "projects"
@@ -228,12 +230,18 @@ var defaultPlanName = "free"
 
 var defaultCurrency = "usd"
 
+var defaultCountry = "us"
+
 // see https://stripe.com/docs/api/coupons/object for details
 var defaultCouponDuration = "repeating"
 
 var autosaveTime = 3 // seconds
 
+var forexUpdateTime = 12 // hours
+
 var storageAccessTime = 5 // minutes
+
+var foreignExchangeURL = "https://api.exchangeratesapi.io/latest"
 
 // more configuration params
 

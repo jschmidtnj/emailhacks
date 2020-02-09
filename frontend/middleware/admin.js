@@ -13,7 +13,7 @@ const admin = ({ store, redirect }) => {
             store
               .dispatch('auth/getUser')
               .then((res) => {
-                if (adminTypes.contains(store.state.auth.user.type)) {
+                if (adminTypes.includes(store.state.auth.user.type)) {
                   resolve()
                 } else {
                   redirect('/login')
@@ -23,7 +23,7 @@ const admin = ({ store, redirect }) => {
                 console.error(err)
                 redirect('/login')
               })
-          } else if (adminTypes.contains(store.state.auth.user.type)) {
+          } else if (adminTypes.includes(store.state.auth.user.type)) {
             resolve()
           } else {
             redirect('/login')

@@ -1,14 +1,37 @@
 package main
 
 import (
+	"net/http"
+	"time"
+
 	"github.com/graphql-go/graphql"
 	json "github.com/json-iterator/go"
-	"net/http"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v7"
 	"github.com/olivere/elastic/v7"
 )
+
+// Blog object
+type Blog struct {
+	ID         string   `json:"id"`
+	Title      string   `json:"title"`
+	Caption    string   `json:"caption"`
+	Content    string   `json:"content"`
+	Author     string   `json:"author"`
+	Color      string   `json:"color"`
+	Tags       []string `json:"tags"`
+	Categories []string `json:"categories"`
+	Views      int64    `json:"views"`
+	Created    int64    `json:"created"`
+	Updated    int64    `json:"updated"`
+	HeroImage  *File    `json:"heroimage"`
+	TileImage  *File    `json:"tileimage"`
+	Files      []*File  `json:"files"`
+	ShortLink  string   `json:"shortlink"`
+}
 
 // BlogType graphql blog object
 var BlogType = graphql.NewObject(graphql.ObjectConfig{
@@ -62,14 +85,20 @@ var BlogType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-func removeEmptyStrings(input []string) []string {
-	var result []string
-	for _, str := range input {
-		if str != "" {
-			result = append(result, str)
-		}
+func getBlog(blogID primitive.ObjectID, updated bool) (*Blog, error) {
+	var blog Blog
+	err := blogCollection.FindOne(ctxMongo, bson.M{
+		"_id": blogID,
+	}).Decode(&blog)
+	if err != nil {
+		return nil, err
 	}
-	return result
+	blog.Created = objectidTimestamp(blogID).Unix()
+	if updated {
+		blog.Updated = time.Now().Unix()
+	}
+	blog.ID = blogID.Hex()
+	return &blog, nil
 }
 
 /**

@@ -46,7 +46,8 @@ func sendEmailVerification(email string) (*rest.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO - replace this with a template in source here
+	// TODO - replace this with a template in source here, and eventually with aws simple email service
+	// create http stream response to get upload updates from aws: https://github.com/gin-gonic/gin/issues/285
 	doc.Find("#verify").SetAttr("href", websiteURL+"/login?verify=true&token="+tokenString)
 	template, err := doc.Html()
 	request := sendgrid.GetRequest(sendgridAPIKey, sendgridAPIPath+"/mail/send", sendgridAPIUrl)

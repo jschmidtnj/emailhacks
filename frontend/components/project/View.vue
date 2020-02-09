@@ -8,14 +8,25 @@
           </b-input-group>
         </b-form-group>
       </b-form>
+      <b-row>
+        <b-col>
+          <form-list />
+        </b-col>
+        <b-col>
+          Project analytics go here...
+        </b-col>
+      </b-row>
     </b-container>
-    <form-list :project-id="projectId" />
-    <nuxt-link
-      :to="`/project/${projectId}/form`"
-      class="btn btn-primary btn-sm no-underline mt-4"
+    <b-button
+      @click="newForm"
+      pill
+      variant="primary"
+      class="new-form-button shadow-lg"
     >
-      Create New Form
-    </nuxt-link>
+      <client-only>
+        <font-awesome-icon size="3x" icon="plus" />
+      </client-only>
+    </b-button>
   </b-container>
 </template>
 
@@ -32,10 +43,6 @@ export default Vue.extend({
     FormList
   },
   props: {
-    projectId: {
-      type: String,
-      default: null
-    },
     getInitialData: {
       type: Boolean,
       default: true
@@ -44,7 +51,8 @@ export default Vue.extend({
   data() {
     return {
       name: '',
-      isPublic: false
+      numForms: 0,
+      publicAccess: noneAccessType
     }
   },
   // @ts-ignore
@@ -76,31 +84,41 @@ export default Vue.extend({
   },
   mounted() {
     if (this.getInitialData) {
-      this.getProject()
+      this.getProjectData()
+      this.name = this.$store.state.project.projectName
     } else {
       this.name = defaultItemName
+      this.numForms = 0
+      this.publicAccess = noneAccessType
     }
   },
   methods: {
-    getProject() {
+    newForm(evt) {
+      evt.preventDefault()
+      this.$router.push({
+        path: '/form'
+      })
+    },
+    getProjectData() {
       this.$apollo.query({
         query: gql`
           query project($id: String!) {
             project(id: $id) {
-              name
+              forms
               public
             }
           }`,
-          variables: {id: this.projectId},
+          variables: {id: this.$store.state.project.projectId},
           fetchPolicy: 'network-only'
         }).then(({ data }) => {
-          this.name = data.project.name
-          this.isPublic = data.project.public === noneAccessType
-          this.$store.commit('auth/setRedirectLogin', this.isPublic)
+          this.numForms = data.project.forms
+          this.publicAccess = data.project.public
+          this.$store.commit('auth/setRedirectLogin', this.publicAccess !== noneAccessType)
         }).catch(err => {
           console.error(err)
-          this.$toasted.global.error({
-            message: `found error: ${err.message}`
+          this.$bvToast.toast(`found error: ${err.message}`, {
+            variant: 'danger',
+            title: 'Error'
           })
         })
     },
@@ -108,13 +126,15 @@ export default Vue.extend({
       evt.preventDefault()
       this.$apollo.mutate({mutation: gql`
         mutation updateProject($id: String!, $name: String!){updateProject(id: $id, name: $name){id} }
-        `, variables: {id: this.projectId, name: this.name}})
+        `, variables: {id: this.$store.state.project.projectId, name: this.name}})
         .then(({ data }) => {
           console.log('updated!')
+          this.$store.commit('project/setProjectName', this.name)
         }).catch(err => {
           console.error(err)
-          this.$toasted.global.error({
-            message: `found error: ${err.message}`
+          this.$bvToast.toast(`found error: ${err.message}`, {
+            variant: 'danger',
+            title: 'Error'
           })
         })
     }
@@ -122,4 +142,15 @@ export default Vue.extend({
 })
 </script>
 
-<style lang="scss"></style>
+<style lang="scss">
+.new-form-button {
+  height: 6rem;
+  width: 6rem;
+  text-align: center;
+  line-height: 50%;
+  z-index: 99;
+  position: fixed;
+  bottom: 3rem;
+  right: 3rem;
+}
+</style>

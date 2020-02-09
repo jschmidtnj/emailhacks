@@ -1,6 +1,6 @@
 <template>
   <b-container>
-    <b-jumbotron header="Mail Pear" class="mt-4" />
+    <b-jumbotron :header="$t('welcome')" class="mt-4" />
   </b-container>
 </template>
 
@@ -12,6 +12,9 @@ export default Vue.extend({
   name: 'Home',
   data() {
     return {}
+  },
+  beforeCreate() {
+    this.$i18n.setLocaleMessage(this.$i18n.locale, require(`~/locales/index/${this.$i18n.locale}`).default)
   },
   // @ts-ignore
   head() {

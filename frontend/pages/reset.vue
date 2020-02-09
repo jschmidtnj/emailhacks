@@ -180,24 +180,28 @@ export default Vue.extend({
               if (res.data.message) {
                 message = res.data.message
               }
-              this.$toasted.global.success({
-                message
+              this.$bvToast.toast(message, {
+                variant: 'success',
+                title: 'Success'
               })
               this.$router.push({
                 path: '/login'
               })
             } else {
-              this.$toasted.global.error({
-                message: 'could not get data'
+              this.$bvToast.toast('could not get data', {
+                variant: 'danger',
+                title: 'Error'
               })
             }
           } else if (res.data && res.data.message) {
-            this.$toasted.global.error({
-              message: res.data.message
+            this.$bvToast.toast(res.data.message, {
+              variant: 'danger',
+              title: 'Error'
             })
           } else {
-            this.$toasted.global.error({
-              message: `status code of ${res.status}`
+            this.$bvToast.toast(`status code of ${res.status}`, {
+              variant: 'danger',
+              title: 'Error'
             })
           }
         })
@@ -207,8 +211,9 @@ export default Vue.extend({
           if (err.response && err.response.data) {
             message = err.response.data.message
           }
-          this.$toasted.global.error({
-            message: message
+          this.$bvToast.toast(message, {
+            variant: 'danger',
+            title: 'Error'
           })
         })
     },
@@ -227,24 +232,28 @@ export default Vue.extend({
                 if (res.data.message) {
                   message = res.data.message
                 }
-                this.$toasted.global.success({
-                  message: message
+                this.$bvToast.toast(message, {
+                  variant: 'success',
+                  title: 'Success'
                 })
                 this.emailform = {
                   email: ''
                 }
               } else {
-                this.$toasted.global.error({
-                  message: 'could not get data'
+                this.$bvToast.toast('could not get data', {
+                  variant: 'danger',
+                  title: 'Error'
                 })
               }
             } else if (res.data && res.data.message) {
-              this.$toasted.global.error({
-                message: res.data.message
+              this.$bvToast.toast(res.data.message, {
+                variant: 'danger',
+                title: 'Error'
               })
             } else {
-              this.$toasted.global.error({
-                message: `status code of ${res.status}`
+              this.$bvToast.toast(`status code of ${res.status}`, {
+                variant: 'danger',
+                title: 'Error'
               })
             }
           })
@@ -254,13 +263,15 @@ export default Vue.extend({
             if (err.response && err.response.data) {
               message = err.response.data.message
             }
-            this.$toasted.global.error({
-              message: message
+            this.$bvToast.toast(message, {
+              variant: 'danger',
+              title: 'Error'
             })
           })
       }).catch(err => {
-        this.$toasted.global.error({
-          message: `got error with recaptcha ${err}`
+        this.$bvToast.toast(`got error with recaptcha ${err}`, {
+          variant: 'danger',
+          title: 'Error'
         })
       })
     }
