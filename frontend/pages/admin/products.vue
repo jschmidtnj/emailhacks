@@ -162,6 +162,7 @@
                         v-model="product.plans[index].interval"
                         :options="intervalOptions"
                         :multiple="false"
+                        track-by="interval"
                         label="interval"
                         aria-describedby="intervalfeedback"
                       />

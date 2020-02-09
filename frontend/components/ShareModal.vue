@@ -31,6 +31,7 @@
             :multiple="true"
             :taggable="true"
             @tag="newUserAccess"
+            track-by="email"
             label="email"
           />
         </client-only>

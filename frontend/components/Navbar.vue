@@ -45,6 +45,7 @@
           :clear-on-select="false"
           @search-change="updatedProjectSearchTerm"
           @select="changeProject"
+          track-by="id"
           label="name"
         />
         <b-nav-item

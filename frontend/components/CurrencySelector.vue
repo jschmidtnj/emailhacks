@@ -8,6 +8,7 @@
         :allow-empty="false"
         :multiple="false"
         @select="setCurrency"
+        track-by="currencyCode"
         label="currencyName"
       />
     </client-only>

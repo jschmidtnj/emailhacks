@@ -8,6 +8,7 @@
         :multiple="false"
         :allow-empty="false"
         @select="getCountryData"
+        track-by="countryCode"
         label="countryName"
       />
     </client-only>
