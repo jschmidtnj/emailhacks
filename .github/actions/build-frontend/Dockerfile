@@ -11,6 +11,6 @@ COPY package*.json /
 RUN npm ci --only=production
 
 # Bundle app source
-COPY action.js /
+COPY action.js /action.js
 
 ENTRYPOINT [ "node", "action.js" ]
