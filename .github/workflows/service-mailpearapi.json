@@ -1,5 +1,6 @@
 {
   "executionRoleArn": "arn:aws:iam::125853090487:role/mailpear-task-execution-role",
+  "taskRoleArn": "arn:aws:iam::125853090487:role/mailpear-task-role",
   "containerDefinitions": [
     {
       "logConfiguration": {
@@ -85,7 +86,6 @@
       ],
       "mountPoints": [],
       "volumesFrom": [],
-      "image": "125853090487.dkr.ecr.us-east-1.amazonaws.com/mailpearapi:34cea55",
       "essential": true,
       "name": "mailpearapi"
     }

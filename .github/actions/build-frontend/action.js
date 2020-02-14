@@ -4,6 +4,7 @@ const fs = require('fs')
 const path = require('path')
 const AWS = require('aws-sdk')
 const zlib = require('zlib')
+const mime = require('mime-types')
 const { exec } = require('child_process')
 require('dotenv').config()
 
@@ -55,7 +56,8 @@ const processFile = (filePath, callback) => {
   s3Client.upload({
     Body: gzipFile,
     Key: gzipBase + bucketPath,
-    ContentEncoding: 'gzip'
+    ContentEncoding: 'gzip',
+    ContentType: mime.lookup(filePath)
   })
     .on('httpUploadProgress', (evt) => {
       console.log(evt)
@@ -73,7 +75,8 @@ const processFile = (filePath, callback) => {
   s3Client.upload({
     Body: brotliFile,
     Key: brotliBase + bucketPath,
-    ContentEncoding: 'br'
+    ContentEncoding: 'br',
+    ContentType: mime.lookup(filePath)
   })
     .on('httpUploadProgress', (evt) => {
       console.log(evt)
