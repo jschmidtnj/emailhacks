@@ -135,13 +135,13 @@ const callback = () => {
     })
   })
 }
-if (generateFiles === 'true') {
-  exec('cd frontend && yarn && yarn predeploy', (err) => {
-    if (err) {
-      throw err
-    }
-    callback()
-  })
-} else {
+console.log(process.env.BUILD)
+console.log(generateFiles)
+console.log(generateFiles === 'true')
+exec('cd frontend && yarn && yarn predeploy && cd -', (err) => {
+  if (err) {
+    throw err
+  }
+  console.log('done generating files')
   callback()
-}
+})
