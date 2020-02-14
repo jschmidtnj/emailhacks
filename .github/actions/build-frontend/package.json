@@ -1,0 +1,28 @@
+{
+  "name": "build-frontend",
+  "version": "1.0.0",
+  "description": "create frontend s3",
+  "main": "action.js",
+  "scripts": {
+    "start": "node action.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jschmidtnj/emailhacks.git"
+  },
+  "keywords": [
+    "frontend",
+    "s3"
+  ],
+  "author": "Joshua Schmidt",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jschmidtnj/emailhacks/issues"
+  },
+  "homepage": "https://github.com/jschmidtnj/emailhacks#readme",
+  "dependencies": {
+    "aws-sdk": "^2.618.0",
+    "dotenv": "^8.2.0"
+  }
+}

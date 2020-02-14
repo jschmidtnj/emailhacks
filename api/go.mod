@@ -63,6 +63,7 @@ require (
 	github.com/stripe/stripe-go v68.11.0+incompatible
 	github.com/tdewolff/minify/v2 v2.7.2
 	github.com/tidwall/pretty v1.0.0 // indirect
+	github.com/unrolled/secure v1.0.7
 	github.com/uudashr/gopkgs v2.0.1+incompatible // indirect
 	github.com/valyala/fasthttp v1.9.0
 	github.com/vmihailenco/taskq/v2 v2.2.3
