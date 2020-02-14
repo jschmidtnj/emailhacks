@@ -49,7 +49,7 @@ const deleteObjects = (callback) => {
   })
 }
 const processFile = (filePath, callback) => {
-  let fileType = mime.lookup(filePath)
+  let fileType = mime.contentType(filePath)
   if (!fileType) {
     fileType = 'application/octet-stream'
   }
