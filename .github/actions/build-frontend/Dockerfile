@@ -13,8 +13,8 @@ RUN npm ci --only=production
 # Bundle app source
 COPY action.js /action.js
 
-COPY build-dist.sh /build-dist.sh
+COPY build.sh /build.sh
 
-RUN [ "/build-dist.sh" ]
+RUN [ "/build.sh" ]
 
-ENTRYPOINT [ "node", "/action.js" ]
+ENTRYPOINT [ "/build.sh" ]
