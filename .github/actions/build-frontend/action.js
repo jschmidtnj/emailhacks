@@ -5,7 +5,6 @@ const path = require('path')
 const AWS = require('aws-sdk')
 const zlib = require('zlib')
 const mime = require('mime-types')
-const { exec } = require('child_process')
 require('dotenv').config()
 
 AWS.config = new AWS.Config()
@@ -15,7 +14,6 @@ AWS.config.region = process.env.AWS_REGION
 
 const sourcePath = process.env.SOURCE_DIR
 const bucketName = process.env.AWS_S3_BUCKET
-const generateFiles = process.env.BUILD
 
 const gzipBase = 'gzip'
 const brotliBase = 'brotli'
@@ -125,23 +123,11 @@ const processDirectory = (dir, callback) => {
     })
   })
 }
-const callback = () => {
-  deleteObjects((err) => {
+deleteObjects((err) => {
+  if (err)
+    throw err
+  processDirectory(sourcePath, (err) => {
     if (err)
       throw err
-    processDirectory(sourcePath, (err) => {
-      if (err)
-        throw err
-    })
   })
-}
-console.log(process.env.BUILD)
-console.log(generateFiles)
-console.log(generateFiles === 'true')
-exec('cd frontend && yarn && yarn predeploy && cd -', (err) => {
-  if (err) {
-    throw err
-  }
-  console.log('done generating files')
-  callback()
 })
