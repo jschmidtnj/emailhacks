@@ -28,4 +28,3 @@ jobs:
           STRIPECONFIG: ${{ secrets.STRIPECONFIG }}
           MAPSAUTOAPIKEY: ${{ secrets.MAPSAUTOAPIKEY }}
           SHORTLINKURL: https://mpr.tk
-          BUILD: "true"
