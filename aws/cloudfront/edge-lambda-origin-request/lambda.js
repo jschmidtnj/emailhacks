@@ -1,4 +1,4 @@
-'use strict';
+'use strict'
 // credit to https://medium.com/@felice.geracitano/brotli-compression-delivered-from-aws-7be5b467c2e1
 // https://medium.com/@kazaz.or/aws-cloudfront-compression-using-lambda-edge-where-is-brotli-6d296f41f784
 exports.handler = (event, context, callback) => {

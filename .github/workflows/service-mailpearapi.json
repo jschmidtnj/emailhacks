@@ -1,5 +1,5 @@
 {
-  "executionRoleArn": "arn:aws:iam::125853090487:role/ecsTaskExecutionRole",
+  "executionRoleArn": "arn:aws:iam::125853090487:role/mailpear-task-execution-role",
   "containerDefinitions": [
     {
       "logConfiguration": {
