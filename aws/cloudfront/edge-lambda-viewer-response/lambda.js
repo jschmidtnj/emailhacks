@@ -1,4 +1,4 @@
-'use strict';
+'use strict'
 // credit to https://medium.com/@tom.cook/edge-lambda-cloudfront-custom-headers-3d134a2c18a2
 exports.handler = (event, context, callback) => {
   const response = event.Records[0].cf.response
