@@ -4,7 +4,7 @@ email 2.0
 
 ![License](https://img.shields.io/badge/License-CC--BY--NC--SA--4.0-green)
 
-![Frontend Status](https://github.com/jschmidtnj/emailhacks/workflows/Upload%Frontend/badge.svg)
+![Frontend Status](https://github.com/jschmidtnj/emailhacks/workflows/Upload%20Frontend/badge.svg)
 
 ![Api Status](https://github.com/jschmidtnj/emailhacks/workflows/Upload%20Api/badge.svg)
 
