@@ -1,4 +1,0 @@
-# ignore these files
-node_modules
-*.log
-.env

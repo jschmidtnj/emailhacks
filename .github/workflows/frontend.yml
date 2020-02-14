@@ -5,7 +5,7 @@ on:
       - master
     paths:
       - "frontend/**"
-      - ".github/actions/build-frontend/**"
+      - ".github/build-frontend/**"
       - ".github/workflows/frontend.yml"
 jobs:
   deploy:
@@ -13,13 +13,13 @@ jobs:
     steps:
       # checks out a copy of the repo
       - uses: actions/checkout@master
-      - uses: ./.github/actions/build-frontend
+      - name: Setup Node.js 12
+        uses: actions/setup-node@v1
+        with:
+          node-version: 12.x
+      - name: build
+        run: cd frontend && yarn && yarn predeploy && cd -
         env:
-          AWS_S3_BUCKET: mailpear-frontend
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: us-east-1
-          SOURCE_DIR: frontend/dist
           SEOCONFIG: '{"url":"https://mailpear.com","twitterhandle":"handle","facebook":"https://facebook.com/username","linkedin":"https://linkedin.com/in/username","github":"https://github.com/jschmidtnj/emailhacks","email":"admin@mailpear.com","googleanalyticstrackingid":"UA-id-1"}'
           AUTHCONFIG: '{"google":{"client_id":"id"}}'
           APIURL: https://api.mailpear.com
@@ -28,3 +28,15 @@ jobs:
           STRIPECONFIG: ${{ secrets.STRIPECONFIG }}
           MAPSAUTOAPIKEY: ${{ secrets.MAPSAUTOAPIKEY }}
           SHORTLINKURL: https://mpr.tk
+      - name: copy dist
+        run: cp -r frontend/dist .github/build-frontend/dist
+      - name: run build
+        run: cd .github/build-frontend && npm ci --only=production && node action.js && cd -
+        env:
+          AWS_S3_BUCKET: mailpear-frontend
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: us-east-1
+          SOURCE_DIR: dist
+      - name: finish
+        run: echo "finished!"

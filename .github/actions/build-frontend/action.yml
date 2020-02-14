@@ -1,9 +1,0 @@
-name: "Frontend Build"
-description: "Build frontend to dist directory"
-author: joshua
-runs:
-  using: docker
-  image: Dockerfile
-branding:
-  icon: refresh-cw
-  color: green
