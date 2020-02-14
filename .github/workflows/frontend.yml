@@ -19,6 +19,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: us-east-1
+          SOURCE_DIR: frontend/dist
           SEOCONFIG: '{"url":"https://mailpear.com","twitterhandle":"handle","facebook":"https://facebook.com/username","linkedin":"https://linkedin.com/in/username","github":"https://github.com/jschmidtnj/emailhacks","email":"admin@mailpear.com","googleanalyticstrackingid":"UA-id-1"}'
           AUTHCONFIG: '{"google":{"client_id":"id"}}'
           APIURL: https://api.mailpear.com
