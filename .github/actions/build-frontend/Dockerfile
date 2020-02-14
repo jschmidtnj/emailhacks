@@ -15,6 +15,6 @@ COPY action.js /action.js
 
 COPY build-dist.sh /build-dist.sh
 
-RUN [ "build-dist.sh" ]
+RUN [ "/build-dist.sh" ]
 
 ENTRYPOINT [ "node", "/action.js" ]
