@@ -3,6 +3,7 @@
 set -e
 
 ls
+pwd
 cd frontend
 
 cat > .env << EOF
