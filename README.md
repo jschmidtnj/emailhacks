@@ -4,9 +4,9 @@ email 2.0
 
 ![License](https://img.shields.io/badge/License-CC--BY--NC--SA--4.0-green)
 
-![Frontend Status](https://github.com/jschmidtnj/emailhacks/workflows/.github/workflows/frontend.yml/badge.svg)
+![Frontend Status](https://github.com/jschmidtnj/emailhacks/workflows/Upload%Frontend/badge.svg)
 
-![Api Status](https://github.com/jschmidtnj/emailhacks/workflows/.github/workflows/api.yml/badge.svg)
+![Api Status](https://github.com/jschmidtnj/emailhacks/workflows/Upload%20Api/badge.svg)
 
 [![Buy Me A Coffee](https://bmc-cdn.nyc3.digitaloceanspaces.com/BMC-button-images/custom_images/orange_img.png)](https://www.buymeacoffee.com/IU2gHt3Qn)
 

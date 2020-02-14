@@ -5,9 +5,6 @@ LABEL "com.github.actions.description"="Sync frontend to S3 bucket"
 LABEL "com.github.actions.icon"="refresh-cw"
 LABEL "com.github.actions.color"="green"
 
-# Create app directory
-WORKDIR /action
-
 # Install app dependencies
 # A wildcard is used to ensure both package.json AND package-lock.json are copied
 # where available (npm@5+)
@@ -18,6 +15,6 @@ RUN npm install
 # RUN npm ci --only=production
 
 # Bundle app source
-COPY action.js .
+COPY action.js ./
 
 ENTRYPOINT [ "node", "action.js" ]

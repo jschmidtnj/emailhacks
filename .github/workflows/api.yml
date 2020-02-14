@@ -5,6 +5,7 @@ on:
       - master
     paths:
       - "api/**"
+      - ".github/**"
 jobs:
   deploy:
     runs-on: ubuntu-latest
