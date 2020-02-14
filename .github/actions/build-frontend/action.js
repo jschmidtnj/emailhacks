@@ -4,7 +4,7 @@ const fs = require('fs')
 const path = require('path')
 const AWS = require('aws-sdk')
 const zlib = require('zlib')
-const FileType = require('file-type')
+const mime = require('mime-types')
 const { exec } = require('child_process')
 require('dotenv').config()
 
@@ -49,51 +49,50 @@ const deleteObjects = (callback) => {
   })
 }
 const processFile = (filePath, callback) => {
+  let fileType = mime.contentType(filePath)
+  if (!fileType) {
+    fileType = 'application/octet-stream'
+  }
   const bucketPath = filePath.split(sourcePath)[1]
   const readGzip = fs.createReadStream(filePath)
-  FileType.fromStream(readGzip).then(fileTypeData => {
-    const fileType = fileTypeData.mime
-    const gzipFile = readGzip.pipe(zlib.createGzip())
-    let numUploads = 0
-    s3Client.upload({
-      Body: gzipFile,
-      Key: gzipBase + bucketPath,
-      ContentEncoding: 'gzip',
-      ContentType: fileType
-    })
-      .on('httpUploadProgress', (evt) => {
-        console.log(evt)
-      })
-      .send((err) => {
-        if (err)
-          return callback(err)
-        numUploads++
-        if (numUploads === 2) {
-          callback(null)
-        }
-      })
-    const readBrotli = fs.createReadStream(filePath)
-    const brotliFile = readBrotli.pipe(zlib.createBrotliCompress())
-    s3Client.upload({
-      Body: brotliFile,
-      Key: brotliBase + bucketPath,
-      ContentEncoding: 'br',
-      ContentType: fileType
-    })
-      .on('httpUploadProgress', (evt) => {
-        console.log(evt)
-      })
-      .send((err) => {
-        if (err)
-          return callback(err)
-        numUploads++
-        if (numUploads === 2) {
-          callback(null)
-        }
-      })
-  }).catch(err => {
-    return callback(err)
+  const gzipFile = readGzip.pipe(zlib.createGzip())
+  let numUploads = 0
+  s3Client.upload({
+    Body: gzipFile,
+    Key: gzipBase + bucketPath,
+    ContentEncoding: 'gzip',
+    ContentType: fileType
   })
+    .on('httpUploadProgress', (evt) => {
+      console.log(evt)
+    })
+    .send((err) => {
+      if (err)
+        return callback(err)
+      numUploads++
+      if (numUploads === 2) {
+        callback(null)
+      }
+    })
+  const readBrotli = fs.createReadStream(filePath)
+  const brotliFile = readBrotli.pipe(zlib.createBrotliCompress())
+  s3Client.upload({
+    Body: brotliFile,
+    Key: brotliBase + bucketPath,
+    ContentEncoding: 'br',
+    ContentType: fileType
+  })
+    .on('httpUploadProgress', (evt) => {
+      console.log(evt)
+    })
+    .send((err) => {
+      if (err)
+        return callback(err)
+      numUploads++
+      if (numUploads === 2) {
+        callback(null)
+      }
+    })
 }
 const processDirectory = (dir, callback) => {
   fs.readdir(dir, (err, list) => {
