@@ -5,6 +5,7 @@ on:
       - master
     paths:
       - "frontend/**"
+      - ".github/**"
 jobs:
   deploy:
     runs-on: ubuntu-latest
