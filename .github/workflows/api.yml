@@ -6,6 +6,7 @@ on:
     paths:
       - "api/**"
       - ".github/workflows/api.yml"
+      - ".github/workflows/service-mailpearapi.json"
 jobs:
   deploy:
     runs-on: ubuntu-latest
