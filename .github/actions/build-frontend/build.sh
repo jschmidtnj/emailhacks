@@ -2,6 +2,7 @@
 
 set -e
 
+ls
 cd frontend
 
 cat > .env << EOF
@@ -17,5 +18,6 @@ EOF
 
 yarn
 yarn predeploy
-
 cd -
+
+node /action.js
