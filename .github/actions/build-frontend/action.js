@@ -13,7 +13,7 @@ AWS.config.accessKeyId = process.env.AWS_ACCESS_KEY_ID
 AWS.config.secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY
 AWS.config.region = process.env.AWS_REGION
 
-const sourcePath = 'frontend/dist'
+const sourcePath = process.env.SOURCE_DIR
 const bucketName = process.env.AWS_S3_BUCKET
 const generateFiles = process.env.BUILD
 
@@ -49,7 +49,7 @@ const deleteObjects = (callback) => {
   })
 }
 const processFile = (filePath, callback) => {
-  let fileType = mime.contentType(path.extname(filePath))
+  let fileType = mime.lookup(path.extname(filePath))
   if (!fileType) {
     fileType = 'application/octet-stream'
   }
