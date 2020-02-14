@@ -24,6 +24,7 @@ import (
 	minifyJSON "github.com/tdewolff/minify/v2/json"
 	minifySVG "github.com/tdewolff/minify/v2/svg"
 	minifyXML "github.com/tdewolff/minify/v2/xml"
+	"github.com/unrolled/secure"
 	"github.com/valyala/fasthttp"
 	"github.com/vmihailenco/taskq/v2"
 	"github.com/vmihailenco/taskq/v2/redisq"
@@ -127,6 +128,17 @@ func hello(c *gin.Context) {
 	c.Writer.Write([]byte(`{"message":"Hello!"}`))
 }
 
+/**
+ * @api {get} / Default rest request
+ * @apiVersion 0.0.1
+ * @apiSuccess {String} message Message
+ * @apiGroup misc
+ */
+func defaultHandler(c *gin.Context) {
+	c.Writer.Header().Set("Content-Type", "application/json")
+	c.Writer.Write([]byte(`{"message":"go to /graphql for testing"}`))
+}
+
 func graphqlMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// before request
@@ -134,6 +146,24 @@ func graphqlMiddleware() gin.HandlerFunc {
 		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), tokenKey, getAuthToken(c.Request)))
 		c.Next()
 		// after request
+	}
+}
+
+func secureMiddleware() gin.HandlerFunc {
+	middleware := secure.New(secure.Options{
+		FrameDeny: true,
+	})
+	return func(c *gin.Context) {
+		err := middleware.Process(c.Writer, c.Request)
+		// If there was an error, do not continue.
+		if err != nil {
+			c.Abort()
+			return
+		}
+		// Avoid header rewrite if response is a redirection.
+		if status := c.Writer.Status(); status > 300 && status < 399 {
+			c.Abort()
+		}
 	}
 }
 
@@ -362,6 +392,7 @@ func main() {
 		"Authorization",
 		"Content-Type",
 	}
+	router.Use(secureMiddleware())
 	router.Use(cors.New(corsConfig))
 	graphqlGroup := router.Group("/graphql")
 	graphqlGroup.Use(graphqlMiddleware())
@@ -389,6 +420,7 @@ func main() {
 	router.Any("/stripehooks", handleStripeHooks)
 	router.Any("/shortLink", shortLinkRedirect)
 	router.GET("/hello", hello)
+	router.GET("/", defaultHandler)
 	router.Run()
 	logger.Info("Starting the application at " + port + " 🚀")
 }

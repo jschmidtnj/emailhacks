@@ -19,6 +19,7 @@ https://github.com/2fd/graphdoc#demos
 - cli [user guide](https://docs.aws.amazon.com/cli/latest/userguide/aws-cli.pdf)
 - `aws secretsmanager create-secret --region us-east-1 --name SECRET --secret-string <value>`
 - `sudo docker build -t mailpear:latest .`
+- `sudo docker run --network="host" mailpear:latest`
 - `sudo docker tag mailpear:latest <id>.dkr.ecr.us-east-1.amazonaws.com/mailpear-api:latest`
 - `aws ecr get-login-password | sudo docker login --username AWS --password-stdin <id>.dkr.ecr.us-east-1.amazonaws.com/mailpear-api`
 - `sudo docker push <id>.dkr.ecr.us-east-1.amazonaws.com/mailpear-api:latest`
