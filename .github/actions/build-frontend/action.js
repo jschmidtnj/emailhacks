@@ -51,7 +51,8 @@ const deleteObjects = (callback) => {
 const processFile = (filePath, callback) => {
   const bucketPath = filePath.split(sourcePath)[1]
   const readGzip = fs.createReadStream(filePath)
-  FileType.fromStream(readGzip).then(fileType => {
+  FileType.fromStream(readGzip).then(fileTypeData => {
+    const fileType = fileTypeData.mime
     const gzipFile = readGzip.pipe(zlib.createGzip())
     let numUploads = 0
     s3Client.upload({
