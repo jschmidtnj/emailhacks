@@ -76,7 +76,6 @@
     "vue-markdown": "^2.2.4",
     "vue-multiselect": "^2.1.6",
     "vue-pdf": "^4.0.7",
-    "vue-recaptcha-v3": "^1.8.0",
     "vue-scroll-reveal": "^1.0.11",
     "vue-server-renderer": "^2.6.11",
     "vue-template-compiler": "^2.6.11",

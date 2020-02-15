@@ -56,6 +56,10 @@ module.exports = {
         defer: true
       },
       {
+        src: `https://www.google.com/recaptcha/api.js?render=${recaptchasitekey}`,
+        defer: true
+      },
+      {
         innerHTML: JSON.stringify({
           '@context': 'https://schema.org',
           '@type': 'Organization',
@@ -124,7 +128,6 @@ module.exports = {
     { src: '~/plugins/axios', ssr: false },
     { src: '~/plugins/donut', ssr: false },
     { src: '~/plugins/scroll', ssr: false },
-    { src: '~/plugins/recaptcha', ssr: false },
     { src: '~/plugins/scroll-reveal', ssr: false },
     { src: '~/plugins/touch', ssr: false }
   ],
