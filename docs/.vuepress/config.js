@@ -1,6 +1,6 @@
 module.exports = {
-  title: 'My Website Docs',
-  description: 'Documentation for My Website',
+  title: 'Mailpear Docs',
+  description: 'Documentation for Mailpear',
   dest: 'emailhacks',
   head: [
     ['link', { rel: 'icon', href: `/logo.png` }],

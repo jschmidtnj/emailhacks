@@ -14,6 +14,7 @@ AWS.config.region = process.env.AWS_REGION
 
 const sourcePath = process.env.SOURCE_DIR
 const bucketName = process.env.AWS_S3_BUCKET
+const cloudfrontID = process.env.AWS_CLOUDFRONT_ID
 
 const gzipBase = 'gzip'
 const brotliBase = 'brotli'
@@ -21,6 +22,12 @@ const brotliBase = 'brotli'
 const s3Client = new AWS.S3({
   params: {
     Bucket: bucketName
+  }
+})
+
+const cloudfrontClient = new AWS.CloudFront({
+  params: {
+    DistributionId: cloudfrontID
   }
 })
 
@@ -123,11 +130,32 @@ const processDirectory = (dir, callback) => {
     })
   })
 }
+const clearCloudfront = (callback) => {
+  cloudfrontClient.createInvalidation({
+    InvalidationBatch: {
+      CallerReference: new Date().getTime().toString(),
+      Paths: {
+        Quantity: 1,
+        Items: [
+          '/*'
+        ]
+      }
+    }
+  }, (err) => {
+    if (err)
+      return callback(err)
+    return callback(null)
+  })
+}
 deleteObjects((err) => {
   if (err)
     throw err
   processDirectory(sourcePath, (err) => {
     if (err)
       throw err
+    clearCloudfront((err) => {
+      if (err)
+        throw err
+    })
   })
 })
