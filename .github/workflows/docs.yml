@@ -17,6 +17,12 @@ jobs:
         with:
           node-version: 12.x
       - name: build
-        run: cd docs && yarn && yarn deploy && cd -
+        run: cd docs && yarn && yarn build && cd -
+      - name: deploy
+        uses: JamesIves/github-pages-deploy-action@releases/v3
+        with:
+          ACCESS_TOKEN: ${{ secrets.GITHUB_ACCESS }}
+          BRANCH: gh-pages
+          FOLDER: docs/.vuepress/dist
       - name: finish
         run: echo "finished!"
