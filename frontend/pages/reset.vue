@@ -269,6 +269,7 @@ export default Vue.extend({
             })
           })
       }).catch(err => {
+        console.error(err)
         this.$bvToast.toast(`got error with recaptcha ${err}`, {
           variant: 'danger',
           title: 'Error'

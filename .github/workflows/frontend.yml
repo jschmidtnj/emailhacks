@@ -22,7 +22,7 @@ jobs:
         env:
           SEOCONFIG: '{"url":"https://mailpear.com","twitterhandle":"handle","facebook":"https://facebook.com/username","linkedin":"https://linkedin.com/in/username","github":"https://github.com/jschmidtnj/emailhacks","email":"admin@mailpear.com","googleanalyticstrackingid":"UA-id-1"}'
           AUTHCONFIG: '{"google":{"client_id":"id"}}'
-          APIURL: https://api.mailpear.com
+          APIURL: api.mailpear.com
           USESECURE: "true"
           RECAPTCHASITEKEY: ${{ secrets.RECAPTCHASITEKEY }}
           STRIPECONFIG: ${{ secrets.STRIPECONFIG }}
