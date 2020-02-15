@@ -45,6 +45,11 @@ $color-grey: #dddddd;
   }
 }
 
+/* remove recaptcha badge */
+.grecaptcha-badge {
+  visibility: hidden;
+}
+
 /* get bullet points back */
 .markdown ul {
   list-style-type: disc !important;

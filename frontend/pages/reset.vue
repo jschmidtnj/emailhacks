@@ -22,12 +22,8 @@
             id="emailfeedback"
             :state="!$v.emailform.email.$invalid"
           >
-            <div v-if="!$v.emailform.email.required">
-              email is required
-            </div>
-            <div v-else-if="!$v.emailform.email.email">
-              email is invalid
-            </div>
+            <div v-if="!$v.emailform.email.required">email is required</div>
+            <div v-else-if="!$v.emailform.email.email">email is invalid</div>
           </b-form-invalid-feedback>
         </b-form-group>
         <b-button
@@ -35,9 +31,8 @@
           variant="primary"
           type="submit"
           class="mt-4"
+          >Submit</b-button
         >
-          Submit
-        </b-button>
       </b-form>
       <b-form v-else @submit="resetPassword">
         <b-form-group
@@ -71,9 +66,8 @@
           variant="primary"
           type="submit"
           class="mt-4"
+          >Submit</b-button
         >
-          Submit
-        </b-button>
       </b-form>
       <p slot="footer">
         By clicking submit you aggree to the
@@ -219,61 +213,74 @@ export default Vue.extend({
     },
     sendResetEmail(evt) {
       evt.preventDefault()
-      this.$recaptcha('login').then(recaptchatoken => {
-        this.$axios
-          .put('/sendResetEmail', {
-            email: this.emailform.email,
-            recaptcha: recaptchatoken
-          })
-          .then(res => {
-            if (res.status === 200) {
-              if (res.data) {
-                let message = 'email sent'
-                if (res.data.message) {
-                  message = res.data.message
+      if (!window.grecaptcha) {
+        this.$bvToast.toast('could not find recaptcha', {
+          variant: 'danger',
+          title: 'Error'
+        })
+        return
+      }
+      window.grecaptcha.ready(() => {
+        try {
+          window.grecaptcha.execute(process.env.recaptchasitekey, {
+            action: 'reset'
+          }).then((recaptchatoken) => {
+            this.$axios
+              .put('/sendResetEmail', {
+                email: this.emailform.email,
+                recaptcha: recaptchatoken
+              })
+              .then(res => {
+                if (res.status === 200) {
+                  if (res.data) {
+                    let message = 'email sent'
+                    if (res.data.message) {
+                      message = res.data.message
+                    }
+                    this.$bvToast.toast(message, {
+                      variant: 'success',
+                      title: 'Success'
+                    })
+                    this.emailform = {
+                      email: ''
+                    }
+                  } else {
+                    this.$bvToast.toast('could not get data', {
+                      variant: 'danger',
+                      title: 'Error'
+                    })
+                  }
+                } else if (res.data && res.data.message) {
+                  this.$bvToast.toast(res.data.message, {
+                    variant: 'danger',
+                    title: 'Error'
+                  })
+                } else {
+                  this.$bvToast.toast(`status code of ${res.status}`, {
+                    variant: 'danger',
+                    title: 'Error'
+                  })
+                }
+              })
+              .catch(err => {
+                /* eslint-disable */
+                let message = `got error: ${err}`
+                if (err.response && err.response.data) {
+                  message = err.response.data.message
                 }
                 this.$bvToast.toast(message, {
-                  variant: 'success',
-                  title: 'Success'
-                })
-                this.emailform = {
-                  email: ''
-                }
-              } else {
-                this.$bvToast.toast('could not get data', {
                   variant: 'danger',
                   title: 'Error'
                 })
-              }
-            } else if (res.data && res.data.message) {
-              this.$bvToast.toast(res.data.message, {
-                variant: 'danger',
-                title: 'Error'
               })
-            } else {
-              this.$bvToast.toast(`status code of ${res.status}`, {
-                variant: 'danger',
-                title: 'Error'
-              })
-            }
-          })
-          .catch(err => {
-            /* eslint-disable */
-            let message = `got error: ${err}`
-            if (err.response && err.response.data) {
-              message = err.response.data.message
-            }
-            this.$bvToast.toast(message, {
+          }).catch(err => {
+            console.error(err)
+            this.$bvToast.toast(`got error with recaptcha ${err}`, {
               variant: 'danger',
               title: 'Error'
             })
           })
-      }).catch(err => {
-        console.error(err)
-        this.$bvToast.toast(`got error with recaptcha ${err}`, {
-          variant: 'danger',
-          title: 'Error'
-        })
+        } catch(err) {}
       })
     }
   }

@@ -20,12 +20,8 @@
             id="emailfeedback"
             :state="!$v.form.email.$invalid"
           >
-            <div v-if="!$v.form.email.required">
-              email is required
-            </div>
-            <div v-else-if="!$v.form.email.email">
-              email is invalid
-            </div>
+            <div v-if="!$v.form.email.required">email is required</div>
+            <div v-else-if="!$v.form.email.email">email is invalid</div>
           </b-form-invalid-feedback>
         </b-form-group>
         <b-form-group
@@ -46,26 +42,21 @@
             id="passwordfeedback"
             :state="!$v.form.password.$invalid"
           >
-            <div v-if="!$v.form.password.required">
-              password is required
-            </div>
+            <div v-if="!$v.form.password.required">password is required</div>
             <div v-else-if="!$v.form.password.validPassword">
               password is invalid
             </div>
           </b-form-invalid-feedback>
         </b-form-group>
-        <b-link href="/reset" class="card-link">
-          reset password
-        </b-link>
+        <b-link href="/reset" class="card-link">reset password</b-link>
         <br />
         <b-button
           :disabled="$v.form.$invalid"
           variant="primary"
           type="submit"
           class="mt-4"
+          >Submit</b-button
         >
-          Submit
-        </b-button>
       </b-form>
       <p slot="footer">
         By clicking submit you aggree to the
@@ -208,42 +199,58 @@ export default Vue.extend({
           })
         }
       }
-      this.$recaptcha('login')
-        .then((recaptchatoken) => {
-          /* eslint-disable */
-          console.log(`got recaptcha token ${recaptchatoken}`)
-          this.$store
-            .dispatch('auth/loginLocal', {
-              email: this.form.email,
-              password: this.form.password,
-              recaptcha: recaptchatoken
-            })
-            .then(token => {
-              this.$store.dispatch('auth/setToken', token).then(() => {
-                this.$store.dispatch('auth/getUser').then(() => {
-                  const success = () => {
-                    this.$bvToast.toast('logged in', {
-                      variant: 'success',
-                      title: 'Success'
-                    })
-                    this.$router.push({
-                      path: this.redirect_uri ? this.redirect_uri : '/dashboard'
-                    })
-                  }
-                  if (this.$store.state.project.projectId) {
-                    this.$store.dispatch('project/getProjectName').then(res => {
-                      success()
-                    }).catch(err => {
-                      console.log(err)
-                      this.$bvToast.toast('cannot find current project', {
-                        variant: 'danger',
-                        title: 'Error'
+      if (!window.grecaptcha) {
+        this.$bvToast.toast('could not find recaptcha', {
+          variant: 'danger',
+          title: 'Error'
+        })
+        return
+      }
+      window.grecaptcha.ready(() => {
+        try {
+          window.grecaptcha.execute(process.env.recaptchasitekey, {
+            action: 'login'
+          }).then((recaptchatoken) => {
+            console.log(`got recaptcha token ${recaptchatoken}`)
+            this.$store
+              .dispatch('auth/loginLocal', {
+                email: this.form.email,
+                password: this.form.password,
+                recaptcha: recaptchatoken
+              })
+              .then(token => {
+                this.$store.dispatch('auth/setToken', token).then(() => {
+                  this.$store.dispatch('auth/getUser').then(() => {
+                    const success = () => {
+                      this.$bvToast.toast('logged in', {
+                        variant: 'success',
+                        title: 'Success'
                       })
+                      this.$router.push({
+                        path: this.redirect_uri ? this.redirect_uri : '/dashboard'
+                      })
+                    }
+                    if (this.$store.state.project.projectId) {
+                      this.$store.dispatch('project/getProjectName').then(res => {
+                        success()
+                      }).catch(err => {
+                        console.log(err)
+                        this.$bvToast.toast('cannot find current project', {
+                          variant: 'danger',
+                          title: 'Error'
+                        })
+                        success()
+                      })
+                    } else {
                       success()
+                    }
+                  })
+                  .catch(err => {
+                    this.$bvToast.toast(err.message, {
+                      variant: 'danger',
+                      title: 'Error'
                     })
-                  } else {
-                    success()
-                  }
+                  })
                 })
                 .catch(err => {
                   this.$bvToast.toast(err.message, {
@@ -251,27 +258,22 @@ export default Vue.extend({
                     title: 'Error'
                   })
                 })
-              })
-              .catch(err => {
+              }).catch(err => {
                 this.$bvToast.toast(err.message, {
                   variant: 'danger',
                   title: 'Error'
                 })
               })
-            }).catch(err => {
-              this.$bvToast.toast(err.message, {
-                variant: 'danger',
-                title: 'Error'
-              })
-            })
-        })
-        .catch(err => {
-          console.error(err)
-          this.$bvToast.toast(`got error with recaptcha ${err}`, {
-            variant: 'danger',
-            title: 'Error'
           })
-        })
+          .catch(err => {
+            console.error(err)
+            this.$bvToast.toast(`got error with recaptcha ${err}`, {
+              variant: 'danger',
+              title: 'Error'
+            })
+          })
+        } catch (err) { }
+      })
     }
   }
 })
