@@ -8,10 +8,12 @@ exports.handler = (event, context, callback) => {
     key: 'Strict-Transport-Security',
     value: 'max-age=31536000; includeSubdomains; preload'
   }]
+  /*
   headers['content-security-policy'] = [{
     key: 'Content-Security-Policy',
     value: ""
   }]
+  */
   headers['x-content-type-options'] = [{
     key: 'X-Content-Type-Options',
     value: 'nosniff'

@@ -379,6 +379,7 @@ func main() {
 	} else {
 		corsConfig.AllowOrigins = []string{
 			websiteURL,
+			apiURL,
 		}
 	}
 	corsConfig.AllowMethods = []string{
